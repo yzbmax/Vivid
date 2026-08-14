@@ -2,7 +2,103 @@
   "color": [
     {
       "name": "start_window_background",
+      "value": "#DEDDD7"
+    },
+    {
+      "name": "paper_base",
+      "value": "#DEDDD7"
+    },
+    {
+      "name": "paper_surface",
+      "value": "#F2F1ED"
+    },
+    {
+      "name": "surface",
+      "value": "#FFF8F7"
+    },
+    {
+      "name": "surface_container_lowest",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "surface_container_low",
+      "value": "#FFF0EF"
+    },
+    {
+      "name": "surface_container",
+      "value": "#FFE9E7"
+    },
+    {
+      "name": "surface_container_high",
+      "value": "#F9E3E1"
+    },
+    {
+      "name": "surface_container_highest",
+      "value": "#F3DEDC"
+    },
+    {
+      "name": "on_surface",
+      "value": "#241918"
+    },
+    {
+      "name": "on_surface_variant",
+      "value": "#574140"
+    },
+    {
+      "name": "inverse_surface",
+      "value": "#3A2D2C"
+    },
+    {
+      "name": "inverse_on_surface",
+      "value": "#FFEDEB"
+    },
+    {
+      "name": "outline",
+      "value": "#8B716F"
+    },
+    {
+      "name": "outline_variant",
+      "value": "#DEBFBD"
+    },
+    {
+      "name": "surface_tint",
+      "value": "#A73837"
+    },
+    {
+      "name": "primary",
+      "value": "#7B171B"
+    },
+    {
+      "name": "on_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "primary_container",
+      "value": "#9B2F2F"
+    },
+    {
+      "name": "seal_red",
+      "value": "#B23B2F"
+    },
+    {
+      "name": "on_primary_fixed_variant",
+      "value": "#862022"
+    },
+    {
+      "name": "tertiary",
+      "value": "#004645"
+    },
+    {
+      "name": "error",
+      "value": "#BA1A1A"
+    },
+    {
+      "name": "error_container",
+      "value": "#FFDAD6"
+    },
+    {
+      "name": "on_error_container",
+      "value": "#93000A"
     }
   ]
 }
