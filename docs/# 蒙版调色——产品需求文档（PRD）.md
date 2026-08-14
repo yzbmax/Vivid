@@ -1,8 +1,8 @@
 # 蒙版调色——产品需求文档（PRD）  
   
-> 文档版本：V1.2    
-> 修改日期：2026-08-13    
-> 修改说明：将一级布局调整为“首页 / 作品 / 我的”；明确图片导入后进入独立编辑页；新增本地作品展示与继续编辑能力，并收紧“我的”页面职责。  
+> 文档版本：V1.3    
+> 修改日期：2026-08-14    
+> 修改说明：依据《项目结构》文档，同步技术分层与页面/组件/模型/存储/服务命名，统一作品数据结构为 WorkRecord，使 PRD 与实现结构一致。  
   
 ---  
   
@@ -12,7 +12,7 @@
 |----------|-------------------------------------------|  
 | **产品名称** | 蒙版调色                                      |  
 | **产品类型** | 鸿蒙原生图片编辑工具                                |  
-| **文档版本** | V1.2                                      |  
+| **文档版本** | V1.3                                      |  
 | **创建日期** | 2026-08-12                                |  
 | **目标平台** | HarmonyOS Next，最低兼容版本以实际发布 SDK/API 能力矩阵为准 |  
 | **目标用户** | 12-65 岁，有手机照片美化需求的华为手机用户                  |  
@@ -525,15 +525,19 @@ mask ∈ [0, 1]
 
 ## 作品记录要求  
 
-为支持继续编辑，本地作品记录至少保存：  
+本地作品记录统一采用《项目结构》文档定义的 `WorkRecord` 数据结构，至少包含以下字段：  
 
-- 作品唯一标识；  
-- 源图片的应用内引用；  
-- 作品缩略图；  
-- 最近一次导出结果引用（如系统允许持久引用）；  
-- 主体蒙版引用；  
-- 主体与背景的调色参数；  
-- 创建时间与最近保存时间。  
+| 字段 | 含义 |  
+|------|------|  
+| `id` | 作品唯一标识 |  
+| `sourceImageRef` | 源图片的应用内引用 |  
+| `previewImageRef` | 作品页缩略图引用 |  
+| `exportedImageRef` | 最近一次导出结果引用（如系统允许持久引用） |  
+| `maskRef` | 主体蒙版引用 |  
+| `subjectAdjustments` | 主体调色参数 |  
+| `backgroundAdjustments` | 背景调色参数 |  
+| `createdAt` | 创建时间 |  
+| `updatedAt` | 最近保存时间 |  
 
 作品记录仅服务于本地展示和继续编辑，不自动上传云端。  
 
@@ -781,6 +785,23 @@ mask ∈ [0, 1]
   
 ---  
   
+## 8.2 分层与代码目录映射
+
+依据《项目结构》文档，§8.1 中的各架构层对应 `entry/src/main/ets/` 下的具体代码单元：
+
+| 架构层 | 代码单元 |
+|--------|---------|
+| UI / ArkUI 层 | `pages/`：`Index`（MainTabs 主导航容器）、`HomePage`、`WorksPage`、`MinePage`、`EditPage`、`UserSettingsPage`、`AppSettingsPage`、`UserAgreementPage`、`PrivacyPolicyPage`；`components/`：`MainTabBar`、`ImportCard`、`WorkGrid`、`WorkCard`、`SettingsList`、`PreviewArea`、`RegionTabs`、`AdjustPanel`、`AdjustSlider`、`MaskOverlay`、`ActionBar` |
+| 编辑状态管理层 | `stores/`：`EditStore`、`WorksStore`、`SettingsStore`；`models/`：`EditState`、`WorkRecord`、`EditEntryMode` |
+| AI 分割服务 | `services/SubjectSegmentationService` |
+| 渲染计算服务 | `services/ImageRenderService`（预览与最终渲染） |
+| 图片选择 / 导出 | `services/PhotoPickerService`、`services/PhotoExportService` |
+| 本地作品数据层 | `services/WorkRepository`（本地作品持久化与读取） |
+
+> 具体文件目录、页面职责边界与后续功能挂载点以《项目结构》文档为准，PRD 只保证命名与职责一致，不重复维护该清单。
+
+---
+
 # 九、核心技术实现  
   
 ## 9.1 技术选型  
@@ -792,7 +813,9 @@ mask ∈ [0, 1]
 | AI 分割 | Core Vision Kit Subject Segmentation |  
 | 图片处理 | Image Kit / PixelMap |  
 | 并发计算 | TaskPool / Worker，最终以 API 线程限制测试结果决定 |  
-| 图片保存 | PhotoAccessHelper |  
+| 图片保存 | PhotoAccessHelper |
+
+> 各技术方案的代码单元落地见 §8.2 与《项目结构》文档，命名以该文档为准。  
   
 ## 9.2 主体分割服务  
   
@@ -801,7 +824,7 @@ mask ∈ [0, 1]
 建议封装：  
   
 ```text  
-SegmentationService  
+SubjectSegmentationService  
 ```  
   
 内部统一负责：  
@@ -827,7 +850,7 @@ AI 初始化
 建议产品内部定义：  
   
 ```typescript  
-interface SegmentationOutput {  
+interface SubjectSegmentationOutput {  
   subjectMask: PixelMap;  
   confidence?: number;  
   foreground?: PixelMap;  
@@ -1733,4 +1756,5 @@ AI 是实现手段，“简单完成局部调色”才是用户真正购买的�
 |---------|---------|---------|------|  
 | V1.0 | 2026-08-12 | 初始版本创建 | - |  
 | V1.1 | 2026-08-12 | 修正系统/API 版本口径；收紧 AI 能力边界；补充渲染算法、性能策略、异常、隐私、测试、埋点、技术 Spike 与发布风险；将服务卡片/跨设备从首发范围降级 | - |  
-| V1.2 | 2026-08-13 | 主布局调整为“首页 / 作品 / 我的”；导入后使用独立编辑页；新增本地作品展示、继续编辑、设置与协议职责边界，并同步保存、隐私、异常、测试、埋点和版本规划 | - |  
+| V1.2 | 2026-08-13 | 主布局调整为“首页 / 作品 / 我的”；导入后使用独立编辑页；新增本地作品展示、继续编辑、设置与协议职责边界，并同步保存、隐私、异常、测试、埋点和版本规划 | - |
+| V1.3 | 2026-08-14 | 依据《项目结构》同步技术分层与页面/组件/模型/存储/服务命名，统一作品数据结构为 WorkRecord | - |  
