@@ -1,5 +1,11 @@
 {
   "src": [
-    "pages/Index"
+    "pages/Index",
+    "pages/LoginPage",
+    "pages/RegisterPage",
+    "pages/UserSettingsPage",
+    "pages/AppSettingsPage",
+    "pages/UserAgreementPage",
+    "pages/PrivacyPolicyPage"
   ]
 }
