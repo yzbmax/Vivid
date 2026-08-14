@@ -1,7 +1,6 @@
-import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
 import { FloatingInput, MASK_SEAL, SealButton, SealPageHeader, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePhone } from '../utils/AuthValidators';
+import { KeyboardAvoidMode } from '@kit.ArkUI';
 
 enum LoginMode {
   CODE,
@@ -20,6 +19,58 @@ struct LoginPage {
   @State passwordError: string = '';
   @State showPassword: boolean = false;
 
+  private readonly loginScroller: Scroller = new Scroller();
+  private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+
+  aboutToAppear(): void {
+    const uiContext = this.getUIContext();
+    this.previousKeyboardAvoidMode = uiContext.getKeyboardAvoidMode();
+    uiContext.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE_WITH_CARET);
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
+  }
+
+  private handleViewportChange(oldArea: Area, newArea: Area): void {
+    const oldHeight: number = Number(oldArea.height);
+    const newHeight: number = Number(newArea.height);
+    const keyboardResizeThreshold: number = 80;
+
+    if (!Number.isFinite(oldHeight) || !Number.isFinite(newHeight)) {
+      return;
+    }
+    if (oldHeight - newHeight > keyboardResizeThreshold) {
+      this.loginScroller.scrollEdge(Edge.Bottom);
+    } else if (newHeight - oldHeight > keyboardResizeThreshold) {
+      this.loginScroller.scrollEdge(Edge.Top);
+    }
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (err) {
+      console.error(`Failed to show toast: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private goBack(): void {
+    try {
+      this.getUIContext().getRouter().back();
+    } catch (err) {
+      console.error(`Failed to navigate back: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private async openRegister(): Promise<void> {
+    try {
+      await this.getUIContext().getRouter().pushUrl({ url: 'pages/RegisterPage' });
+    } catch (err) {
+      console.error(`Failed to open register page: ${JSON.stringify(err)}`);
+    }
+  }
+
   private selectMode(mode: LoginMode): void {
     this.mode = mode;
     if (mode === LoginMode.CODE) {
@@ -32,7 +83,7 @@ struct LoginPage {
   private requestCode(): void {
     this.phoneError = validatePhone(this.phone);
     if (this.phoneError.length === 0) {
-      promptAction.showToast({ message: '验证码服务暂未接入' });
+      this.showToast('验证码服务暂未接入');
     }
   }
 
@@ -46,7 +97,7 @@ struct LoginPage {
     const valid = this.phoneError.length === 0 && (this.mode === LoginMode.CODE
       ? this.codeError.length === 0 : this.passwordError.length === 0);
     if (valid) {
-      promptAction.showToast({ message: '前端校验通过，登录服务暂未接入' });
+      this.showToast('前端校验通过，登录服务暂未接入');
     }
   }
 
@@ -66,22 +117,28 @@ struct LoginPage {
           TextInput({ text: this.password, placeholder: '请输入密码' })
             .layoutWeight(1)
             .height(50)
-            .type(this.showPassword ? InputType.Normal : InputType.Password)
+            .type(InputType.Password)
+            .showPassword(this.showPassword)
+            .showPasswordIcon(false)
             .fontSize(16)
             .fontColor(MASK_SEAL.ink)
             .placeholderColor('#957d7a')
             .backgroundColor(Color.Transparent)
             .border({ width: 1, color: this.passwordError ? MASK_SEAL.error : MASK_SEAL.outlineLight })
             .borderRadius(4)
-            .padding({ left: 16, right: 4 })
+            .padding({ left: 16, right: 64 })
             .onChange((value: string) => { this.password = value; this.passwordError = ''; });
-          Button(this.showPassword ? '隐藏' : '显示')
+          Button() {
+            Image(this.showPassword ? $r('app.media.eye') : $r('app.media.eyeoff'))
+              .width(22)
+              .height(22)
+              .objectFit(ImageFit.Contain);
+          }
             .width(54)
             .height(42)
             .margin({ left: -60, right: 6 })
-            .fontSize(12)
-            .fontColor(MASK_SEAL.primary)
             .backgroundColor(Color.Transparent)
+            .accessibilityText(this.showPassword ? '隐藏密码' : '显示密码')
             .onClick(() => this.showPassword = !this.showPassword);
         }
       }
@@ -96,8 +153,8 @@ struct LoginPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '卷宗查验', showBack: true, onBack: () => router.back() });
-      Scroll() {
+      SealPageHeader({ title: '档册查验', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
+      Scroll(this.loginScroller) {
         Column({ space: 24 }) {
           Column({ space: 8 }) {
             Text('印')
@@ -112,7 +169,7 @@ struct LoginPage {
               .backgroundColor('#f9e3e1')
               .border({ width: 1, color: '#d2a5a0' })
               .borderRadius(34);
-            Text('卷宗查验')
+            Text('档册查验')
               .fontFamily('Noto Serif SC')
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
@@ -148,13 +205,13 @@ struct LoginPage {
                 .border({ width: { bottom: this.mode === LoginMode.PASSWORD ? 3 : 1 }, color: this.mode === LoginMode.PASSWORD ? MASK_SEAL.sealRed : '#dfcbc7' })
                 .onClick(() => this.selectMode(LoginMode.PASSWORD));
             }
-            FloatingInput({ value: this.phone, label: '手机号', error: this.phoneError,
+            FloatingInput({ value: this.phone, label: '手机号', error: this.phoneError, layoutWeight: 0,
               onChange: (value: string) => { this.phone = value; this.phoneError = ''; } });
             if (this.mode === LoginMode.CODE) {
               Column({ space: 5 }) {
                 Row({ space: 8 }) {
-                  FloatingInput({ value: this.code, label: '验证码', error: this.codeError,
-                    onChange: (value: string) => { this.code = value; this.codeError = ''; } }).layoutWeight(1);
+                  FloatingInput({ value: this.code, label: '验证码', error: this.codeError, layoutWeight: 1,
+                    onChange: (value: string) => { this.code = value; this.codeError = ''; } });
                   Button('获取验证码')
                     .width(108)
                     .height(50)
@@ -170,7 +227,7 @@ struct LoginPage {
             } else {
               this.passwordField();
             }
-            SealButton({ text: '呈验登录', onTap: () => this.submit() });
+            SealButton({ text: '呈验登录', secondary: false, onTap: () => this.submit() });
             Row({ space: 6 }) {
               Text('尚未登记在册？').fontSize(14).fontColor(MASK_SEAL.inkMuted);
               Text('前往注册')
@@ -178,7 +235,7 @@ struct LoginPage {
                 .fontSize(16)
                 .fontColor(MASK_SEAL.primary)
                 .fontWeight(FontWeight.Bold)
-                .onClick(() => router.pushUrl({ url: 'pages/RegisterPage' }));
+                .onClick(() => this.openRegister());
             }
             .width('100%')
             .justifyContent(FlexAlign.Center);
@@ -191,7 +248,8 @@ struct LoginPage {
         .width('100%')
         .padding(20);
       }
-      .layoutWeight(1);
+      .layoutWeight(1)
+      .onAreaChange((oldArea: Area, newArea: Area) => this.handleViewportChange(oldArea, newArea));
       }
       .width('100%')
       .height('100%');

@@ -1,6 +1,6 @@
 {
   "src": [
-    "pages/Index",
+    "pages/Mine",
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/UserSettingsPage",

@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { MASK_SEAL, SealPageHeader, SealPaperBackground } from './MaskSeal';
 
 @Component
@@ -7,11 +6,19 @@ export struct AgreementPage {
   @Prop updatedAt: string = '2026 年 08 月 13 日';
   @Prop sections: string[] = [];
 
+  private goBack(): void {
+    try {
+      this.getUIContext().getRouter().back();
+    } catch (err) {
+      console.error(`Failed to navigate back: ${JSON.stringify(err)}`);
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: this.title, showBack: true, onBack: () => router.back() });
+      SealPageHeader({ title: this.title, showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 18 }) {
           Column({ space: 6 }) {
@@ -55,7 +62,7 @@ export struct AgreementPage {
             .backgroundColor(MASK_SEAL.paperSurface)
             .border({ width: 1, color: '#ded0cc' });
           }, (section: string) => section);
-          Text('炎国跨署呈报复核 · 文书示例完')
+          Text('呈报复核 · 文书示例')
             .fontFamily('monospace')
             .fontSize(10)
             .fontColor('#8a5c57')

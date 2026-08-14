@@ -1,5 +1,3 @@
-import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
 import { FloatingInput, MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 
 @Entry
@@ -7,11 +5,35 @@ import { FloatingInput, MASK_SEAL, SealPageHeader, SealPaperBackground, SettingR
 struct UserSettingsPage {
   @State nickname: string = '';
 
+  private goBack(): void {
+    try {
+      this.getUIContext().getRouter().back();
+    } catch (err) {
+      console.error(`Failed to navigate back: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (err) {
+      console.error(`Failed to show toast: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private async openLogin(): Promise<void> {
+    try {
+      await this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+    } catch (err) {
+      console.error(`Failed to open login page: ${JSON.stringify(err)}`);
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '用户设置', showBack: true, onBack: () => router.back() });
+      SealPageHeader({ title: '用户设置', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 12 }) {
@@ -45,8 +67,9 @@ struct UserSettingsPage {
             .width('100%')
             .padding(18)
             .backgroundColor(MASK_SEAL.paperSurface)
-            .border({ width: 1, color: '#d9c4c0' });
-            FloatingInput({ value: this.nickname, label: '卷宗称谓',
+            .border({ width: 1, color: '#d9c4c0' })
+            .onClick(() => this.openLogin());
+            FloatingInput({ value: this.nickname, label: '个人称谓', error: '', layoutWeight: 0,
               onChange: (value: string) => this.nickname = value });
           }
 
@@ -59,7 +82,7 @@ struct UserSettingsPage {
               .width('100%')
               .padding({ bottom: 8 });
             SettingRow({ title: '手机号与登录安全', detail: '未登录', interactive: false,
-              onTap: () => promptAction.showToast({ message: '登录后可管理' }) });
+              onTap: () => this.showToast('登录后可管理') });
           }
 
           Text('本页输入仅用于前端展示，离开页面后不会保存。')

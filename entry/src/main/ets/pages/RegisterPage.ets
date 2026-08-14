@@ -1,5 +1,3 @@
-import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
 import { FloatingInput, MASK_SEAL, SealButton, SealPageHeader, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePasswordConfirmation, validatePhone } from '../utils/AuthValidators';
 
@@ -16,13 +14,35 @@ struct RegisterPage {
   @State passwordError: string = '';
   @State confirmationError: string = '';
   @State agreementError: string = '';
-  @State showPassword: boolean = false;
-  @State showConfirmation: boolean = false;
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (err) {
+      console.error(`Failed to show toast: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private goBack(): void {
+    try {
+      this.getUIContext().getRouter().back();
+    } catch (err) {
+      console.error(`Failed to navigate back: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private async openAgreement(url: string): Promise<void> {
+    try {
+      await this.getUIContext().getRouter().pushUrl({ url: url });
+    } catch (err) {
+      console.error(`Failed to open agreement page: ${JSON.stringify(err)}`);
+    }
+  }
 
   private requestCode(): void {
     this.phoneError = validatePhone(this.phone);
     if (this.phoneError.length === 0) {
-      promptAction.showToast({ message: '验证码服务暂未接入' });
+      this.showToast('验证码服务暂未接入');
     }
   }
 
@@ -34,13 +54,13 @@ struct RegisterPage {
     this.agreementError = this.agreed ? '' : '请阅读并同意用户协议和隐私政策';
     if (this.phoneError.length === 0 && this.codeError.length === 0 && this.passwordError.length === 0 &&
       this.confirmationError.length === 0 && this.agreementError.length === 0) {
-      promptAction.showToast({ message: '前端校验通过，注册服务暂未接入' });
+      this.showToast('前端校验通过，注册服务暂未接入');
     }
   }
 
   @Builder
-  passwordField(label: string, placeholder: string, value: string, error: string, visible: boolean,
-    onChange: (value: string) => void, onVisibilityChange: () => void): void {
+  passwordField(label: string, placeholder: string, value: string, error: string,
+    onChange: (value: string) => void): void {
     Column({ space: 5 }) {
       Stack({ alignContent: Alignment.TopStart }) {
         Text(label)
@@ -51,28 +71,19 @@ struct RegisterPage {
           .backgroundColor(MASK_SEAL.paperSurface)
           .margin({ left: 12, top: -8 })
           .zIndex(1);
-        Row() {
-          TextInput({ text: value, placeholder: placeholder })
-            .layoutWeight(1)
-            .height(50)
-            .type(visible ? InputType.Normal : InputType.Password)
-            .fontSize(16)
-            .fontColor(MASK_SEAL.ink)
-            .placeholderColor('#957d7a')
-            .backgroundColor(Color.Transparent)
-            .border({ width: 1, color: error ? MASK_SEAL.error : MASK_SEAL.outlineLight })
-            .borderRadius(4)
-            .padding({ left: 16, right: 4 })
-            .onChange((nextValue: string) => onChange(nextValue));
-          Button(visible ? '隐藏' : '显示')
-            .width(54)
-            .height(42)
-            .margin({ left: -60, right: 6 })
-            .fontSize(12)
-            .fontColor(MASK_SEAL.primary)
-            .backgroundColor(Color.Transparent)
-            .onClick(() => onVisibilityChange());
-        }
+        TextInput({ text: value, placeholder: placeholder })
+          .width('100%')
+          .height(50)
+          .type(InputType.Password)
+          .showPasswordIcon(false)
+          .fontSize(16)
+          .fontColor(MASK_SEAL.ink)
+          .placeholderColor('#957d7a')
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: error ? MASK_SEAL.error : MASK_SEAL.outlineLight })
+          .borderRadius(4)
+          .padding({ left: 16, right: 16 })
+          .onChange((nextValue: string) => onChange(nextValue));
       }
       if (error.length > 0) {
         Text(error).fontSize(12).fontColor(MASK_SEAL.error).padding({ left: 4 });
@@ -85,7 +96,7 @@ struct RegisterPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '登记在册', showBack: true, onBack: () => router.back() });
+      SealPageHeader({ title: '登记在册', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 8 }) {
@@ -101,7 +112,7 @@ struct RegisterPage {
               .backgroundColor('#f9e3e1')
               .border({ width: 1, color: '#d2a5a0' })
               .borderRadius(34);
-            Text('登记卷宗')
+            Text('注册档册')
               .fontFamily('Noto Serif SC')
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
@@ -115,11 +126,11 @@ struct RegisterPage {
           .margin({ top: 12 });
 
           Column({ space: 18 }) {
-            FloatingInput({ value: this.phone, label: '手机号', error: this.phoneError,
+            FloatingInput({ value: this.phone, label: '手机号', error: this.phoneError, layoutWeight: 0,
               onChange: (value: string) => { this.phone = value; this.phoneError = ''; } });
             Row({ space: 8 }) {
-              FloatingInput({ value: this.code, label: '验证码', error: this.codeError,
-                onChange: (value: string) => { this.code = value; this.codeError = ''; } }).layoutWeight(1);
+              FloatingInput({ value: this.code, label: '验证码', error: this.codeError, layoutWeight: 1,
+                onChange: (value: string) => { this.code = value; this.codeError = ''; } });
               Button('获取验证码')
                 .width(108)
                 .height(50)
@@ -132,29 +143,38 @@ struct RegisterPage {
                 .onClick(() => this.requestCode());
             }
             this.passwordField('设置密函', '8-20 位字母和数字组合', this.password, this.passwordError,
-              this.showPassword, (value: string) => { this.password = value; this.passwordError = ''; },
-              () => this.showPassword = !this.showPassword);
+              (value: string) => { this.password = value; this.passwordError = ''; });
             this.passwordField('确认密函', '请再次输入密码', this.confirmation, this.confirmationError,
-              this.showConfirmation, (value: string) => { this.confirmation = value; this.confirmationError = ''; },
-              () => this.showConfirmation = !this.showConfirmation);
+              (value: string) => { this.confirmation = value; this.confirmationError = ''; });
             Row({ space: 6 }) {
               Checkbox({ name: 'agreement', group: 'register' })
+                .width(22)
+                .height(22)
                 .select(this.agreed)
                 .selectedColor(MASK_SEAL.primary)
                 .onChange((checked: boolean) => { this.agreed = checked; this.agreementError = ''; });
-              Text('我已阅读并同意').fontSize(13).fontColor(MASK_SEAL.inkMuted);
-              Text('《用户协议》').fontSize(13).fontColor(MASK_SEAL.primary)
-                .onClick(() => router.pushUrl({ url: 'pages/UserAgreementPage' }));
-              Text('和').fontSize(13).fontColor(MASK_SEAL.inkMuted);
-              Text('《隐私政策》').fontSize(13).fontColor(MASK_SEAL.primary)
-                .onClick(() => router.pushUrl({ url: 'pages/PrivacyPolicyPage' }));
+              Text() {
+                Span('我已阅读并同意').fontColor(MASK_SEAL.inkMuted);
+                Span('《用户协议》')
+                  .fontColor(MASK_SEAL.primary)
+                  .onClick(() => this.openAgreement('pages/UserAgreementPage'));
+                Span('和').fontColor(MASK_SEAL.inkMuted);
+                Span('《隐私政策》')
+                  .fontColor(MASK_SEAL.primary)
+                  .onClick(() => this.openAgreement('pages/PrivacyPolicyPage'));
+              }
+              .layoutWeight(1)
+              .fontSize(13)
+              .lineHeight(20)
+              .fontColor(MASK_SEAL.inkMuted)
+              .textAlign(TextAlign.Start);
             }
             .width('100%')
-            .alignItems(VerticalAlign.Center);
+            .alignItems(VerticalAlign.Top);
             if (this.agreementError.length > 0) {
               Text(this.agreementError).fontSize(12).fontColor(MASK_SEAL.error);
             }
-            SealButton({ text: '提交登记', onTap: () => this.submit() });
+            SealButton({ text: '提交登记', secondary: false, onTap: () => this.submit() });
           }
           .width('100%')
           .padding(24)

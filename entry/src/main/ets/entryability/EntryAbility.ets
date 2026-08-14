@@ -22,13 +22,18 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-    windowStage.loadContent('pages/Index', (err) => {
-      if (err.code) {
-        hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
-        return;
-      }
+    this.initializeMainWindow(windowStage);
+  }
+
+  private async initializeMainWindow(windowStage: window.WindowStage): Promise<void> {
+    try {
+      const mainWindow = await windowStage.getMainWindow();
+      await mainWindow.setWindowLayoutFullScreen(true);
+      await windowStage.loadContent('pages/Mine');
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
-    });
+    } catch (err) {
+      hilog.error(DOMAIN, 'testTag', 'Failed to initialize the main window. Cause: %{public}s', JSON.stringify(err));
+    }
   }
 
   onWindowStageDestroy(): void {

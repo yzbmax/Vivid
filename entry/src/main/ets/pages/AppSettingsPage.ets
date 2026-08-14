@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 
 @Entry
@@ -6,11 +5,19 @@ import { MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../c
 struct AppSettingsPage {
   @State appearance: number = 0;
 
+  private goBack(): void {
+    try {
+      this.getUIContext().getRouter().back();
+    } catch (err) {
+      console.error(`Failed to navigate back: ${JSON.stringify(err)}`);
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '应用设置', showBack: true, onBack: () => router.back() });
+      SealPageHeader({ title: '应用设置', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 10 }) {
@@ -54,9 +61,11 @@ struct AppSettingsPage {
               .letterSpacing(1.5)
               .width('100%')
               .padding({ bottom: 8 });
-            SettingRow({ title: '语言', detail: '简体中文', interactive: false });
-            SettingRow({ title: '本地存储说明', detail: '当前设置仅保留在页面生命周期内', interactive: false });
-            SettingRow({ title: '关于蒙版调色', detail: 'V1.0 · Mask & Seal 界面示例', interactive: false });
+            SettingRow({ title: '语言', detail: '简体中文', interactive: false, onTap: () => {} });
+            SettingRow({ title: '本地存储说明', detail: '当前设置仅保留在页面生命周期内', interactive: false,
+              onTap: () => {} });
+            SettingRow({ title: '关于蒙版调色', detail: 'V1.0 · Mask & Seal 界面示例', interactive: false,
+              onTap: () => {} });
           }
         }
         .width('100%')

@@ -17,183 +17,252 @@ export class MASK_SEAL extends MaskSealPalette {}
 
 @Component
 export struct SealPaperBackground {
+  private settings: RenderingContextSettings = new RenderingContextSettings(true);
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+
+  private readonly gridSize: number = 32;
+  private readonly horizontalLineCount: number = 20;
+  private readonly verticalLineCount: number = 12;
+
+  private drawGrid(): void {
+    const width: number = this.context.width;
+    const height: number = this.context.height;
+
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+
+    // 清空画布，避免重复绘制时叠加
+    this.context.clearRect(0, 0, width, height);
+
+    // 保持原来的网格视觉参数
+    this.context.strokeStyle = 'rgba(209, 191, 187, 0.34)';
+    this.context.lineWidth = 1;
+
+    // 所有网格线放进同一个 Path，一次 stroke 完成
+    this.context.beginPath();
+
+    // 原来 Column 中的 20 条横线
+    for (let index: number = 1; index <= this.horizontalLineCount; index++) {
+      const y: number = index * this.gridSize;
+
+      this.context.moveTo(0, y);
+      this.context.lineTo(width, y);
+    }
+
+    // 原来 Row 中的 12 条竖线
+    for (let index: number = 1; index <= this.verticalLineCount; index++) {
+      const x: number = index * this.gridSize;
+
+      this.context.moveTo(x, 0);
+      this.context.lineTo(x, height);
+    }
+
+    this.context.stroke();
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      Column() {
-        ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], () => {
-          Blank()
-            .width('100%')
-            .height(32)
-            .border({ width: { bottom: 1 }, color: '#d1bfbb' });
+      // 网格背景：
+      // 原来的 32 个 Blank 收敛为一个 Canvas
+      Canvas(this.context)
+        .width('100%')
+        .height('100%')
+        .onReady(() => {
+          this.drawGrid();
         });
-      }
-      .width('100%')
-      .opacity(0.34);
 
-      Row() {
-        ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], () => {
+      // 四角装饰保持原样
+      Column() {
+        Row() {
+          Image($r('app.media.L'))
+            .width(24)
+            .height(24)
+            .rotate({ angle: 90 });
+
           Blank()
-            .width(32)
-            .height('100%')
-            .border({ width: { right: 1 }, color: '#d1bfbb' });
-        });
+            .layoutWeight(1);
+
+          Image($r('app.media.L'))
+            .width(24)
+            .height(24)
+            .rotate({ angle: 180 });
+        }
+        .width('100%');
+
+        Blank()
+          .layoutWeight(1);
+
+        Row() {
+          Image($r('app.media.L'))
+            .width(24)
+            .height(24);
+
+          Blank()
+            .layoutWeight(1);
+
+          Image($r('app.media.L'))
+            .width(24)
+            .height(24)
+            .rotate({ angle: 270 });
+        }
+        .width('100%');
       }
       .width('100%')
       .height('100%')
-      .opacity(0.34);
-
-      Column() {
-        Row() {
-          Blank().width(18).height(18).border({ width: { left: 2, top: 2 }, color: MaskSealPalette.primary });
-          Blank().layoutWeight(1);
-          Blank().width(18).height(18).border({ width: { right: 2, top: 2 }, color: MaskSealPalette.primary });
-        }
-        .width('100%');
-        Blank().layoutWeight(1);
-        Row() {
-          Blank().width(18).height(18).border({ width: { left: 2, bottom: 2 }, color: MaskSealPalette.primary });
-          Blank().layoutWeight(1);
-          Blank().width(18).height(18).border({ width: { right: 2, bottom: 2 }, color: MaskSealPalette.primary });
-        }
-        .width('100%');
-      }
-      .width('100%')
-      .height('100%')
-      .padding(10);
+      .padding({
+        left: 10,
+        right: 10,
+        top: 80,
+        bottom: 10
+      });
     }
     .width('100%')
     .height('100%')
+    .expandSafeArea(
+      [SafeAreaType.SYSTEM, SafeAreaType.CUTOUT],
+      [
+        SafeAreaEdge.TOP,
+        SafeAreaEdge.BOTTOM,
+        SafeAreaEdge.START,
+        SafeAreaEdge.END
+      ]
+    )
     .backgroundColor(MaskSealPalette.paperBase);
   }
 }
 
-@Component
-export struct SealPageHeader {
-  @Prop title: string = '';
-  @Prop showBack: boolean = false;
-  @Prop onBack: () => void = () => {};
+export class SealPageHeaderParams {
+  title: string = '';
+  showBack: boolean = false;
+  titleOffsetY: number = 6;
+  onBack: () => void = () => {};
+}
 
-  build() {
-    Row() {
-      if (this.showBack) {
-        Text('‹')
-          .fontSize(36)
-          .fontColor(MaskSealPalette.ink)
-          .width(40)
-          .height(48)
-          .textAlign(TextAlign.Center)
-          .onClick(() => this.onBack());
-      } else {
-        Blank().width(40);
-      }
-      Text(this.title)
-        .fontFamily('Noto Serif SC')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
+@Builder
+export function SealPageHeader($$: SealPageHeaderParams) {
+  Row() {
+    if ($$.showBack) {
+      Text('‹')
+        .fontSize(36)
         .fontColor(MaskSealPalette.ink)
-        .layoutWeight(1)
-        .textAlign(TextAlign.Center);
+        .width(40)
+        .height(48)
+        .textAlign(TextAlign.Center)
+        .onClick(() => $$.onBack());
+    } else {
       Blank().width(40);
     }
-    .height(56)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor(MaskSealPalette.paperSurface)
-    .border({ width: { bottom: 1 }, color: '#d8c8c4' });
-  }
-}
-
-@Component
-export struct SealButton {
-  @Prop text: string = '';
-  @Prop secondary: boolean = false;
-  @Prop onTap: () => void = () => {};
-
-  build() {
-    Button(this.text)
-      .width('100%')
-      .height(52)
+    Text($$.title)
       .fontFamily('Noto Serif SC')
+      .fontSize(24)
       .fontWeight(FontWeight.Bold)
-      .fontSize(18)
-      .fontColor(this.secondary ? MaskSealPalette.primary : Color.White)
-      .backgroundColor(this.secondary ? Color.Transparent : MaskSealPalette.primary)
-      .border({ width: 1, color: this.secondary ? '#c8a4a0' : MaskSealPalette.primary })
-      .borderRadius(4)
-      .onClick(() => this.onTap());
-  }
-}
-
-@Component
-export struct FloatingInput {
-  @Prop value: string = '';
-  @Prop label: string = '';
-  @Prop error: string = '';
-  @Prop onChange: (value: string) => void = (_value: string) => {};
-
-  build() {
-    Column({ space: 5 }) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Text(this.label)
-          .fontSize(12)
-          .fontFamily('monospace')
-          .fontColor(MaskSealPalette.primary)
-          .padding({ left: 5, right: 5 })
-          .backgroundColor(MaskSealPalette.paperSurface)
-          .margin({ left: 12, top: -8 })
-          .zIndex(1);
-        TextInput({ text: this.value, placeholder: this.label })
-          .width('100%')
-          .height(50)
-          .fontSize(16)
-          .fontColor(MaskSealPalette.ink)
-          .placeholderColor('#957d7a')
-          .backgroundColor(Color.Transparent)
-          .border({ width: 1, color: this.error ? MaskSealPalette.error : MaskSealPalette.outlineLight })
-          .borderRadius(4)
-          .padding({ left: 16, right: 16 })
-          .onChange((value: string) => this.onChange(value));
-      }
-      if (this.error.length > 0) {
-        Text(this.error)
-          .fontSize(12)
-          .fontColor(MaskSealPalette.error)
-          .padding({ left: 4 });
-      }
-    }
-    .width('100%');
-  }
-}
-
-@Component
-export struct SettingRow {
-  @Prop title: string = '';
-  @Prop detail: string = '';
-  @Prop interactive: boolean = true;
-  @Prop onTap: () => void = () => {};
-
-  build() {
-    Row() {
-      Column({ space: 3 }) {
-        Text(this.title)
-          .fontSize(16)
-          .fontColor(MaskSealPalette.ink);
-        if (this.detail.length > 0) {
-          Text(this.detail)
-            .fontFamily('monospace')
-            .fontSize(11)
-            .fontColor(MaskSealPalette.inkMuted);
-        }
-      }
+      .fontColor(MaskSealPalette.ink)
       .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start);
-      Text(this.interactive ? '›' : '')
-        .fontSize(24)
-        .fontColor(MaskSealPalette.primary);
-    }
-    .width('100%')
-    .padding({ left: 18, right: 16, top: 15, bottom: 15 })
-    .backgroundColor(MaskSealPalette.paperSurface)
-    .border({ width: { bottom: 1 }, color: '#eadbd7' })
-    .onClick(() => this.onTap());
+      .textAlign(TextAlign.Center)
+      .translate({ y: $$.titleOffsetY });
+    Blank().width(40);
   }
+  .height(80)
+  .padding({ top: 24, left: 16, right: 16 })
+  .backgroundColor(MaskSealPalette.paperSurface)
+  .border({ width: { bottom: 1 }, color: '#d8c8c4' });
+}
+
+export class SealButtonParams {
+  text: string = '';
+  secondary: boolean = false;
+  onTap: () => void = () => {};
+}
+
+@Builder
+export function SealButton($$: SealButtonParams) {
+  Button($$.text)
+    .width('100%')
+    .height(52)
+    .fontFamily('Noto Serif SC')
+    .fontWeight(FontWeight.Bold)
+    .fontSize(18)
+    .fontColor($$.secondary ? MaskSealPalette.primary : Color.White)
+    .backgroundColor($$.secondary ? Color.Transparent : MaskSealPalette.primary)
+    .border({ width: 1, color: $$.secondary ? '#c8a4a0' : MaskSealPalette.primary })
+    .borderRadius(4)
+    .onClick(() => $$.onTap());
+}
+
+export class FloatingInputParams {
+  value: string = '';
+  label: string = '';
+  error: string = '';
+  layoutWeight: number = 0;
+  onChange: (value: string) => void = (_value: string) => {};
+}
+
+@Builder
+export function FloatingInput($$: FloatingInputParams) {
+  Column({ space: 5 }) {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Text($$.label)
+        .fontSize(12)
+        .fontFamily('monospace')
+        .fontColor(MaskSealPalette.primary)
+        .padding({ left: 5, right: 5 })
+        .backgroundColor(MaskSealPalette.paperSurface)
+        .margin({ left: 12, top: -8 })
+        .zIndex(1);
+      TextInput({ text: $$.value, placeholder: $$.label })
+        .width('100%')
+        .height(50)
+        .fontSize(16)
+        .fontColor(MaskSealPalette.ink)
+        .placeholderColor('#957d7a')
+        .backgroundColor(Color.Transparent)
+        .border({ width: 1, color: $$.error ? MaskSealPalette.error : MaskSealPalette.outlineLight })
+        .borderRadius(4)
+        .padding({ left: 16, right: 16 })
+        .onChange((value: string) => $$.onChange(value));
+    }
+    if ($$.error.length > 0) {
+      Text($$.error)
+        .fontSize(12)
+        .fontColor(MaskSealPalette.error)
+        .padding({ left: 4 });
+    }
+  }
+  .width('100%')
+  .layoutWeight($$.layoutWeight);
+}
+
+export class SettingRowParams {
+  title: string = '';
+  detail: string = '';
+  interactive: boolean = true;
+  onTap: () => void = () => {};
+}
+
+@Builder
+export function SettingRow($$: SettingRowParams) {
+  Row() {
+    Column({ space: 3 }) {
+      Text($$.title)
+        .fontSize(16)
+        .fontColor(MaskSealPalette.ink);
+      if ($$.detail.length > 0) {
+        Text($$.detail)
+          .fontFamily('monospace')
+          .fontSize(11)
+          .fontColor(MaskSealPalette.inkMuted);
+      }
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start);
+    Text($$.interactive ? '›' : '')
+      .fontSize(24)
+      .fontColor(MaskSealPalette.primary);
+  }
+  .width('100%')
+  .padding({ left: 18, right: 16, top: 15, bottom: 15 })
+  .backgroundColor(MaskSealPalette.paperSurface)
+  .border({ width: { bottom: 1 }, color: '#eadbd7' })
+  .onClick(() => $$.onTap());
 }
