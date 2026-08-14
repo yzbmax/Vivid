@@ -13,7 +13,7 @@ import { buildMockWorks } from '../models/MockWorks';
  * 本次实现范围：仅前端展示，作品数据为 mock；底部不实现主导航，仅预留 MainTabBar 占位空间。
  * 后续接入：WorksStore + WorkRepository 提供真实列表；点击作品经 EditEntryMode 打开独立编辑页。
  */
-@Entry
+
 @Component
 export struct WorksPage {
     @State works: WorkRecord[] = [];
@@ -190,7 +190,7 @@ export struct WorksPage {
 
     /** 点击作品：打开作品详情页（WorkDetailPage，携带 workId） */
     private onWorkClick(id: string): void {
-        // TODO: 接入 WorkRepository 恢复源图/蒙版/参数后，由详情页「启封续编」进入 EditPage 继续编辑
+        // todo: 接入 WorkRepository 恢复源图/蒙版/参数后，由详情页「启封续编」进入 EditPage 继续编辑
         this.getUIContext().getRouter().pushUrl({ url: 'pages/WorkDetailPage', params: { workId: id } }).catch(() => {
             // 路由失败不影响列表
         });
