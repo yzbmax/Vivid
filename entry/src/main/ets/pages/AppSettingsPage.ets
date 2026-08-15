@@ -3,7 +3,8 @@ import { MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../c
 @Entry
 @Component
 struct AppSettingsPage {
-  @State appearance: number = 0;
+  @State exportQuality: number = 0;
+  @State exportFormat: number = 0;
 
   private goBack(): void {
     try {
@@ -21,34 +22,79 @@ struct AppSettingsPage {
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 10 }) {
-            Text('外观')
+            Text('照片设置')
               .fontFamily('monospace')
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
               .width('100%');
+            Text('导出质量')
+              .fontSize(13)
+              .fontColor(MASK_SEAL.inkMuted)
+              .width('100%');
             Column() {
               Row({ space: 12 }) {
-                Radio({ value: 'system', group: 'appearance' })
-                  .checked(this.appearance === 0)
-                  .onChange((checked: boolean) => { if (checked) this.appearance = 0; });
-                Text('跟随系统').fontSize(16).fontColor(MASK_SEAL.ink);
+                Radio({ value: 'standard', group: 'exportQuality' })
+                  .checked(this.exportQuality === 0)
+                  .onChange((checked: boolean) => { if (checked) this.exportQuality = 0; });
+                Text('标准').fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
               .backgroundColor(MASK_SEAL.paperSurface)
-              .onClick(() => this.appearance = 0);
+              .onClick(() => this.exportQuality = 0);
               Row({ space: 12 }) {
-                Radio({ value: 'light', group: 'appearance' })
-                  .checked(this.appearance === 1)
-                  .onChange((checked: boolean) => { if (checked) this.appearance = 1; });
-                Text('浅色').fontSize(16).fontColor(MASK_SEAL.ink);
+                Radio({ value: 'high', group: 'exportQuality' })
+                  .checked(this.exportQuality === 1)
+                  .onChange((checked: boolean) => { if (checked) this.exportQuality = 1; });
+                Text('高清').fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
               .backgroundColor(MASK_SEAL.paperSurface)
               .border({ width: { top: 1 }, color: '#eadbd7' })
-              .onClick(() => this.appearance = 1);
+              .onClick(() => this.exportQuality = 1);
+              Row({ space: 12 }) {
+                Radio({ value: 'ultra', group: 'exportQuality' })
+                  .checked(this.exportQuality === 2)
+                  .onChange((checked: boolean) => { if (checked) this.exportQuality = 2; });
+                Text('超清').fontSize(16).fontColor(MASK_SEAL.ink);
+              }
+              .width('100%')
+              .padding(18)
+              .backgroundColor(MASK_SEAL.paperSurface)
+              .border({ width: { top: 1 }, color: '#eadbd7' })
+              .onClick(() => this.exportQuality = 2);
+            }
+            .border({ width: 1, color: '#d9c4c0' });
+
+            Text('导出格式')
+              .fontSize(13)
+              .fontColor(MASK_SEAL.inkMuted)
+              .width('100%')
+              .padding({ top: 8 });
+            Column() {
+              Row({ space: 12 }) {
+                Radio({ value: 'jpeg', group: 'exportFormat' })
+                  .checked(this.exportFormat === 0)
+                  .onChange((checked: boolean) => { if (checked) this.exportFormat = 0; });
+                Text('JPEG（默认）').fontSize(16).fontColor(MASK_SEAL.ink);
+              }
+              .width('100%')
+              .padding(18)
+              .backgroundColor(MASK_SEAL.paperSurface)
+              .onClick(() => this.exportFormat = 0);
+              Row({ space: 12 }) {
+                Radio({ value: 'png', group: 'exportFormat' })
+                  .checked(this.exportFormat === 1)
+                  .onChange((checked: boolean) => { if (checked) this.exportFormat = 1; });
+                Text('PNG').fontSize(16).fontColor(MASK_SEAL.ink);
+              }
+              .width('100%')
+              .padding(18)
+              .backgroundColor(MASK_SEAL.paperSurface)
+              .border({ width: { top: 1 }, color: '#eadbd7' })
+              .onClick(() => this.exportFormat = 1);
             }
             .border({ width: 1, color: '#d9c4c0' });
           }
@@ -66,6 +112,7 @@ struct AppSettingsPage {
               onTap: () => {} });
             SettingRow({ title: '关于蒙版调色', detail: 'V1.0 · Mask & Seal 界面示例', interactive: false,
               onTap: () => {} });
+            SettingRow({ title: '版本号', detail: '0.1.1', interactive: false, onTap: () => {} });
           }
         }
         .width('100%')

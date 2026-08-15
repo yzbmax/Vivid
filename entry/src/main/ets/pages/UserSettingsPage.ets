@@ -1,10 +1,8 @@
-import { FloatingInput, MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../components/MaskSeal';
+import { MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 
 @Entry
 @Component
 struct UserSettingsPage {
-  @State nickname: string = '';
-
   private goBack(): void {
     try {
       this.getUIContext().getRouter().back();
@@ -57,7 +55,7 @@ struct UserSettingsPage {
                 .border({ width: 1, color: '#d2a5a0' })
                 .borderRadius(29);
               Column({ space: 4 }) {
-                Text('头像印记').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('个人称谓').fontSize(16).fontColor(MASK_SEAL.ink);
                 Text('暂未登记在册').fontSize(13).fontColor(MASK_SEAL.inkMuted);
               }
               .layoutWeight(1)
@@ -69,8 +67,6 @@ struct UserSettingsPage {
             .backgroundColor(MASK_SEAL.paperSurface)
             .border({ width: 1, color: '#d9c4c0' })
             .onClick(() => this.openLogin());
-            FloatingInput({ value: this.nickname, label: '个人称谓', error: '', layoutWeight: 0,
-              onChange: (value: string) => this.nickname = value });
           }
 
           Column() {
@@ -85,7 +81,7 @@ struct UserSettingsPage {
               onTap: () => this.showToast('登录后可管理') });
           }
 
-          Text('本页输入仅用于前端展示，离开页面后不会保存。')
+          Text('本页设置仅用于前端展示，离开页面后不会保存。')
             .fontSize(12)
             .fontColor(MASK_SEAL.inkMuted)
             .padding({ top: 8 });
