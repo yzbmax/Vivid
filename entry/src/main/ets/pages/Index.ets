@@ -16,21 +16,13 @@ struct Index {
 
   @Builder
   tabBarItem(index: number, label: string) {
-    Column({ space: 2 }) {
+    Column() {
       Text(label)
-        .fontSize(Theme.FONT_SIZE_LABEL_MONO)
-        .fontWeight(this.currentIndex === index ? FontWeight.Bold : FontWeight.Normal)
-        .fontColor(this.currentIndex === index ? Theme.PRIMARY_CONTAINER : Theme.ON_SURFACE_VARIANT_70)
     }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
   }
 
   build() {
     Tabs({ barPosition: BarPosition.End }) {
-
-
       TabContent() {
         WorksPage()
       }
@@ -38,8 +30,7 @@ struct Index {
 
 
     }
-    .width('100%')
-    .height('100%')
+
     .onChange((index: number) => {
       this.currentIndex = index;
     })

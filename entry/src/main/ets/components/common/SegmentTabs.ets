@@ -51,7 +51,9 @@ export struct SegmentTabs {
                 Row()
                   .width(8)
                   .height(8)
+                  .offset({ x: 20, y: 12 })
                   .backgroundColor(Theme.ON_PRIMARY_FIXED_VARIANT)
+
               }
             }
             .chipBase()

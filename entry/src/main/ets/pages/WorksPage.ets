@@ -59,27 +59,24 @@ export struct WorksPage {
                             this.endMark()
                         }
                         .width('100%')
+                        .constraintSize({ minHeight: '100%' })
                         .padding({ bottom: 24 })
                     }
                     .layoutWeight(1)
                     .scrollBar(BarState.Off)
                     .edgeEffect(EdgeEffect.Spring)
-                    // 底部：卷宗落款 + 底部主导航占位
+                    // 底部：卷宗落款（底部导航由 Index 的 Tabs 提供，本页不再预留占位）
                     Column() {
                         Column() {
-                            FooterSealBar({ number: '肆零玖' })
+                            FooterSealBar({ count: this.works.length })
                         }
                         .width('100%')
                         .padding({ top: 8, bottom: 8 })
-                        // 预留底部主导航（MainTabBar）高度，避免后续布局冲突
-                        Row()
-                            .width('100%')
-                            .height(Theme.NAV_BAR_HEIGHT)
-                            .opacity(0)
+                        // .backgroundImageSize({ width: '', height: '' })
                     }
                     .width('100%')
-                    .backgroundColor(Theme.PAPER_BASE_90)
-                    .backdropBlur(24)
+                    // 透明背景 + 无模糊，让下方网格纹理透出
+                    // .backgroundColor(Theme.PAPER_BASE_90)
                 }
                 .width('100%')
                 .height('100%')
