@@ -1,4 +1,5 @@
-import { MASK_SEAL, SealButton, SealPageHeader, SealPaperBackground, SettingRow } from '../MaskSeal';
+import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../MaskSeal';
+import { PageHeader } from '../common/PageHeader';
 
 /**
  * 「我的」Tab 内容组件。
@@ -20,7 +21,7 @@ export struct MinePage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '我的', showBack: false, titleOffsetY: 6, onBack: () => {} });
+      PageHeader({ title: '我的', showBack: false, onBack: () => {} });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 10 }) {

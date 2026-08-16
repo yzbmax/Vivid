@@ -1,6 +1,7 @@
-import { FloatingInput, MASK_SEAL, SealButton, SealPageHeader, SealPaperBackground } from '../components/MaskSeal';
+import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePhone } from '../utils/AuthValidators';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { PageHeader } from '../components/common/PageHeader';
 
 enum LoginMode {
   CODE,
@@ -153,7 +154,7 @@ struct LoginPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '档册查验', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
+      PageHeader({ title: '档册查验', showBack: true, onBack: () => this.goBack() });
       Scroll(this.loginScroller) {
         Column({ space: 24 }) {
           Column({ space: 8 }) {

@@ -1,4 +1,5 @@
-import { MASK_SEAL, SealPageHeader, SealPaperBackground, SettingRow } from '../components/MaskSeal';
+import { MASK_SEAL, SealPaperBackground, SettingRow } from '../components/MaskSeal';
+import { PageHeader } from '../components/common/PageHeader';
 
 @Entry
 @Component
@@ -31,7 +32,7 @@ struct UserSettingsPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '用户设置', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
+      PageHeader({ title: '用户设置', showBack: true, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 12 }) {

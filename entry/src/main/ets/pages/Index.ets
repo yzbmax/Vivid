@@ -22,11 +22,18 @@ struct Index {
   navBarHeightPx: number = 0;
 
   @Builder
-  tabBarItem(index: number, label: string) {
-    Column() {
+  tabBarItem(index: number, label: string, icon: Resource) {
+    Column({ space: 2 }) {
+      // 图标槽：预留统一图标位，激活/未激活跟随主题色
+      Image(icon)
+        .width(24)
+        .height(24)
+        .objectFit(ImageFit.Contain)
+        .fillColor(this.currentIndex === index ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
+
       Text(label)
         .fontFamily(Theme.FONT_SERIF)
-        .fontSize(15)
+        .fontSize(11)
         .letterSpacing(1)
         .fontColor(this.currentIndex === index ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
     }
@@ -41,17 +48,17 @@ struct Index {
       TabContent() {
         HomePage()
       }
-      .tabBar(this.tabBarItem(0, '首页'))
+      .tabBar(this.tabBarItem(0, '首页', $r('app.media.icon_home')))
 
       TabContent() {
         WorksPage()
       }
-      .tabBar(this.tabBarItem(1, '作品'))
+      .tabBar(this.tabBarItem(1, '作品', $r('app.media.icon_archive')))
 
       TabContent() {
         MinePage()
       }
-      .tabBar(this.tabBarItem(2, '我的'))
+      .tabBar(this.tabBarItem(2, '我的', $r('app.media.icon_person')))
     }
     .width('100%')
     .height('100%')

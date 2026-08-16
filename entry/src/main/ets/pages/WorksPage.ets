@@ -1,5 +1,6 @@
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
+import { PageHeader } from '../components/common/PageHeader';
 import { SegmentTabs, SegmentItem } from '../components/common/SegmentTabs';
 import { FooterSealBar } from '../components/common/FooterSealBar';
 import { WorkGrid } from '../components/works/WorkGrid';
@@ -36,7 +37,8 @@ export struct WorksPage {
         Column() {
             PaperBackground() {
                 Column() {
-                    // 顶部栏（TopBar）暂未启用
+                    // 统一头部标题栏（嵌入 PaperBackground，已由背景避让状态栏，故 topInset=false）
+                    PageHeader({ title: '作品', showBack: false, onBack: () => {}, topInset: false })
                     Scroll() {
                         Column() {
                             // 筛选分段（Works Page 样板：全部卷宗 / 已封印 / 草稿）

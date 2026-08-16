@@ -1,5 +1,6 @@
-import { FloatingInput, MASK_SEAL, SealButton, SealPageHeader, SealPaperBackground } from '../components/MaskSeal';
+import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePasswordConfirmation, validatePhone } from '../utils/AuthValidators';
+import { PageHeader } from '../components/common/PageHeader';
 
 @Entry
 @Component
@@ -96,7 +97,7 @@ struct RegisterPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: '登记在册', showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
+      PageHeader({ title: '登记在册', showBack: true, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 8 }) {

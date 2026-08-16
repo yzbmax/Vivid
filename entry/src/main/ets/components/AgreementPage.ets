@@ -1,4 +1,5 @@
-import { MASK_SEAL, SealPageHeader, SealPaperBackground } from './MaskSeal';
+import { MASK_SEAL, SealPaperBackground } from './MaskSeal';
+import { PageHeader } from './common/PageHeader';
 
 @Component
 export struct AgreementPage {
@@ -18,7 +19,7 @@ export struct AgreementPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      SealPageHeader({ title: this.title, showBack: true, titleOffsetY: 6, onBack: () => this.goBack() });
+      PageHeader({ title: this.title, showBack: true, onBack: () => this.goBack() });
       Scroll() {
         Column({ space: 18 }) {
           Column({ space: 6 }) {

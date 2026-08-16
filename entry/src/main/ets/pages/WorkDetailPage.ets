@@ -1,9 +1,9 @@
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
+import { PageHeader } from '../components/common/PageHeader';
 import { PaperFrame } from '../components/common/PaperFrame';
 import { MetadataBar, MetadataItem } from '../components/common/MetadataBar';
 import { NotesCard } from '../components/common/NotesCard';
-import { SealBadge } from '../components/common/SealBadge';
 import { WorkRecord } from '../models/WorkRecord';
 import { findWork } from '../models/MockWorks';
 
@@ -42,51 +42,6 @@ export struct WorkDetailPage {
       { label: '呈报日期', value: this.work?.date ?? '' },
       { label: '滤色覆膜', value: '朱砂 · 叁', valueColor: Theme.PRIMARY }
     ];
-  }
-
-  /** 页内标题区：返回链接 + 大标题 + 朱砂下划线 + 钤印 */
-  @Builder
-  header() {
-    Row() {
-      Column({ space: 4 }) {
-        Row({ space: 6 }) {
-          Image($r('app.media.icon_back'))
-            .width(16)
-            .height(16)
-            .fillColor(Theme.PRIMARY)
-          Text('返 回 卷 宗 库')
-            .fontFamily(Theme.FONT_MONO)
-            .fontSize(Theme.FONT_SIZE_LABEL_MONO)
-            .fontColor(Theme.PRIMARY)
-            .letterSpacing(1.3)
-        }
-        .alignItems(VerticalAlign.Center)
-        .onClick(() => {
-          this.getUIContext().getRouter().back();
-        })
-        Text(this.work?.title ?? '卷宗详情')
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(Theme.FONT_SIZE_HEADLINE_LG_MOBILE)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Theme.ON_SURFACE)
-          .letterSpacing(0.7)
-          .margin({ top: 12 })
-        Row()
-          .width(48)
-          .height(2)
-          .backgroundColor(Theme.PRIMARY)
-          .margin({ top: 8 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      Blank()
-      if (this.work != null && this.work.sealGlyph !== '') {
-        SealBadge({ glyph: this.work.sealGlyph, boxSize: 40, rotation: 3, filled: true })
-      }
-    }
-    .width('100%')
-    .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-    .margin({ bottom: 24 })
-    .alignItems(VerticalAlign.Bottom)
   }
 
   /** 操作区：分享（ghost）+ 启封续编（primary） */
@@ -137,7 +92,9 @@ export struct WorkDetailPage {
       PaperBackground() {
         Scroll() {
           Column() {
-            this.header()
+            // 统一头部标题栏（嵌入 PaperBackground，已由背景避让状态栏，故 topInset=false）
+            PageHeader({ title: this.work?.title ?? '卷宗详情', showBack: true,
+              onBack: () => this.getUIContext().getRouter().back(), topInset: false })
             if (this.work != null) {
               PaperFrame({ image: this.work.previewImage, fileNo: this.work.id })
                 .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
@@ -150,7 +107,7 @@ export struct WorkDetailPage {
             this.actionArea()
           }
           .width('100%')
-          .padding({ top: 24, bottom: 32 })
+          .padding({ bottom: 32 })
         }
         .width('100%')
         .height('100%')

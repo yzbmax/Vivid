@@ -132,43 +132,6 @@ export struct SealPaperBackground {
   }
 }
 
-export class SealPageHeaderParams {
-  title: string = '';
-  showBack: boolean = false;
-  titleOffsetY: number = 6;
-  onBack: () => void = () => {};
-}
-
-@Builder
-export function SealPageHeader($$: SealPageHeaderParams) {
-  Row() {
-    if ($$.showBack) {
-      Text('‹')
-        .fontSize(36)
-        .fontColor(MaskSealPalette.ink)
-        .width(40)
-        .height(48)
-        .textAlign(TextAlign.Center)
-        .onClick(() => $$.onBack());
-    } else {
-      Blank().width(40);
-    }
-    Text($$.title)
-      .fontFamily('Noto Serif SC')
-      .fontSize(24)
-      .fontWeight(FontWeight.Bold)
-      .fontColor(MaskSealPalette.ink)
-      .layoutWeight(1)
-      .textAlign(TextAlign.Center)
-      .translate({ y: $$.titleOffsetY });
-    Blank().width(40);
-  }
-  .height(80)
-  .padding({ top: 24, left: 16, right: 16 })
-  .backgroundColor(MaskSealPalette.paperSurface)
-  .border({ width: { bottom: 1 }, color: '#d8c8c4' });
-}
-
 export class SealButtonParams {
   text: string = '';
   secondary: boolean = false;
