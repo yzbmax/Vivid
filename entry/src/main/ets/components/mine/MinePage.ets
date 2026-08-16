@@ -21,7 +21,7 @@ export struct MinePage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      PageHeader({ title: '我的', showBack: false, onBack: () => {} });
+      PageHeader({ title: '我的', showBack: false, onBack: () => {}, topInset: true });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 10 }) {

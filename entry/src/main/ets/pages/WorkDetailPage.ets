@@ -17,7 +17,7 @@ import { findWork } from '../models/MockWorks';
 
 @Entry
 @Component
-export struct WorkDetailPage {
+struct WorkDetailPage {
   @State workId: string = '';
   @State work: WorkRecord | null = null;
 

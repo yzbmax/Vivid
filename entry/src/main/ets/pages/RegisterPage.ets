@@ -97,7 +97,7 @@ struct RegisterPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      PageHeader({ title: '登记在册', showBack: true, onBack: () => this.goBack() });
+      PageHeader({ title: '登记在册', showBack: true, onBack: () => this.goBack(), topInset: true });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 8 }) {

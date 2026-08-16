@@ -154,7 +154,7 @@ struct LoginPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      PageHeader({ title: '档册查验', showBack: true, onBack: () => this.goBack() });
+      PageHeader({ title: '档册查验', showBack: true, onBack: () => this.goBack(), topInset: true });
       Scroll(this.loginScroller) {
         Column({ space: 24 }) {
           Column({ space: 8 }) {

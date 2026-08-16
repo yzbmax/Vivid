@@ -40,7 +40,7 @@ struct Index {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .padding({ bottom: px2vp(this.navBarHeightPx) })
+    .padding({ bottom: this.getUIContext().px2vp(this.navBarHeightPx) })
   }
 
   build() {
@@ -63,7 +63,7 @@ struct Index {
     .width('100%')
     .height('100%')
     // tab 栏高度 = 常规 56 + 底部导航条避让，使按钮文字始终位于系统手势条之上
-    .barHeight(56 + px2vp(this.navBarHeightPx))
+    .barHeight(56 + this.getUIContext().px2vp(this.navBarHeightPx))
     .backgroundColor(Theme.PAPER_SURFACE)
     .divider({
       strokeWidth: 1,

@@ -19,7 +19,7 @@ export struct AgreementPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      PageHeader({ title: this.title, showBack: true, onBack: () => this.goBack() });
+      PageHeader({ title: this.title, showBack: true, onBack: () => this.goBack(), topInset: true });
       Scroll() {
         Column({ space: 18 }) {
           Column({ space: 6 }) {

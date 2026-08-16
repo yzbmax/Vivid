@@ -52,7 +52,7 @@ export function PageHeader($$: PageHeaderParams) {
     .padding({ left: 16, right: 16 })
   }
   .width('100%')
-  .padding({ top: $$.topInset ? px2vp(AppStorage.get<number>('statusBarHeight') ?? 0) : 0 })
+  .padding({ top: $$.topInset ? getUIContext().px2vp(AppStorage.get<number>('statusBarHeight') ?? 0) : 0 })
   .backgroundColor(Theme.PAPER_SURFACE_80)
   .backdropBlur(20)
   .border({ width: { bottom: 1 }, color: Theme.OUTLINE_VARIANT })

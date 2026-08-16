@@ -105,7 +105,7 @@ export struct HomePage {
           Footer()
         }
         .width('100%')
-        .padding({ top: px2vp(this.statusBarHeightPx) })
+        .padding({ top: this.getUIContext().px2vp(this.statusBarHeightPx) })
       }
       .width('100%')
       .height('100%')

@@ -32,7 +32,7 @@ struct UserSettingsPage {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
       Column() {
-      PageHeader({ title: '用户设置', showBack: true, onBack: () => this.goBack() });
+      PageHeader({ title: '用户设置', showBack: true, onBack: () => this.goBack(), topInset: true });
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 12 }) {
