@@ -99,6 +99,34 @@
     {
       "name": "on_error_container",
       "value": "#93000A"
+    },
+    {
+      "name": "ink_red",
+      "value": "#8B1E24"
+    },
+    {
+      "name": "paper_pink",
+      "value": "#F4E2DE"
+    },
+    {
+      "name": "ink_dark",
+      "value": "#2B241D"
+    },
+    {
+      "name": "stone_gray",
+      "value": "#8A8377"
+    },
+    {
+      "name": "line_light",
+      "value": "#D9D2C4"
+    },
+    {
+      "name": "paper_white",
+      "value": "#F7F1E5"
+    },
+    {
+      "name": "badge_hot",
+      "value": "#E8554E"
     }
   ]
 }

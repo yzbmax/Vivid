@@ -11,6 +11,166 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "home_brand",
+      "value": "VIVID"
+    },
+    {
+      "name": "home_archive_no",
+      "value": "COLOR LAB Nº 001"
+    },
+    {
+      "name": "home_hero_kicker",
+      "value": "COLOR LAB"
+    },
+    {
+      "name": "home_hero_date",
+      "value": "2026 · 08"
+    },
+    {
+      "name": "home_hero_title",
+      "value": "点击上传图片"
+    },
+    {
+      "name": "home_hero_subtitle",
+      "value": "从相册选择图像，开始调色与印信篆刻。"
+    },
+    {
+      "name": "home_seal",
+      "value": "印"
+    },
+    {
+      "name": "home_cta",
+      "value": "从相册选择"
+    },
+    {
+      "name": "home_cta_note",
+      "value": "图片全程本地处理 · 无需联网"
+    },
+    {
+      "name": "home_cta_selected",
+      "value": "已选择图片：%s"
+    },
+    {
+      "name": "home_cta_canceled",
+      "value": "未选择图片"
+    },
+    {
+      "name": "home_cta_failed",
+      "value": "选图失败，请重试"
+    },
+    {
+      "name": "home_section_cn",
+      "value": "技艺"
+    },
+    {
+      "name": "home_section_en",
+      "value": "PROCESS"
+    },
+    {
+      "name": "home_f1_title",
+      "value": "AI 自动识别主体"
+    },
+    {
+      "name": "home_f1_desc",
+      "value": "智能勾勒主体轮廓，一键建立精确蒙版"
+    },
+    {
+      "name": "home_f2_title",
+      "value": "主体 / 背景独立调色"
+    },
+    {
+      "name": "home_f2_desc",
+      "value": "分区调节亮度、对比度、饱和度与色温"
+    },
+    {
+      "name": "home_f3_title",
+      "value": "图片全程本地处理"
+    },
+    {
+      "name": "home_f3_desc",
+      "value": "无需上传云端，每一张作品由你掌控"
+    },
+    {
+      "name": "home_footer",
+      "value": "VIVID · DIGITAL ART ARCHIVE"
+    },
+    {
+      "name": "home_work_cn",
+      "value": "近作"
+    },
+    {
+      "name": "home_work_en",
+      "value": "RECENT WORKS"
+    },
+    {
+      "name": "home_work1_title",
+      "value": "远山"
+    },
+    {
+      "name": "home_work1_date",
+      "value": "2026 · 07"
+    },
+    {
+      "name": "home_work2_title",
+      "value": "残荷"
+    },
+    {
+      "name": "home_work2_date",
+      "value": "2026 · 06"
+    },
+    {
+      "name": "home_work3_title",
+      "value": "归舟"
+    },
+    {
+      "name": "home_work3_date",
+      "value": "2026 · 05"
+    },
+    {
+      "name": "home_tools_cn",
+      "value": "快捷功能"
+    },
+    {
+      "name": "home_tools_en",
+      "value": "QUICK TOOLS"
+    },
+    {
+      "name": "home_tool1",
+      "value": "智能抠图"
+    },
+    {
+      "name": "home_tool2",
+      "value": "画质超清"
+    },
+    {
+      "name": "home_tool3",
+      "value": "魔法消除"
+    },
+    {
+      "name": "home_tool4",
+      "value": "色彩分离"
+    },
+    {
+      "name": "home_tool5",
+      "value": "批量修图"
+    },
+    {
+      "name": "home_tool6",
+      "value": "印信篆刻"
+    },
+    {
+      "name": "home_tool7",
+      "value": "滤镜预设"
+    },
+    {
+      "name": "home_tool8",
+      "value": "所有工具"
+    },
+    {
+      "name": "home_tool_hot",
+      "value": "热"
     }
   ]
 }
