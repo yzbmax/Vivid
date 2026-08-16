@@ -1,6 +1,12 @@
 {
   "src": [
     "pages/Index",
-    "pages/WorkDetailPage"
+    "pages/WorkDetailPage",
+    "pages/LoginPage",
+    "pages/RegisterPage",
+    "pages/UserSettingsPage",
+    "pages/AppSettingsPage",
+    "pages/UserAgreementPage",
+    "pages/PrivacyPolicyPage"
   ]
 }

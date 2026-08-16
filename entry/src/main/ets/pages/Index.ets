@@ -1,5 +1,6 @@
 import { HomePage } from '../components/home/HomePage';
 import { WorksPage } from './WorksPage';
+import { MinePage } from '../components/mine/MinePage';
 import { Theme } from '../components/common/Theme';
 
 /**
@@ -8,7 +9,7 @@ import { Theme } from '../components/common/Theme';
  * 三个一级页面用底部 Tab 切换，启动默认进入首页（PRD F9）；
  * 「首页」复用组件 components/home/HomePage（ljh 迁入）；
  * 「作品」复用独立组件 WorksPage（其自身带宣纸背景与落款条）；
- * 「我的」在第二阶段接入 components/mine/MinePage，当前为占位。
+ * 「我的」复用组件 components/mine/MinePage（CentralOfUser 迁入）。
  * 编辑页（EditPage）为独立路由，不在此导航。
  */
 @Entry
@@ -35,22 +36,6 @@ struct Index {
     .padding({ bottom: px2vp(this.navBarHeightPx) })
   }
 
-  /** 我的占位（Phase 2 以 components/mine/MinePage 替换） */
-  @Builder
-  minePlaceholder() {
-    Column() {
-      Text('我的')
-        .fontFamily(Theme.FONT_SERIF)
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Theme.ON_SURFACE)
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(Theme.PAPER_BASE)
-  }
-
   build() {
     Tabs({ barPosition: BarPosition.End }) {
       TabContent() {
@@ -64,7 +49,7 @@ struct Index {
       .tabBar(this.tabBarItem(1, '作品'))
 
       TabContent() {
-        this.minePlaceholder()
+        MinePage()
       }
       .tabBar(this.tabBarItem(2, '我的'))
     }
