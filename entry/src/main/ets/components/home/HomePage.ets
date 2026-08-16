@@ -1,15 +1,12 @@
 // 首页组件（由 ljh 分支 pages/HomePage.ets 迁入 components/home/，去掉 @Entry 作为「首页」Tab 内容）。
-// 布局：Stack 层叠 —— PaperBackground（背景层，宣纸灰网格 + 顶部朱砂柔光）在底，Scroll（内容层）在上。
-// 内容层按顺序堆叠 7 个子组件：
-//   Header → HeroCard → CtaBlock → QuickToolsSection → RecentWorkSection → ProcessSection → Footer
+// 布局：Stack 层叠 —— PaperBackground（背景层）在底，统一 PageHeader + Scroll（内容层）在上。
+// 内容层按顺序堆叠 6 个子组件：HeroCard → CtaBlock → QuickToolsSection → RecentWorkSection → ProcessSection → Footer
 //
-// 顶部避让（与 LXT 统一，替代 ljh 的 topAvoidHeight）：
-//   EntryAbility 全屏后把状态栏高度换算为 vp 写入 AppStorage.statusBarHeight，
-//   这里用 @StorageProp 监听并在内容列顶部 pad，使文字不被状态栏遮挡，
+// 顶部避让：由 PageHeader（topInset=true）按 statusBarHeight(vp) 避让并让头部背景延伸到屏幕顶部；
 //   背景仍由 PaperBackground 的 Canvas 延展到屏幕顶端。
 
 import { PaperBackground } from '../common/PaperBackground';
-import { Header } from './Header';
+import { PageHeader } from '../common/PageHeader';
 import { HeroCard } from './HeroCard';
 import { CtaBlock } from './CtaBlock';
 import { QuickToolsSection } from './QuickToolsSection';
@@ -20,10 +17,6 @@ import { FeatureItem, WorkItem, ToolItem } from './HomeModels';
 
 @Component
 export struct HomePage {
-  // 状态栏避让高度（vp，全屏后由 EntryAbility 换算并写入 AppStorage）
-  @StorageProp('statusBarHeight')
-  statusBarHeightVp: number = 0;
-
   // 技艺列表数据：3 条核心功能特点，每条含矢量图标 SVG 路径
   // SVG 坐标系 28×28（与 Path 组件尺寸一致，无需 viewBox）
   @State features: FeatureItem[] = [
@@ -80,37 +73,41 @@ export struct HomePage {
       // 底层：宣纸背景（网格 + 朱砂柔光，Canvas 已扩展进安全区）
       PaperBackground()
 
-      // 上层：可滚动内容区（顶部按状态栏高度避让）
-      Scroll() {
-        Column() {
-          // ① 页头：品牌名 + 卷宗编号
-          Header()
+      // 上层：统一头部 + 可滚动内容区
+      Column() {
+        // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
+        PageHeader({ title: '首页', showBack: false, onBack: () => {}, topInset: true })
 
-          // ② 主视觉卡：点击可从相册选图
-          HeroCard()
+        Scroll() {
+          Column() {
+            // ① 主视觉卡：点击可从相册选图
+            HeroCard()
 
-          // ③ 辅助说明：隐私文案
-          CtaBlock()
+            // ② 辅助说明：隐私文案
+            CtaBlock()
 
-          // ④ 快捷功能区：2×4 功能网格
-          QuickToolsSection({ tools: this.tools })
+            // ③ 快捷功能区：2×4 功能网格
+            QuickToolsSection({ tools: this.tools })
 
-          // ⑤ 近作横滑区
-          RecentWorkSection({ works: this.works })
+            // ④ 近作横滑区
+            RecentWorkSection({ works: this.works })
 
-          // ⑥ 技艺列表区
-          ProcessSection({ features: this.features })
+            // ⑤ 技艺列表区
+            ProcessSection({ features: this.features })
 
-          // ⑦ 页脚
-          Footer()
+            // ⑥ 页脚
+            Footer()
+          }
+          .width('100%')
+          .padding({ top: 16 })
         }
+        .layoutWeight(1)
         .width('100%')
-        .padding({ top: this.statusBarHeightVp })
+        .scrollBar(BarState.Off)
+        .align(Alignment.Top)
       }
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Off)
-      .align(Alignment.Top)
     }
     .width('100%')
     .height('100%')

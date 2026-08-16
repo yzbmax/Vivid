@@ -37,8 +37,8 @@ export struct WorksPage {
         Column() {
             PaperBackground() {
                 Column() {
-                    // 统一头部标题栏（嵌入 PaperBackground，已由背景避让状态栏，故 topInset=false）
-                    PageHeader({ title: '作品', showBack: false, onBack: () => {}, topInset: false })
+                    // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
+                    PageHeader({ title: '作品', showBack: false, onBack: () => {}, topInset: true })
                     Scroll() {
                         Column() {
                             // 筛选分段（Works Page 样板：全部卷宗 / 已封印 / 草稿）

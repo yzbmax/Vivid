@@ -92,9 +92,9 @@ struct WorkDetailPage {
       PaperBackground() {
         Scroll() {
           Column() {
-            // 统一头部标题栏（嵌入 PaperBackground，已由背景避让状态栏，故 topInset=false）
+            // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
             PageHeader({ title: this.work?.title ?? '卷宗详情', showBack: true,
-              onBack: () => this.getUIContext().getRouter().back(), topInset: false })
+              onBack: () => this.getUIContext().getRouter().back(), topInset: true })
             if (this.work != null) {
               PaperFrame({ image: this.work.previewImage, fileNo: this.work.id })
                 .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })

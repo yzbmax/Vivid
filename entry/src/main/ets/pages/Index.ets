@@ -62,8 +62,8 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    // tab 栏高度 = 常规 56 + 底部导航条避让，使按钮文字始终位于系统手势条之上
-    .barHeight(56 + this.navBarHeightVp)
+    // tab 栏高度 = 64 + 底部导航条避让，使按钮文字始终位于系统手势条之上
+    .barHeight(64 + this.navBarHeightVp)
     .backgroundColor(Theme.PAPER_SURFACE)
     .divider({
       strokeWidth: 1,

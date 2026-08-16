@@ -16,10 +16,6 @@ export struct PaperBackground {
   defaultSlot() {
   }
 
-  /** 状态栏高度（vp，沉浸式全屏时内容顶部避让；由 EntryAbility 换算后写入 AppStorage） */
-  @StorageProp('statusBarHeight')
-  statusBarHeightVp: number = 0;
-
   private settings: RenderingContextSettings =
     new RenderingContextSettings(true);
 
@@ -95,14 +91,12 @@ export struct PaperBackground {
         })
         .hitTestBehavior(HitTestMode.None)
 
-      // 3) 子内容（顶部避让状态栏安全区；背景网格/柔光仍铺满屏幕）
-      // AppStorage 中 statusBarHeight 为 px，布局需转 vp
+      // 3) 子内容（顶部避让由页面内的统一 PageHeader 负责，背景网格/柔光铺满全屏）
       Column() {
         this.children()
       }
       .width('100%')
       .height('100%')
-      .padding({ top: this.statusBarHeightVp })
     }
     .width('100%')
     .height('100%')
