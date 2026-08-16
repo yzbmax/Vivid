@@ -17,9 +17,9 @@ import { Theme } from '../components/common/Theme';
 struct Index {
   @State currentIndex: number = 0;
 
-  /** 系统导航条高度（px，EntryAbility 全屏后写入；tab 栏底部按此避让） */
+  /** 系统导航条高度（vp，EntryAbility 换算后写入；tab 栏底部按此避让） */
   @StorageProp('navBarHeight')
-  navBarHeightPx: number = 0;
+  navBarHeightVp: number = 0;
 
   @Builder
   tabBarItem(index: number, label: string, icon: Resource) {
@@ -40,7 +40,7 @@ struct Index {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .padding({ bottom: this.getUIContext().px2vp(this.navBarHeightPx) })
+    .padding({ bottom: this.navBarHeightVp })
   }
 
   build() {
@@ -63,7 +63,7 @@ struct Index {
     .width('100%')
     .height('100%')
     // tab 栏高度 = 常规 56 + 底部导航条避让，使按钮文字始终位于系统手势条之上
-    .barHeight(56 + this.getUIContext().px2vp(this.navBarHeightPx))
+    .barHeight(56 + this.navBarHeightVp)
     .backgroundColor(Theme.PAPER_SURFACE)
     .divider({
       strokeWidth: 1,

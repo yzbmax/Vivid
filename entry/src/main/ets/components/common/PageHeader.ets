@@ -13,7 +13,7 @@ export class PageHeaderParams {
  * - 半透明 paper-surface + 毛玻璃，底部描边
  * - 标题用衬线字体（Noto Serif SC，类似 Times New Roman 的衬线气质）绝对居中
  * - 左侧可选返回箭头，右侧预留操作/头像位（等宽占位，保证标题居中）
- * - 顶部按 statusBarHeight（px）避让系统状态栏
+ * - 顶部按 statusBarHeight（vp）避让系统状态栏
  */
 @Builder
 export function PageHeader($$: PageHeaderParams) {
@@ -52,7 +52,7 @@ export function PageHeader($$: PageHeaderParams) {
     .padding({ left: 16, right: 16 })
   }
   .width('100%')
-  .padding({ top: $$.topInset ? getUIContext().px2vp(AppStorage.get<number>('statusBarHeight') ?? 0) : 0 })
+  .padding({ top: $$.topInset ? (AppStorage.get<number>('statusBarHeight') ?? 0) : 0 })
   .backgroundColor(Theme.PAPER_SURFACE_80)
   .backdropBlur(20)
   .border({ width: { bottom: 1 }, color: Theme.OUTLINE_VARIANT })

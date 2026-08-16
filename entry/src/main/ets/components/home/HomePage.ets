@@ -4,7 +4,7 @@
 //   Header → HeroCard → CtaBlock → QuickToolsSection → RecentWorkSection → ProcessSection → Footer
 //
 // 顶部避让（与 LXT 统一，替代 ljh 的 topAvoidHeight）：
-//   EntryAbility 全屏后把状态栏高度（px）写入 AppStorage.statusBarHeight，
+//   EntryAbility 全屏后把状态栏高度换算为 vp 写入 AppStorage.statusBarHeight，
 //   这里用 @StorageProp 监听并在内容列顶部 pad，使文字不被状态栏遮挡，
 //   背景仍由 PaperBackground 的 Canvas 延展到屏幕顶端。
 
@@ -20,9 +20,9 @@ import { FeatureItem, WorkItem, ToolItem } from './HomeModels';
 
 @Component
 export struct HomePage {
-  // 状态栏避让高度（px，全屏后由 EntryAbility 写入；布局前转 vp）
+  // 状态栏避让高度（vp，全屏后由 EntryAbility 换算并写入 AppStorage）
   @StorageProp('statusBarHeight')
-  statusBarHeightPx: number = 0;
+  statusBarHeightVp: number = 0;
 
   // 技艺列表数据：3 条核心功能特点，每条含矢量图标 SVG 路径
   // SVG 坐标系 28×28（与 Path 组件尺寸一致，无需 viewBox）
@@ -105,7 +105,7 @@ export struct HomePage {
           Footer()
         }
         .width('100%')
-        .padding({ top: this.getUIContext().px2vp(this.statusBarHeightPx) })
+        .padding({ top: this.statusBarHeightVp })
       }
       .width('100%')
       .height('100%')

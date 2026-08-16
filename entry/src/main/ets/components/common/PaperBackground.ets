@@ -16,9 +16,9 @@ export struct PaperBackground {
   defaultSlot() {
   }
 
-  /** 状态栏高度 px（沉浸式全屏时内容顶部避让；由 EntryAbility 写入 AppStorage，单位为物理像素） */
+  /** 状态栏高度（vp，沉浸式全屏时内容顶部避让；由 EntryAbility 换算后写入 AppStorage） */
   @StorageProp('statusBarHeight')
-  statusBarHeightPx: number = 0;
+  statusBarHeightVp: number = 0;
 
   private settings: RenderingContextSettings =
     new RenderingContextSettings(true);
@@ -102,7 +102,7 @@ export struct PaperBackground {
       }
       .width('100%')
       .height('100%')
-      .padding({ top: this.getUIContext().px2vp(this.statusBarHeightPx) })
+      .padding({ top: this.statusBarHeightVp })
     }
     .width('100%')
     .height('100%')

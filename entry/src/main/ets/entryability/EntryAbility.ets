@@ -1,6 +1,6 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { window } from '@kit.ArkUI';
+import { window, display } from '@kit.ArkUI';
 
 const DOMAIN = 0x0000;
 
@@ -26,10 +26,12 @@ export default class EntryAbility extends UIAbility {
       const win = windowStage.getMainWindowSync();
       // 沉浸式布局：窗口全屏，页面背景可延伸至状态栏 / 导航栏之外
       win.setWindowLayoutFullScreen(true).then(() => {
-        // 全屏生效后读取系统安全区高度，供页面内容上下避让
+        // 全屏生效后读取系统安全区高度（px），换算为 vp 后写入 AppStorage，供页面内容上下避让
         const avoid = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-        AppStorage.setOrCreate('statusBarHeight', avoid.topRect.height);
-        AppStorage.setOrCreate('navBarHeight', avoid.bottomRect.height);
+        const density: number = display.getDefaultDisplaySync().densityPixels;
+        const toVp = (px: number): number => density > 0 ? px / density : 0;
+        AppStorage.setOrCreate('statusBarHeight', toVp(avoid.topRect.height));
+        AppStorage.setOrCreate('navBarHeight', toVp(avoid.bottomRect.height));
       }).catch((err: Error) => {
         hilog.error(DOMAIN, 'testTag', 'Failed to set full screen. Cause: %{public}s', JSON.stringify(err));
       });
