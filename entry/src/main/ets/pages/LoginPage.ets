@@ -2,6 +2,7 @@ import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../co
 import { validateCode, validatePassword, validatePhone } from '../utils/AuthValidators';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { PageHeader } from '../components/common/PageHeader';
+import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 
 enum LoginMode {
   CODE,
@@ -19,9 +20,12 @@ struct LoginPage {
   @State codeError: string = '';
   @State passwordError: string = '';
   @State showPassword: boolean = false;
+  @State demoCode: string = '';
+  @State codeCountdown: number = 0;
 
   private readonly loginScroller: Scroller = new Scroller();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+  private codeTimer: number = -1;
 
   aboutToAppear(): void {
     const uiContext = this.getUIContext();
@@ -30,6 +34,7 @@ struct LoginPage {
   }
 
   aboutToDisappear(): void {
+    this.clearCodeTimer();
     this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
   }
 
@@ -82,23 +87,83 @@ struct LoginPage {
   }
 
   private requestCode(): void {
+    if (this.codeCountdown > 0) {
+      return;
+    }
     this.phoneError = validatePhone(this.phone);
-    if (this.phoneError.length === 0) {
-      this.showToast('验证码服务暂未接入');
+    if (this.phoneError.length > 0) {
+      return;
+    }
+    const result = MockAuthStore.requestCode(this.phone);
+    if (result.success) {
+      this.demoCode = result.demoCode ?? '';
+      this.codeCountdown = 60;
+      this.startCodeCountdown();
     }
   }
 
   private submit(): void {
     this.phoneError = validatePhone(this.phone);
+    this.codeError = '';
+    this.passwordError = '';
+    if (this.phoneError.length > 0) {
+      return;
+    }
     if (this.mode === LoginMode.CODE) {
       this.codeError = validateCode(this.code);
+      if (this.codeError.length > 0) {
+        return;
+      }
+      const result = MockAuthStore.loginWithCode(this.phone, this.code);
+      if (!result.success) {
+        this.codeError = this.authErrorMessage(result.errorCode);
+        return;
+      }
     } else {
       this.passwordError = validatePassword(this.password);
+      if (this.passwordError.length > 0) {
+        return;
+      }
+      const result = MockAuthStore.loginWithPassword(this.phone, this.password);
+      if (!result.success) {
+        this.passwordError = this.authErrorMessage(result.errorCode);
+        return;
+      }
     }
-    const valid = this.phoneError.length === 0 && (this.mode === LoginMode.CODE
-      ? this.codeError.length === 0 : this.passwordError.length === 0);
-    if (valid) {
-      this.showToast('前端校验通过，登录服务暂未接入');
+    this.goBack();
+  }
+
+  private authErrorMessage(errorCode?: AuthErrorCode): string {
+    switch (errorCode) {
+      case 'CODE_NOT_REQUESTED':
+        return '请先获取验证码';
+      case 'CODE_PHONE_MISMATCH':
+        return '验证码与手机号不匹配';
+      case 'INVALID_CODE':
+        return '验证码不正确';
+      case 'INVALID_CREDENTIALS':
+        return '手机号或密码不正确';
+      default:
+        return '';
+    }
+  }
+
+  private startCodeCountdown(): void {
+    this.clearCodeTimer();
+    this.codeTimer = setInterval(() => {
+      if (this.codeCountdown <= 1) {
+        this.codeCountdown = 0;
+        this.clearCodeTimer();
+      } else {
+        this.codeCountdown -= 1;
+      }
+    }, 1000);
+  }
+
+  private clearCodeTimer(): void {
+    if (this.codeTimer >= 0) {
+      clearInterval(this.codeTimer);
+      this.codeTimer = -1;
     }
   }
 
@@ -213,7 +278,7 @@ struct LoginPage {
                 Row({ space: 8 }) {
                   FloatingInput({ value: this.code, label: '验证码', error: this.codeError, layoutWeight: 1,
                     onChange: (value: string) => { this.code = value; this.codeError = ''; } });
-                  Button('获取验证码')
+                  Button(this.codeCountdown > 0 ? `重发 ${this.codeCountdown}s` : '获取验证码')
                     .width(108)
                     .height(50)
                     .margin({ top: 2 })
@@ -222,7 +287,14 @@ struct LoginPage {
                     .backgroundColor('#fff8f7')
                     .border({ width: 1, color: '#c8a4a0' })
                     .borderRadius(4)
+                    .enabled(this.codeCountdown === 0)
                     .onClick(() => this.requestCode());
+                }
+                if (this.demoCode.length > 0) {
+                  Text(`演示数据：验证码 ${this.demoCode}`)
+                    .fontSize(12)
+                    .fontColor(MASK_SEAL.primary)
+                    .padding({ left: 4 });
                 }
               }
             } else {
