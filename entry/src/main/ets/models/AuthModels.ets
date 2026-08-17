@@ -9,3 +9,10 @@ export interface MockUser {
   nickname: string;
   avatarGlyph: string;
 }
+
+export type AuthStatus = 'anonymous' | 'authenticated';
+
+export interface AuthSession {
+  status: AuthStatus;
+  user?: MockUser;
+}
