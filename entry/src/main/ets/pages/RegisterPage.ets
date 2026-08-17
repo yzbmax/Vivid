@@ -1,6 +1,7 @@
 import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePasswordConfirmation, validatePhone } from '../utils/AuthValidators';
 import { PageHeader } from '../components/common/PageHeader';
+import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 
 @Entry
 @Component
@@ -15,13 +16,13 @@ struct RegisterPage {
   @State passwordError: string = '';
   @State confirmationError: string = '';
   @State agreementError: string = '';
+  @State demoCode: string = '';
+  @State codeCountdown: number = 0;
 
-  private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message });
-    } catch (err) {
-      console.error(`Failed to show toast: ${JSON.stringify(err)}`);
-    }
+  private codeTimer: number = -1;
+
+  aboutToDisappear(): void {
+    this.clearCodeTimer();
   }
 
   private goBack(): void {
@@ -41,9 +42,18 @@ struct RegisterPage {
   }
 
   private requestCode(): void {
+    if (this.codeCountdown > 0) {
+      return;
+    }
     this.phoneError = validatePhone(this.phone);
-    if (this.phoneError.length === 0) {
-      this.showToast('验证码服务暂未接入');
+    if (this.phoneError.length > 0) {
+      return;
+    }
+    const result = MockAuthStore.requestCode(this.phone);
+    if (result.success) {
+      this.demoCode = result.demoCode ?? '';
+      this.codeCountdown = 60;
+      this.startCodeCountdown();
     }
   }
 
@@ -53,9 +63,46 @@ struct RegisterPage {
     this.passwordError = validatePassword(this.password);
     this.confirmationError = validatePasswordConfirmation(this.password, this.confirmation);
     this.agreementError = this.agreed ? '' : '请阅读并同意用户协议和隐私政策';
-    if (this.phoneError.length === 0 && this.codeError.length === 0 && this.passwordError.length === 0 &&
-      this.confirmationError.length === 0 && this.agreementError.length === 0) {
-      this.showToast('前端校验通过，注册服务暂未接入');
+    if (this.phoneError.length > 0 || this.codeError.length > 0 || this.passwordError.length > 0 ||
+      this.confirmationError.length > 0 || this.agreementError.length > 0) {
+      return;
+    }
+    const result = MockAuthStore.register(this.phone, this.code, this.password);
+    if (!result.success) {
+      this.applyAuthError(result.errorCode);
+      return;
+    }
+    this.goBack();
+  }
+
+  private applyAuthError(errorCode?: AuthErrorCode): void {
+    if (errorCode === 'PHONE_ALREADY_REGISTERED') {
+      this.phoneError = '该手机号已注册';
+    } else if (errorCode === 'CODE_NOT_REQUESTED') {
+      this.codeError = '请先获取验证码';
+    } else if (errorCode === 'CODE_PHONE_MISMATCH') {
+      this.codeError = '验证码与手机号不匹配';
+    } else if (errorCode === 'INVALID_CODE') {
+      this.codeError = '验证码不正确';
+    }
+  }
+
+  private startCodeCountdown(): void {
+    this.clearCodeTimer();
+    this.codeTimer = setInterval(() => {
+      if (this.codeCountdown <= 1) {
+        this.codeCountdown = 0;
+        this.clearCodeTimer();
+      } else {
+        this.codeCountdown -= 1;
+      }
+    }, 1000);
+  }
+
+  private clearCodeTimer(): void {
+    if (this.codeTimer >= 0) {
+      clearInterval(this.codeTimer);
+      this.codeTimer = -1;
     }
   }
 
@@ -132,7 +179,7 @@ struct RegisterPage {
             Row({ space: 8 }) {
               FloatingInput({ value: this.code, label: '验证码', error: this.codeError, layoutWeight: 1,
                 onChange: (value: string) => { this.code = value; this.codeError = ''; } });
-              Button('获取验证码')
+              Button(this.codeCountdown > 0 ? `重发 ${this.codeCountdown}s` : '获取验证码')
                 .width(108)
                 .height(50)
                 .margin({ top: 2 })
@@ -141,7 +188,14 @@ struct RegisterPage {
                 .backgroundColor('#fff8f7')
                 .border({ width: 1, color: '#c8a4a0' })
                 .borderRadius(4)
+                .enabled(this.codeCountdown === 0)
                 .onClick(() => this.requestCode());
+            }
+            if (this.demoCode.length > 0) {
+              Text(`演示数据：验证码 ${this.demoCode}`)
+                .fontSize(12)
+                .fontColor(MASK_SEAL.primary)
+                .padding({ left: 4 });
             }
             this.passwordField('设置密函', '8-20 位字母和数字组合', this.password, this.passwordError,
               (value: string) => { this.password = value; this.passwordError = ''; });
