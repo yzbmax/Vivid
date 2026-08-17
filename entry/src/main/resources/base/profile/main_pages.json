@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
+    "pages/EditPage",
     "pages/WorkDetailPage",
     "pages/LoginPage",
     "pages/RegisterPage",
