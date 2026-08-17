@@ -1,3 +1,5 @@
+import { AdjustParams } from './EditModels';
+
 /**
  * 作品状态：已封缄（已保存）/ 草稿 / 数据损坏。
  */
@@ -27,4 +29,17 @@ export class WorkRecord {
   status: WorkStatus = WorkStatus.Sealed;
   createdAt: number = 0;
   updatedAt: number = 0;
+  /** 原始图片 URI；内置 Resource 样例允许为空 */
+  sourceImageUri: string = '';
+  /** 原始图片宽度；未知时为 0 */
+  width: number = 0;
+  /** 原始图片高度；未知时为 0 */
+  height: number = 0;
+  /** 保存时的调色参数快照 */
+  adjustments: AdjustParams = {
+    exposure: 0,
+    brightness: 0,
+    contrast: 0,
+    saturation: 0
+  };
 }
