@@ -72,50 +72,6 @@ export struct SealPaperBackground {
           this.drawGrid();
         });
 
-      // 四角装饰保持原样
-      Column() {
-        Row() {
-          Image($r('app.media.L'))
-            .width(24)
-            .height(24)
-            .rotate({ angle: 90 });
-
-          Blank()
-            .layoutWeight(1);
-
-          Image($r('app.media.L'))
-            .width(24)
-            .height(24)
-            .rotate({ angle: 180 });
-        }
-        .width('100%');
-
-        Blank()
-          .layoutWeight(1);
-
-        Row() {
-          Image($r('app.media.L'))
-            .width(24)
-            .height(24);
-
-          Blank()
-            .layoutWeight(1);
-
-          Image($r('app.media.L'))
-            .width(24)
-            .height(24)
-            .rotate({ angle: 270 });
-        }
-        .width('100%');
-      }
-      .width('100%')
-      .height('100%')
-      .padding({
-        left: 10,
-        right: 10,
-        top: 80,
-        bottom: 10
-      });
     }
     .width('100%')
     .height('100%')

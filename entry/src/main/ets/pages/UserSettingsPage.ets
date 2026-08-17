@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 import { PageHeader } from '../components/common/PageHeader';
+import { AuthUiState } from '../models/AuthUiState';
 import { AuthSession, MockUser } from '../models/AuthModels';
 import { MockAuthStore } from '../models/MockAuthStore';
 
@@ -25,10 +26,14 @@ struct UserSettingsPage {
   }
 
   private async openLogin(): Promise<void> {
+    await this.openPage('pages/LoginPage');
+  }
+
+  private async openPage(url: string): Promise<void> {
     try {
-      await this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+      await this.getUIContext().getRouter().pushUrl({ url: url });
     } catch (err) {
-      console.error(`Failed to open login page: ${JSON.stringify(err)}`);
+      console.error(`Failed to open ${url}: ${JSON.stringify(err)}`);
     }
   }
 
@@ -47,9 +52,29 @@ struct UserSettingsPage {
     return this.currentSession().user;
   }
 
-  private logout(): void {
-    MockAuthStore.logout();
-    this.showToast('已退出登录');
+  private currentAvatarUri(): string {
+    return MockAuthStore.getCurrentAvatarUri() ?? '';
+  }
+
+  private async confirmLogout(): Promise<void> {
+    try {
+      const response = await this.getUIContext().getPromptAction().showDialog({
+        title: '确认退出登录',
+        message: '退出后仍会保留当前进程内的 Mock 账号资料。',
+        buttons: [
+          { text: '取消', color: MASK_SEAL.inkMuted },
+          { text: '退出登录', color: MASK_SEAL.primary }
+        ]
+      });
+      if (response.index !== 1) {
+        return;
+      }
+      MockAuthStore.logout();
+      AuthUiState.bumpRevision();
+      this.showToast('已退出登录');
+    } catch (err) {
+      console.error(`Failed to confirm logout: ${JSON.stringify(err)}`);
+    }
   }
 
   build() {
@@ -67,18 +92,27 @@ struct UserSettingsPage {
               .letterSpacing(1.5)
               .width('100%');
             Row({ space: 14 }) {
-              Text(this.currentUser()?.avatarGlyph ?? '未')
-                .fontFamily('Noto Serif SC')
-                .fontSize(22)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(MASK_SEAL.primary)
-                .width(58)
-                .height(58)
-                .textAlign(TextAlign.Center)
-                .padding({ top: 14 })
-                .backgroundColor('#f9e3e1')
-                .border({ width: 1, color: '#d2a5a0' })
-                .borderRadius(29);
+              if (this.isAuthenticated() && this.currentAvatarUri().length > 0) {
+                Image(this.currentAvatarUri())
+                  .width(58)
+                  .height(58)
+                  .objectFit(ImageFit.Cover)
+                  .border({ width: 1, color: '#d2a5a0' })
+                  .borderRadius(29);
+              } else {
+                Text(this.currentUser()?.avatarGlyph ?? '未')
+                  .fontFamily('Noto Serif SC')
+                  .fontSize(22)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(MASK_SEAL.primary)
+                  .width(58)
+                  .height(58)
+                  .textAlign(TextAlign.Center)
+                  .padding({ top: 14 })
+                  .backgroundColor('#f9e3e1')
+                  .border({ width: 1, color: '#d2a5a0' })
+                  .borderRadius(29);
+              }
               Column({ space: 4 }) {
                 Text(this.isAuthenticated() ? (this.currentUser()?.nickname ?? '个人称谓') : '个人称谓')
                   .fontSize(16).fontColor(MASK_SEAL.ink);
@@ -87,7 +121,7 @@ struct UserSettingsPage {
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start);
-              Text(this.isAuthenticated() ? '' : '›')
+              Text('›')
                 .fontSize(24).fontColor(MASK_SEAL.primary);
             }
             .width('100%')
@@ -97,6 +131,8 @@ struct UserSettingsPage {
             .onClick(() => {
               if (!this.isAuthenticated()) {
                 this.openLogin();
+              } else {
+                this.openPage('pages/ProfileEditPage');
               }
             });
             if (this.isAuthenticated()) {
@@ -104,7 +140,7 @@ struct UserSettingsPage {
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary)
                 .padding({ left: 18, right: 18 });
-              SealButton({ text: '退出登录', secondary: true, onTap: () => this.logout() });
+              SealButton({ text: '退出登录', secondary: true, onTap: () => this.confirmLogout() });
             }
           }
 
@@ -119,8 +155,10 @@ struct UserSettingsPage {
             SettingRow({
               title: '手机号与登录安全',
               detail: this.isAuthenticated() ? (this.currentUser()?.maskedPhone ?? '未登录') : '未登录',
-              interactive: false,
-              onTap: () => this.showToast(this.isAuthenticated() ? '演示账号仅保留在当前进程' : '登录后可管理')
+              interactive: true,
+              onTap: () => this.isAuthenticated()
+                ? this.openPage('pages/AccountSecurityPage')
+                : this.openLogin()
             });
           }
 

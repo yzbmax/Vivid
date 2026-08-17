@@ -1,7 +1,7 @@
 import { Theme } from './Theme';
 
 /**
- * 卷轴装裱画框（预留组件 F1 的详情页形态）：纸面装裱 + 图片 + 网格叠层 + 四角括号 + 底部卷宗编号。
+ * 卷轴装裱画框（预留组件 F1 的详情页形态）：纸面装裱 + 图片 + 网格叠层 + 底部卷宗编号。
  * 参考：docs/公共组件预留文档.md F1、stitch「Work Detail Page」Canvas Area。
  */
 @Component
@@ -74,42 +74,6 @@ export struct PaperFrame {
             .justifyContent(FlexAlign.Center)
           }
           this.gridOverlay()
-          // 四角括号（定位用 position + markAnchor；BorderOptions 按边用 width/color 的对象形式）
-          Row()
-            .width(12)
-            .height(12)
-            .border({
-              width: { top: 2, left: 2 },
-              color: { top: Theme.ON_SURFACE_VARIANT, left: Theme.ON_SURFACE_VARIANT }
-            })
-            .position({ x: 0, y: 0 })
-          Row()
-            .width(12)
-            .height(12)
-            .border({
-              width: { top: 2, right: 2 },
-              color: { top: Theme.ON_SURFACE_VARIANT, right: Theme.ON_SURFACE_VARIANT }
-            })
-            .position({ x: '100%', y: 0 })
-            .markAnchor({ x: 12, y: 0 })
-          Row()
-            .width(12)
-            .height(12)
-            .border({
-              width: { bottom: 2, left: 2 },
-              color: { bottom: Theme.ON_SURFACE_VARIANT, left: Theme.ON_SURFACE_VARIANT }
-            })
-            .position({ x: 0, y: '100%' })
-            .markAnchor({ x: 0, y: 12 })
-          Row()
-            .width(12)
-            .height(12)
-            .border({
-              width: { bottom: 2, right: 2 },
-              color: { bottom: Theme.ON_SURFACE_VARIANT, right: Theme.ON_SURFACE_VARIANT }
-            })
-            .position({ x: '100%', y: '100%' })
-            .markAnchor({ x: 12, y: 12 })
         }
         .width('100%')
         .layoutWeight(1)

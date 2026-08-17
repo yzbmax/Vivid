@@ -5,6 +5,8 @@
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/UserSettingsPage",
+    "pages/ProfileEditPage",
+    "pages/AccountSecurityPage",
     "pages/AppSettingsPage",
     "pages/UserAgreementPage",
     "pages/PrivacyPolicyPage"

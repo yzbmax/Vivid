@@ -3,6 +3,7 @@ import { validateCode, validatePassword, validatePhone } from '../utils/AuthVali
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { PageHeader } from '../components/common/PageHeader';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
+import { AuthUiState } from '../models/AuthUiState';
 
 enum LoginMode {
   CODE,
@@ -130,6 +131,7 @@ struct LoginPage {
         return;
       }
     }
+    AuthUiState.bumpRevision();
     this.goBack();
   }
 
@@ -139,6 +141,10 @@ struct LoginPage {
         return '请先获取验证码';
       case 'CODE_PHONE_MISMATCH':
         return '验证码与手机号不匹配';
+      case 'CODE_PURPOSE_MISMATCH':
+        return '验证码用途不匹配，请重新获取';
+      case 'CODE_ALREADY_CONSUMED':
+        return '验证码已使用，请重新获取';
       case 'INVALID_CODE':
         return '验证码不正确';
       case 'INVALID_CREDENTIALS':
@@ -223,17 +229,10 @@ struct LoginPage {
       Scroll(this.loginScroller) {
         Column({ space: 24 }) {
           Column({ space: 8 }) {
-            Text('印')
-              .fontFamily('Noto Serif SC')
-              .fontSize(32)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(MASK_SEAL.primary)
+            Image($r('app.media.Login'))
               .width(68)
               .height(68)
-              .textAlign(TextAlign.Center)
-              .padding({ top: 13 })
-              .backgroundColor('#f9e3e1')
-              .border({ width: 1, color: '#d2a5a0' })
+              .objectFit(ImageFit.Contain)
               .borderRadius(34);
             Text('档册查验')
               .fontFamily('Noto Serif SC')

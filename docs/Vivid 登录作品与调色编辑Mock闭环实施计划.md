@@ -81,12 +81,12 @@
 
 **验收标准：**
 
-- [ ] 非法手机号、错误验证码、错误密码分别显示对应错误，不只弹通用 Toast。
-- [ ] 登录成功后返回“我的”，页面从“未登录”切换为用户卡片。
-- [ ] 注册勾选协议并通过校验后能形成 Mock 会话。
-- [ ] 登录状态下隐藏“登录 / 注册”，显示“退出登录”。
-- [ ] 退出后恢复未登录状态，设置页不能继续展示旧用户信息。
-- [ ] Mock Store 单元测试覆盖成功、失败、退出与脱敏展示。
+- [x] 非法手机号、错误验证码、错误密码分别显示对应错误，不只弹通用 Toast。
+- [x] 登录成功后返回“我的”，页面从“未登录”切换为用户卡片。
+- [x] 注册勾选协议并通过校验后能形成 Mock 会话。
+- [x] 登录状态下隐藏“登录 / 注册”，显示“退出登录”。
+- [x] 退出后恢复未登录状态，设置页不能继续展示旧用户信息。
+- [x] Mock Store 单元测试覆盖成功、失败、退出与脱敏展示。
 
 ### 开发者 B：作品数据、照片导入与续编入口
 
@@ -239,7 +239,7 @@ adjustments: AdjustParams;
 
 - [ ] 在 `codex/merge-prep` 依次集成：共享模型 → Work Store → EditPage → 入口路由 → Auth。
 - [ ] 每次集成后运行 `git diff --check`、路由注册检查和引用残留检查。
-- [ ] 最后仅运行与变更直接相关的单元测试、静态检查和一次 debug 编译；不生成 HAP。
+- [ ] 最后仅运行与变更直接相关的单元测试、静态检查和一次 `assembleApp` debug 构建；不交付签名 HAP。
 
 ## 六、提交建议
 
@@ -304,7 +304,7 @@ adjustments: AdjustParams;
 - Works：运行 `MockWorkStore.test.ets`。
 - Editor：运行 `EditModels.test.ets`。
 - 集成前：`git diff --check`。
-- 集成完成：执行一次 `default@BuildArkTS` debug 编译，只验证 ArkTS 编译与路由注册，不打包 HAP。
+- 集成完成：执行项目级 `assembleApp` debug 构建，只验证 ArkTS 编译、路由注册和应用打包链路；不直接执行 `default@BuildArkTS`。
 
 真机相册 URI、系统选择器和视觉预览必须在真机或模拟器补测；未连接设备时不得声称这些能力已验证通过。
 
@@ -338,4 +338,133 @@ adjustments: AdjustParams;
 - 真实像素级高质量渲染与系统相册导出；
 - 图片云同步、跨设备恢复和作品分享；
 - 社区、会员、支付、埋点和生产发布；
-- HAP 生成、签名、上架或部署。
+- HAP 签名、上架或部署；`assembleApp` 仅作为本地编译与打包链路验证。
+
+---
+
+## 十二、本轮用户资料与登录安全增补（开发者 A）
+
+本节是在既有登录 Mock 闭环基础上的增补要求。计划书先于代码修改；本轮新增契约创建后即冻结，页面只消费契约，不因 UI 调整改名或改变字段含义。
+
+### 12.1 产品边界与安全决策
+
+- 退出登录必须先弹确认框；取消不改变会话，确认后才调用 `logout()`。
+- 用户设置的“个人册页”进入昵称、预设印章字形头像编辑；本轮不接系统相册头像、图片 URI 或新增权限。
+- “手机号与登录安全”进入独立安全页，支持换绑手机号、首次设密/修改密码和注销账号。
+- Mock 阶段换绑手机号只校验新手机号验证码，不增加旧手机号或密码二次校验；真实服务接入时必须重新评估高风险操作验证策略。
+- 验证码登录未注册手机号时创建无密码正式 Mock 账户；首次设密需验证当前绑定手机号，之后修改密码必须输入原密码。
+- 昵称保存前执行 `trim()`，合法条件为 `trim().length` 在 1—12 之间；长度按 ArkTS/JS UTF-16 code units 计算，纯空白无效。
+- 账户注销必须先完成凭证验证，再弹最终确认框；取消确认会清除本次注销授权并要求重新验证。
+- 本轮不接真实短信、后端账号中心、持久化存储或生产安全策略。
+
+### 12.2 新增冻结契约
+
+新增 `entry/src/main/ets/models/AccountSettingsModels.ets`，不得重声明或改动已冻结的 `MockUser`、`AuthStatus`、`AuthSession`、`EditEntrySource`、`EditRouteParams` 和 `AdjustParams`。
+
+```typescript
+export interface AccountSecuritySnapshot {
+  maskedPhone: string;
+  hasPassword: boolean;
+}
+
+export interface ProfileUpdateRequest {
+  nickname: string;
+  avatarGlyph: string;
+}
+
+export interface PhoneBindingChangeRequest {
+  newPhone: string;
+  code: string;
+}
+
+export interface PasswordSetupRequest {
+  code: string;
+  newPassword: string;
+}
+
+export interface PasswordChangeRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface AccountClosureVerification {
+  method: 'password' | 'code';
+  credential: string;
+}
+```
+
+同时冻结 `AccountSettingsResult`、`SettingsCodeRequestResult` 和 `AccountSettingsErrorCode`。错误码至少包括：
+
+`INVALID_NICKNAME`、`INVALID_AVATAR_GLYPH`、`INVALID_PHONE`、`INVALID_CODE`、`CODE_NOT_REQUESTED`、`CODE_PHONE_MISMATCH`、`CODE_PURPOSE_MISMATCH`、`CODE_ALREADY_CONSUMED`、`SAME_PHONE`、`PHONE_ALREADY_BOUND`、`PASSWORD_NOT_SET`、`PASSWORD_ALREADY_SET`、`INVALID_PASSWORD`、`INCORRECT_CURRENT_PASSWORD`、`SAME_PASSWORD`、`NOT_AUTHENTICATED`、`INVALID_CREDENTIALS`、`CLOSURE_NOT_VERIFIED`。
+
+### 12.3 Store 状态与不变量
+
+`MockAuthStore` 内部账户记录使用稳定的 `accountId`，手机号只是可修改属性：
+
+```typescript
+interface MockAccountRecord {
+  accountId: string;
+  phone: string;
+  password?: string;
+  nickname: string;
+  avatarGlyph: string;
+}
+```
+
+- `accountId` 创建后不改变，也不从手机号推导；`MockUser.userId` 是它的公开投影。
+- Store 保存 `currentAccountId`；`getSession()` 每次从当前账户记录重新投影，确保 `session.user` 始终是最新资料。
+- 新增动作：`getAccountSecuritySnapshot`、`updateProfile`、`requestPhoneBindingCode`/`changePhoneBinding`、`requestPasswordSetupCode`/`setupPassword`、`changePassword`、`requestAccountClosureCode`、`verifyAccountClosure`、`cancelAccountClosure`、`closeAccount`。
+- 密码不进入 `MockUser` 或 `AuthSession`，安全快照只暴露 `hasPassword`。
+
+所有验证码统一使用带手机号、用途、验证码和消费状态的内部 Challenge：
+
+```typescript
+type MockCodePurpose = 'LOGIN' | 'REGISTRATION' | 'PHONE_BINDING' | 'PASSWORD_SETUP' | 'ACCOUNT_CLOSURE';
+
+interface MockCodeChallenge {
+  phone: string;
+  purpose: MockCodePurpose;
+  code: string;
+  consumed: boolean;
+}
+```
+
+每个用途最多保留一个有效 Challenge；同一用途的新请求替换旧请求，不同用途的 Challenge 可以并存。校验必须同时满足手机号、用途、验证码和 `consumed === false`；成功后立即消费，失败不消费。注册单独标记 `REGISTRATION`，避免复用登录用途。
+
+注销授权使用内部 `AccountClosureAuthorization`（`verified`、`issuedAt`、`accountId`）：
+
+- `verifyAccountClosure()` 先清旧授权，凭证成功后建立只属于当前账户的授权。
+- `closeAccount()` 无凭证参数，只接受属于当前账户且已验证的授权；成功或失败都立即清除授权。
+- 登出、重新登录、切换账户、成功修改账户安全信息、页面离开和最终确认取消，都会清除授权。
+- 本轮不添加分钟级过期计时；授权仅在一次“验证—最终确认”交互生命周期内有效。
+
+### 12.4 UI 刷新与页面
+
+新增 `AuthUiState`，只负责维护 `authRevision` 和 `AppStorage`。`MockAuthStore` 不再直接依赖 ArkUI 或 revision。登录、注册、退出、资料保存、换绑、设密、改密和注销成功后由页面调用 `AuthUiState.bumpRevision()`。
+
+新增路由页面：
+
+- `ProfileEditPage`：昵称和“印、墨、朱、卷、砚、山”预设字形头像选择。
+- `AccountSecurityPage`：换绑手机号、首次设密/修改密码、凭证验证和注销确认。
+
+`UserSettingsPage` 的个人册页与安全行改为入口；未登录统一转登录页。`MinePage` 与 `UserSettingsPage` 的退出操作均使用确认弹窗。注销成功后删除账户、清理 Challenge/授权/会话并返回 Mine 或首页匿名态。
+
+### 12.5 验收与实施顺序
+
+1. 更新本计划书。
+2. 新增并冻结 `AccountSettingsModels.ets`。
+3. 先扩展 `MockAuthStore.test.ets`，覆盖稳定账户 ID、Session 最新投影、Challenge 一次性消费、用途/手机号隔离、注销授权生命周期和 logout/closeAccount 分离。
+4. 重构 `MockAuthStore.ets`，运行 Auth 测试，再迁移 `AuthUiState`。
+5. 实现 `ProfileEditPage`、`AccountSecurityPage`，接入用户设置、我的、登录和注册页面并注册路由。
+6. 从 `SealPaperBackground` 移除四个 `L.svg` 节点，从 `PaperFrame` 移除四个定位括号；保留资源文件。
+7. 执行 `git diff --check`、接口/路由/装饰引用检查、Auth 单元测试和项目级 `assembleApp`。不执行 `default@BuildArkTS`。
+
+本轮不自动提交或推送，完成后交由开发者 A 审查。
+
+### 12.6 相册头像上传增补
+
+- `ProfileEditPage` 增加“从相册上传头像”入口，沿用项目已有 `PhotoViewPicker`，仅选择一张图片，不新增相册读写权限。
+- 相册选择结果先作为页面临时预览，点击“落印保存”时与昵称、印章字形一起原子写入内部账户记录；取消选择、空结果或系统异常不修改账户、不刷新 `authRevision`。
+- 内部 `MockAccountRecord` 增加可选 `avatarUri`；新增 `ProfileAvatarModels.ets`、`getCurrentAvatarUri()` 和 `updateProfileWithAvatar()`，不得修改已冻结的 `MockUser`、`AuthSession` 或 `ProfileUpdateRequest`。
+- `MinePage`、`UserSettingsPage` 和个人册页优先显示相册图片，无图片时回退现有六种印章字形。
+- 头像 URI 只在当前进程 Mock 账户记录中保留：退出登录后重新登录仍存在，注销账号时随账户删除；本轮不做裁剪、压缩、后端上传、文件复制或持久化。

@@ -2,6 +2,7 @@ import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../co
 import { validateCode, validatePassword, validatePasswordConfirmation, validatePhone } from '../utils/AuthValidators';
 import { PageHeader } from '../components/common/PageHeader';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
+import { AuthUiState } from '../models/AuthUiState';
 
 @Entry
 @Component
@@ -49,7 +50,7 @@ struct RegisterPage {
     if (this.phoneError.length > 0) {
       return;
     }
-    const result = MockAuthStore.requestCode(this.phone);
+    const result = MockAuthStore.requestRegistrationCode(this.phone);
     if (result.success) {
       this.demoCode = result.demoCode ?? '';
       this.codeCountdown = 60;
@@ -72,6 +73,7 @@ struct RegisterPage {
       this.applyAuthError(result.errorCode);
       return;
     }
+    AuthUiState.bumpRevision();
     this.goBack();
   }
 
@@ -82,6 +84,10 @@ struct RegisterPage {
       this.codeError = '请先获取验证码';
     } else if (errorCode === 'CODE_PHONE_MISMATCH') {
       this.codeError = '验证码与手机号不匹配';
+    } else if (errorCode === 'CODE_PURPOSE_MISMATCH') {
+      this.codeError = '验证码用途不匹配，请重新获取';
+    } else if (errorCode === 'CODE_ALREADY_CONSUMED') {
+      this.codeError = '验证码已使用，请重新获取';
     } else if (errorCode === 'INVALID_CODE') {
       this.codeError = '验证码不正确';
     }
@@ -148,17 +154,10 @@ struct RegisterPage {
       Scroll() {
         Column({ space: 20 }) {
           Column({ space: 8 }) {
-            Text('册')
-              .fontFamily('Noto Serif SC')
-              .fontSize(32)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(MASK_SEAL.primary)
+            Image($r('app.media.Register'))
               .width(68)
               .height(68)
-              .textAlign(TextAlign.Center)
-              .padding({ top: 13 })
-              .backgroundColor('#f9e3e1')
-              .border({ width: 1, color: '#d2a5a0' })
+              .objectFit(ImageFit.Contain)
               .borderRadius(34);
             Text('注册档册')
               .fontFamily('Noto Serif SC')

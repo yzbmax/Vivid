@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../MaskSeal';
 import { PageHeader } from '../common/PageHeader';
+import { AuthUiState } from '../../models/AuthUiState';
 import { AuthSession, MockUser } from '../../models/AuthModels';
 import { MockAuthStore } from '../../models/MockAuthStore';
 
@@ -36,12 +37,28 @@ export struct MinePage {
     return this.currentSession().user;
   }
 
-  private logout(): void {
-    MockAuthStore.logout();
+  private currentAvatarUri(): string {
+    return MockAuthStore.getCurrentAvatarUri() ?? '';
+  }
+
+  private async confirmLogout(): Promise<void> {
     try {
+      const response = await this.getUIContext().getPromptAction().showDialog({
+        title: '确认退出登录',
+        message: '退出后仍会保留当前进程内的 Mock 账号资料。',
+        buttons: [
+          { text: '取消', color: MASK_SEAL.inkMuted },
+          { text: '退出登录', color: MASK_SEAL.primary }
+        ]
+      });
+      if (response.index !== 1) {
+        return;
+      }
+      MockAuthStore.logout();
+      AuthUiState.bumpRevision();
       this.getUIContext().getPromptAction().showToast({ message: '已退出登录' });
     } catch (err) {
-      console.error(`Failed to show logout toast: ${JSON.stringify(err)}`);
+      console.error(`Failed to confirm logout: ${JSON.stringify(err)}`);
     }
   }
 
@@ -54,11 +71,19 @@ export struct MinePage {
         Column({ space: 20 }) {
           Column({ space: 10 }) {
             Stack({ alignContent: Alignment.Center }) {
-              Text(this.currentUser()?.avatarGlyph ?? '印')
-                .fontFamily('Noto Serif SC')
-                .fontSize(34)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(MASK_SEAL.primary);
+              if (this.isAuthenticated() && this.currentAvatarUri().length > 0) {
+                Image(this.currentAvatarUri())
+                  .width(78)
+                  .height(78)
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius(39);
+              } else {
+                Text(this.currentUser()?.avatarGlyph ?? '印')
+                  .fontFamily('Noto Serif SC')
+                  .fontSize(34)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(MASK_SEAL.primary);
+              }
             }
             .width(78)
             .height(78)
@@ -78,7 +103,7 @@ export struct MinePage {
               Text('演示数据 · 当前进程会话')
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary);
-              SealButton({ text: '退出登录', secondary: true, onTap: () => this.logout() });
+              SealButton({ text: '退出登录', secondary: true, onTap: () => this.confirmLogout() });
             } else {
               Text('未登录')
                 .fontFamily('Noto Serif SC')
