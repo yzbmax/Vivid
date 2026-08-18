@@ -9,9 +9,11 @@
  *   约束：Resource 样例作品允许 sourceImageUri 为空；新导入作品必须有本地 URI。
  * - MockWorkStore 方法名冻结（B 实现）：list / findById / create / update，见 WorkStoreApi。
  * - C 不直接操作 WorkStore 内部数组，只经 WorkStoreApi 存取作品。
+ * - C 侧本轮保存契约：WorkDraft / SaveMode / buildSaveIntent（见文末）。B 的
+ *   WorkRecord 扩展字段交付后由适配层把 WorkDraft 映射为 WorkRecord，不修改本文件。
  */
 
-import { WorkRecord } from './WorkRecord';
+import { WorkRecord, WorkStatus } from './WorkRecord';
 
 /** 进入编辑页的来源：首页选图 或 作品续编。 */
 export enum EditEntrySource {
@@ -101,3 +103,146 @@ export interface WorkStoreApi {
   create(rec: WorkRecord): WorkRecord;
   update(id: string, patch: WorkRecord): WorkRecord;
 }
+
+// ───────────────────────── 编辑状态纯逻辑（第 1/2 阶段）─────────────────────────
+
+/** 滑块取值格式化：0 → '00'，15 → '+15'，-8 → '-08'，100 → '+100'，-100 → '-100'。 */
+export function formatAdjustValue(v: number): string {
+  const clamped = Math.round(Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, v)));
+  const sign = clamped > 0 ? '+' : (clamped < 0 ? '-' : '');
+  const abs = Math.abs(clamped);
+  const digits = abs < 10 ? `0${abs}` : `${abs}`;
+  return `${sign}${digits}`;
+}
+
+/** 参数 → 预览效果的纯映射结果。 */
+export interface AdjustEffects {
+  /** 明暗覆盖层透明度 [0,1]，0=无。 */
+  luminanceAlpha: number;
+  /** true=白色覆盖层（提亮），false=黑色覆盖层（压暗）。 */
+  luminanceLight: boolean;
+  /** 组件对比度，1=原始，范围 [0.1, 1.9]。 */
+  contrast: number;
+  /** 组件饱和度，1=原始，范围 [0.2, 1.8]。 */
+  saturate: number;
+}
+
+/**
+ * 由四项调色参数计算预览效果，每项都产生可见反馈：
+ * 曝光 + 亮度 → 明暗覆盖层；对比度 → 组件 contrast()；饱和度 → 组件 saturate()。
+ * 四个参数都从原图与当前参数重新计算，不把滑动累积写回源图。
+ */
+export function mapParamsToEffects(p: AdjustParams): AdjustEffects {
+  const e = clampAdjustments(p);
+  const lum = (e.exposure * 0.30 + e.brightness * 0.25) / 100; // [-0.55, 0.55]
+  const luminanceAlpha = Math.round(Math.min(0.6, Math.abs(lum)) * 1000) / 1000;
+  const luminanceLight = lum >= 0;
+  const contrast = Math.round((1 + (e.contrast / 100) * 0.9) * 1000) / 1000; // [0.1, 1.9]
+  const saturate = Math.round((1 + (e.saturation / 100) * 0.8) * 1000) / 1000; // [0.2, 1.8]
+  return { luminanceAlpha, luminanceLight, contrast, saturate };
+}
+
+/** 保存动作：新建 或 续编更新。 */
+export enum SaveMode {
+  Create = 'create',
+  Update = 'update'
+}
+
+/**
+ * C 侧保存用的作品草稿（本轮独立契约）。B 的 WorkRecord 扩展字段交付后，
+ * 由适配层把 WorkDraft 映射为 WorkRecord，字段与冻结契约一致。
+ */
+export interface WorkDraft {
+  id: string;
+  title: string;
+  sourceImageUri: string;
+  width: number;
+  height: number;
+  adjustments: AdjustParams;
+  status: WorkStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** buildSaveIntent 的结果：保存方向 + 草稿。 */
+export interface SaveIntent {
+  mode: SaveMode;
+  id?: string;
+  draft: WorkDraft;
+}
+
+/**
+ * 构造保存意图：
+ * - source=Work 且有 workId → 续编更新（不重复建卡，计划书 §三 B 验收）。
+ * - 否则 → 新建，标题「未题新卷」、状态已封缄。
+ * now 由调用方传入，保证纯函数可单测。
+ */
+export function buildSaveIntent(
+  source: EditEntrySource,
+  workId: string,
+  imageUri: string,
+  params: AdjustParams,
+  now: number
+): SaveIntent {
+  const clamped = clampAdjustments(params);
+  if (source === EditEntrySource.Work && workId !== '') {
+    const draft: WorkDraft = {
+      id: workId,
+      title: '未题新卷',
+      sourceImageUri: imageUri,
+      width: 0,
+      height: 0,
+      adjustments: clamped,
+      status: WorkStatus.Sealed,
+      createdAt: 0,
+      updatedAt: now
+    };
+    return { mode: SaveMode.Update, id: workId, draft };
+  }
+  const draft: WorkDraft = {
+    id: `MOCK-${now}`,
+    title: '未题新卷',
+    sourceImageUri: imageUri,
+    width: 0,
+    height: 0,
+    adjustments: clamped,
+    status: WorkStatus.Sealed,
+    createdAt: now,
+    updatedAt: now
+  };
+  return { mode: SaveMode.Create, draft };
+}
+
+// ───────────────────────── 编辑页布局常量（第 3 轮样式）─────────────────────────
+
+/** 底部工具导航条目。 */
+export interface EditorTool {
+  key: string;
+  label: string;
+}
+
+/** 编辑页底部工具导航（7 项），当前活动工具「调节」。 */
+export const EDITOR_TOOLS: EditorTool[] = [
+  { key: 'filter', label: '滤镜' },
+  { key: 'subject', label: '主体' },
+  { key: 'background', label: '背景' },
+  { key: 'adjust', label: '调节' },
+  { key: 'sticker', label: '贴纸' },
+  { key: 'text', label: '文字' },
+  { key: 'template', label: '模板' }
+];
+
+/** 调节工具下的调整类型定义。 */
+export interface AdjustTypeDef {
+  key: string;
+  label: string;
+  unit: string;
+}
+
+/** 「调节」工具内的四种调整类型。 */
+export const ADJUST_TYPES: AdjustTypeDef[] = [
+  { key: 'exposure', label: '曝光', unit: 'EXP' },
+  { key: 'brightness', label: '亮度', unit: 'LUM' },
+  { key: 'contrast', label: '对比度', unit: 'CON' },
+  { key: 'saturation', label: '饱和度', unit: 'SAT' }
+];
