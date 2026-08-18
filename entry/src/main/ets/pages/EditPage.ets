@@ -173,7 +173,7 @@ struct EditPage {
         }
       })
         .layoutWeight(1)
-        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.GUTTER })
+        .padding({ top: Theme.GUTTER })
 
       if (this.route?.source === EditEntrySource.Work) {
         Row() {
