@@ -127,6 +127,10 @@
     {
       "name": "badge_hot",
       "value": "#E8554E"
+    },
+    {
+      "name": "home_image",
+      "value": "#fff"
     }
   ]
 }

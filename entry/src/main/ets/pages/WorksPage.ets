@@ -5,7 +5,7 @@ import { SegmentTabs, SegmentItem } from '../components/common/SegmentTabs';
 import { FooterSealBar } from '../components/common/FooterSealBar';
 import { WorkGrid } from '../components/works/WorkGrid';
 import { WorkRecord, WorkStatus } from '../models/WorkRecord';
-import { buildMockWorks } from '../models/MockWorks';
+import { mockWorkStore } from '../models/MockWorkStore';
 
 /**
  * 作品页（WorksPage，PRD F10 / §7.3，stitch_「Works Page」档存样板）。
@@ -29,7 +29,8 @@ export struct WorksPage {
     ];
 
     aboutToAppear(): void {
-        this.works = buildMockWorks();
+        mockWorkStore.init();
+        this.works = mockWorkStore.list();
     }
 
     build() {
@@ -93,7 +94,7 @@ export struct WorksPage {
     statBlock() {
         Row() {
             Column() {
-                Text('叁拾贰')
+                Text(this.works.length.toString())
                     .fontFamily(Theme.FONT_SERIF)
                     .fontSize(Theme.FONT_SIZE_HEADLINE_LG_MOBILE)
                     .fontWeight(700)

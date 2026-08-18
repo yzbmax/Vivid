@@ -75,7 +75,15 @@ struct WorkDetailPage {
       .backgroundColor(Theme.PRIMARY)
       .justifyContent(FlexAlign.Center)
       .onClick(() => {
-        this.toast('编辑页后续接入');
+        if (this.work != null) {
+          // 待 C 在 main_pages.json 注册 pages/EditPage 后生效
+          this.getUIContext().getRouter().pushUrl({
+            url: 'pages/EditPage',
+            params: { source: 'work', workId: this.work.id }
+          }).catch(() => {
+            this.toast('编辑页尚未就绪');
+          });
+        }
       })
     }
     .width('100%')
@@ -90,28 +98,45 @@ struct WorkDetailPage {
     // @Entry 根节点必须是内置容器组件，故以 Column 作为外层，宣纸背景作为子层铺满
     Column() {
       PaperBackground() {
-        Scroll() {
+        if (this.work == null) {
+          // 无效 workId：显示错误态
           Column() {
-            // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
-            PageHeader({ title: this.work?.title ?? '卷宗详情', showBack: true,
+            PageHeader({ title: '卷宗详情', showBack: true,
               onBack: () => this.getUIContext().getRouter().back(), topInset: true })
-            if (this.work != null) {
-              PaperFrame({ image: this.work.previewImage, fileNo: this.work.id })
+            Column() {
+              Text('卷宗不存在')
+                .fontFamily(Theme.FONT_SERIF)
+                .fontSize(18)
+                .fontColor(Theme.ON_SURFACE_VARIANT)
+            }
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+            .width('100%')
+          }
+          .width('100%')
+          .height('100%')
+        } else {
+          Scroll() {
+            Column() {
+              // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
+              PageHeader({ title: this.work!.title, showBack: true,
+                onBack: () => this.getUIContext().getRouter().back(), topInset: true })
+              PaperFrame({ image: this.work!.previewImage, fileNo: this.work!.id })
                 .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
                 .margin({ bottom: 32 })
               MetadataBar({ columns: this.metadataItems() })
                 .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 24 })
+              NotesCard({ content: this.notesText() })
+                .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 32 })
+              this.actionArea()
             }
-            NotesCard({ content: this.notesText() })
-              .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 32 })
-            this.actionArea()
+            .width('100%')
+            .padding({ bottom: 32 })
           }
           .width('100%')
-          .padding({ bottom: 32 })
+          .height('100%')
+          .scrollBar(BarState.Off)
         }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
       }
     }
     .width('100%')

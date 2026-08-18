@@ -12,6 +12,7 @@ export function buildMockWorks(): WorkRecord[] {
     w.date = date;
     w.sealGlyph = sealGlyph;
     w.status = status;
+    w.createdAt = updatedAt;
     w.updatedAt = updatedAt;
     return w;
   };
