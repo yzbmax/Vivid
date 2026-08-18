@@ -49,23 +49,14 @@ export struct HomePage {
 
   // 快捷功能数据：8 个工具入口，2×4 网格布局
   @State tools: ToolItem[] = [
-    new ToolItem($r('app.string.home_tool1'),
-      'M9 10 A3 3 0 1 0 9.01 10 M19 10 A3 3 0 1 0 19.01 10 M11 12 L22 22 M17 12 L6 22'),
-    new ToolItem($r('app.string.home_tool2'),
-      'M14 3 L16 11 L24 14 L16 17 L14 25 L12 17 L4 14 L12 11 Z M21 4 L22 7 L24 8 L22 9 L21 12 L20 9 L18 8 L20 7 Z',
-      true),
-    new ToolItem($r('app.string.home_tool3'),
-      'M8 5 L18 5 L24 11 L14 21 L4 21 L4 11 Z M4 21 L24 11'),
-    new ToolItem($r('app.string.home_tool4'),
-      'M9 9 A4 4 0 1 0 9.01 9 M19 9 A4 4 0 1 0 19.01 9 M14 19 A4 4 0 1 0 14.01 19'),
-    new ToolItem($r('app.string.home_tool5'),
-      'M14 3 L25 9 L14 15 L3 9 Z M3 14 L14 20 L25 14 M3 19 L14 25 L25 19'),
-    new ToolItem($r('app.string.home_tool6'),
-      'M7 16 L21 16 L21 22 L7 22 Z M9 16 L9 8 L19 8 L19 16'),
-    new ToolItem($r('app.string.home_tool7'),
-      'M4 5 L24 5 L16 14 L16 24 L12 22 L12 14 Z'),
-    new ToolItem($r('app.string.home_tool8'),
-      'M4 4 L12 4 L12 12 L4 12 Z M16 4 L24 4 L24 12 L16 12 Z M4 16 L12 16 L12 24 L4 24 Z M16 16 L24 16 L24 24 L16 24 Z'),
+    new ToolItem($r('app.string.home_tool1'), $r('app.media.home_ai_smart_Cutout')),
+    new ToolItem($r('app.string.home_tool2'), $r('app.media.home_filter_spark')),
+    new ToolItem($r('app.string.home_tool3'), $r('app.media.home_background')),
+    new ToolItem($r('app.string.home_tool4'), $r('app.media.home_Adjust')),
+    new ToolItem($r('app.string.home_tool5'), $r('app.media.home_object_scan')),
+    new ToolItem($r('app.string.home_tool6'), $r('app.media.home_Sticker')),
+    new ToolItem($r('app.string.home_tool7'), $r('app.media.home_Font')),
+    new ToolItem($r('app.string.home_tool8'), $r('app.media.home_Template')),
   ];
 
   build() {

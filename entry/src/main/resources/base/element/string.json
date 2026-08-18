@@ -138,35 +138,35 @@
     },
     {
       "name": "home_tool1",
-      "value": "智能抠图"
+      "value": "AI智能抠图"
     },
     {
       "name": "home_tool2",
-      "value": "画质超清"
+      "value": "滤镜"
     },
     {
       "name": "home_tool3",
-      "value": "魔法消除"
+      "value": "背景"
     },
     {
       "name": "home_tool4",
-      "value": "色彩分离"
+      "value": "调节"
     },
     {
       "name": "home_tool5",
-      "value": "批量修图"
+      "value": "主体"
     },
     {
       "name": "home_tool6",
-      "value": "印信篆刻"
+      "value": "贴纸"
     },
     {
       "name": "home_tool7",
-      "value": "滤镜预设"
+      "value": "文字"
     },
     {
       "name": "home_tool8",
-      "value": "所有工具"
+      "value": "模板"
     },
     {
       "name": "home_tool_hot",

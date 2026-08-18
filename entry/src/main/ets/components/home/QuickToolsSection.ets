@@ -51,11 +51,9 @@ export struct QuickToolsSection {
       Stack({ alignContent: Alignment.TopEnd }) {
         // 圆角方形容器
         Column() {
-          Path()
-            .commands(item.iconPath)
-            .width(24)
-            .height(24)
-            .fill($r('app.color.ink_red'))
+          Image(item.icon)
+            .width(28)
+            .height(28)
         }
         .width(48)
         .height(48)
@@ -64,17 +62,7 @@ export struct QuickToolsSection {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
 
-        // "热"角标
-        if (item.isHot) {
-          Text($r('app.string.home_tool_hot'))
-            .fontSize(9)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.paper_white'))
-            .backgroundColor($r('app.color.badge_hot'))
-            .borderRadius(4)
-            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-            .offset({ x: 4, y: -4 })
-        }
+
       }
       .width(48)
       .height(48)
@@ -82,8 +70,10 @@ export struct QuickToolsSection {
       // 功能名称
       Text(item.name)
         .fontSize(11)
-        .margin({ top: 8 })
         .fontColor($r('app.color.ink_dark'))
+        .margin({ top: 6 })
+        .maxLines(1)
+        .textAlign(TextAlign.Center)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)

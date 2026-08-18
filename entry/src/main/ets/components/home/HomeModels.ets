@@ -42,12 +42,12 @@ export class WorkItem {
  */
 export class ToolItem {
   name: ResourceStr;
-  iconPath: string;
+  icon: Resource;
   isHot: boolean;
 
-  constructor(name: ResourceStr, iconPath: string, isHot: boolean = false) {
+  constructor(name: ResourceStr, icon: Resource, isHot: boolean = false) {
     this.name = name;
-    this.iconPath = iconPath;
+    this.icon = icon;
     this.isHot = isHot;
   }
 }
