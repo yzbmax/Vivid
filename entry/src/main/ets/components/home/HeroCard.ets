@@ -2,17 +2,18 @@
 //
 // 选图流程：
 //   1. 点击卡片 → 创建 PhotoViewPicker，设置仅选图片、最多 1 张
-//   2. 选择成功 → 取 URI 中的文件名，弹 Toast 提示"已选择图片：xxx"
+//   2. 选择成功 → 跳转编辑页（source=picker + imageUri，见 models/EditModels 冻结契约）
 //   3. 用户取消（错误码 13900042）→ Toast 提示"未选择图片"
 //   4. 其他错误 → Toast 提示"选图失败，请重试"
 //
 // 注意：
 //   - PhotoViewPicker 是系统选择器，不需要申请相册权限
 //   - Toast 用 getUIContext().getPromptAction()，而非已废弃的全局 promptAction.showToast
-//   - 后续接调色功能：拿到 URI 后跳转到编辑页
+//   - 编辑页路由见 main_pages.json 的 pages/EditPage（C 独占注册）
 
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { EditEntrySource } from '../../models/EditModels';
 
 @Component
 export struct HeroCard {
@@ -89,18 +90,13 @@ export struct HeroCard {
       .then((result: photoAccessHelper.PhotoSelectResult) => {
         // 取第一张图片的 URI
         const uri: string = result.photoUris[0];
-        // 从 URI 中提取文件名（取最后一段路径）
-        const filename: string = uri.split('/').pop() ?? uri;
-
-        // 用格式化字符串资源显示选中的文件名
-        const ctx = this.getUIContext().getHostContext();
-        if (ctx) {
-          // getStringByNameSync 接收资源名（string），支持 %s 格式化参数
-          const msg = ctx.resourceManager.getStringByNameSync('home_cta_selected', filename);
-          this.showToast(msg);
-        }
-
-        // TODO: 后续接调色功能——拿到 uri 后跳转到编辑页
+        // 拿到 URI 后进入编辑页（source=picker，imageUri 为所选照片）
+        this.getUIContext().getRouter().pushUrl({
+          url: 'pages/EditPage',
+          params: { source: EditEntrySource.Picker, imageUri: uri }
+        }).catch(() => {
+          // 路由失败不影响首页
+        });
       })
       .catch((err: BusinessError) => {
         // 13900042 = 用户取消选择（非异常，静默提示即可）
