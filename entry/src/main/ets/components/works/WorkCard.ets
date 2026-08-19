@@ -36,6 +36,15 @@ export struct WorkCard {
           .justifyContent(FlexAlign.Center)
           .backgroundColor(Theme.INVERSE_SURFACE_40)
           .backdropBlur(2)
+        } else if (this.data.status === WorkStatus.Damaged) {
+          // 损坏遮罩：红色半透明 + 居中状态标签
+          Column() {
+            StatusTag({ text: '已损坏 (DAMAGED)', tone: 'draft' })
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor('#40FF0000')
         } else if (this.data.sealGlyph.length > 0) {
           SealBadge({ glyph: this.data.sealGlyph, boxSize: 24 })
             .align(Alignment.TopEnd)
@@ -81,8 +90,14 @@ export struct WorkCard {
     .stateStyles({ pressed: this.cardPressed })
   }
 
-  /** 缩略图：previewImage 为空时兜底展示（mock 阶段均有值） */
-  private previewSource(): Resource {
+  /**
+   * 缩略图源：优先使用沙箱 URI（真实导入作品），回退到内置 Resource（mock 样例），
+   * 最终回退到占位图。返回 ResourceStr 以同时支持 Resource 和 string URI。
+   */
+  private previewSource(): ResourceStr {
+    if (this.data.sourceImageUri.length > 0) {
+      return this.data.sourceImageUri;
+    }
     const preview: Resource | null = this.data.previewImage;
     if (preview !== null) {
       return preview;

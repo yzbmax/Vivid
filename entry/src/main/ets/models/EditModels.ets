@@ -21,11 +21,45 @@ export enum EditEntrySource {
   Work = 'work'
 }
 
+/**
+ * 编辑页底部工具导航的稳定键（实施计划 §四 3.1 冻结契约）。
+ * 禁止用显示文案作为路由键；A/B 只从本文件 import 该类型。
+ */
+export type EditorToolKey =
+  'filter' | 'subject' | 'background' | 'adjust' |
+  'sticker' | 'text' | 'template';
+
+/** 合法 EditorToolKey 集合，用于 parseEditRouteParams 校验。 */
+export const EDITOR_TOOL_KEYS: EditorToolKey[] =
+  ['filter', 'subject', 'background', 'adjust', 'sticker', 'text', 'template'];
+
+/** 校验字符串是否为合法 EditorToolKey；非法时返回 false。 */
+export function isValidEditorToolKey(value: string): boolean {
+  for (let i = 0; i < EDITOR_TOOL_KEYS.length; i++) {
+    if (EDITOR_TOOL_KEYS[i] === value) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** EditPage 路由参数契约：B 经 pushUrl params 传入，C 在 aboutToAppear 解析。 */
 export interface EditRouteParams {
   source: EditEntrySource;
   imageUri?: string;
   workId?: string;
+  initialTool?: EditorToolKey;
+}
+
+/**
+ * 登录后待续编辑意图（实施计划 §四 3.1 冻结契约）。
+ * 仅在进程内保存；不持久化、不写日志、不通过路由参数反复传递。
+ * A 的 PendingEditIntentStore 使用本类型。
+ */
+export interface PendingEditIntent {
+  imageUri: string;
+  initialTool: EditorToolKey;
+  createdAt: number;
 }
 
 /** 四项调色参数快照，范围 -100 … +100。 */
@@ -65,13 +99,32 @@ export function clampAdjustments(p: AdjustParams): AdjustParams {
   };
 }
 
-/** 由路由 getParams() 原始对象解析编辑页入参；source 缺失或非法时返回 null。 */
+/**
+ * 由路由 getParams() 原始对象解析编辑页入参；source 缺失或非法时返回 null。
+ * initialTool 缺失时为 undefined（由调用方决定默认值）；非法值回退 'adjust'。
+ */
 export function parseEditRouteParams(raw: Record<string, string>): EditRouteParams | null {
   if (raw['source'] === EditEntrySource.Picker) {
-    return { source: EditEntrySource.Picker, imageUri: raw['imageUri'] ?? '' };
+    const result: EditRouteParams = {
+      source: EditEntrySource.Picker,
+      imageUri: raw['imageUri'] ?? ''
+    };
+    const tool = raw['initialTool'];
+    if (tool !== undefined && tool !== '') {
+      result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
+    }
+    return result;
   }
   if (raw['source'] === EditEntrySource.Work) {
-    return { source: EditEntrySource.Work, workId: raw['workId'] ?? '' };
+    const result: EditRouteParams = {
+      source: EditEntrySource.Work,
+      workId: raw['workId'] ?? ''
+    };
+    const tool = raw['initialTool'];
+    if (tool !== undefined && tool !== '') {
+      result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
+    }
+    return result;
   }
   return null;
 }
@@ -217,7 +270,7 @@ export function buildSaveIntent(
 
 /** 底部工具导航条目。 */
 export interface EditorTool {
-  key: string;
+  key: EditorToolKey;
   label: string;
 }
 

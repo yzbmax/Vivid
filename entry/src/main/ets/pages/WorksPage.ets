@@ -6,6 +6,7 @@ import { FooterSealBar } from '../components/common/FooterSealBar';
 import { WorkGrid } from '../components/works/WorkGrid';
 import { WorkRecord, WorkStatus } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
+import { EditEntrySource } from '../models/EditModels';
 
 /**
  * 作品页（WorksPage，PRD F10 / §7.3，stitch_「Works Page」档存样板）。
@@ -188,9 +189,18 @@ export struct WorksPage {
         return sorted;
     }
 
-    /** 点击作品：打开作品详情页（WorkDetailPage，携带 workId） */
+    /** 点击作品：草稿直接进入编辑页续编；已封缄进入详情页。 */
     private onWorkClick(id: string): void {
-        // todo: 接入 WorkRepository 恢复源图/蒙版/参数后，由详情页「启封续编」进入 EditPage 继续编辑
+        const work = mockWorkStore.findById(id);
+        if (work != null && work.status === WorkStatus.Draft) {
+            this.getUIContext().getRouter().pushUrl({
+                url: 'pages/EditPage',
+                params: { source: EditEntrySource.Work, workId: id }
+            }).catch(() => {
+                // 路由失败不影响列表
+            });
+            return;
+        }
         this.getUIContext().getRouter().pushUrl({ url: 'pages/WorkDetailPage', params: { workId: id } }).catch(() => {
             // 路由失败不影响列表
         });

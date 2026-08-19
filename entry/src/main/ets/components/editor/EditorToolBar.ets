@@ -1,4 +1,4 @@
-import { EDITOR_TOOLS, EditorTool } from '../../models/EditModels';
+import { EDITOR_TOOLS, EditorTool, EditorToolKey } from '../../models/EditModels';
 import { Theme } from '../common/Theme';
 
 /**
@@ -7,8 +7,8 @@ import { Theme } from '../common/Theme';
  */
 @Component
 export struct EditorToolBar {
-  @Prop activeTool: string = 'adjust';
-  onSelectTool: (key: string) => void = () => {};
+  @Prop activeTool: EditorToolKey = 'adjust';
+  onSelectTool: (key: EditorToolKey) => void = () => {};
 
   build() {
     Column() {

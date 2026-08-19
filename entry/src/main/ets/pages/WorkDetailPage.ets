@@ -5,7 +5,7 @@ import { PaperFrame } from '../components/common/PaperFrame';
 import { MetadataBar, MetadataItem } from '../components/common/MetadataBar';
 import { NotesCard } from '../components/common/NotesCard';
 import { WorkRecord } from '../models/WorkRecord';
-import { findWork } from '../models/MockWorks';
+import { mockWorkStore } from '../models/MockWorkStore';
 
 /**
  * 作品详情页（Work Detail，stitch「Work Detail Page」卷宗详情样板）。
@@ -24,7 +24,8 @@ struct WorkDetailPage {
   aboutToAppear(): void {
     const params = this.getUIContext().getRouter().getParams() as Record<string, string>;
     this.workId = params?.workId ?? '';
-    this.work = findWork(this.workId);
+    mockWorkStore.init();
+    this.work = mockWorkStore.findById(this.workId);
   }
 
   private toast(msg: string): void {

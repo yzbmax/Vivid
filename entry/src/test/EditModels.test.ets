@@ -5,6 +5,7 @@ import {
   ADJUST_TYPES,
   DEFAULT_ADJUSTMENTS,
   EDITOR_TOOLS,
+  EDITOR_TOOL_KEYS,
   EditEntrySource,
   SaveMode,
   buildSaveIntent,
@@ -12,6 +13,7 @@ import {
   createDefaultAdjustments,
   editRouteError,
   formatAdjustValue,
+  isValidEditorToolKey,
   mapParamsToEffects,
   parseEditRouteParams
 } from '../main/ets/models/EditModels';
@@ -240,6 +242,75 @@ export default function editModelsTest() {
       expect(ADJUST_TYPES[1].key).assertEqual('brightness');
       expect(ADJUST_TYPES[2].key).assertEqual('contrast');
       expect(ADJUST_TYPES[3].key).assertEqual('saturation');
+    });
+
+    it('defines seven valid editor tool keys', 0, () => {
+      expect(EDITOR_TOOL_KEYS.length).assertEqual(7);
+      expect(isValidEditorToolKey('filter')).assertEqual(true);
+      expect(isValidEditorToolKey('subject')).assertEqual(true);
+      expect(isValidEditorToolKey('background')).assertEqual(true);
+      expect(isValidEditorToolKey('adjust')).assertEqual(true);
+      expect(isValidEditorToolKey('sticker')).assertEqual(true);
+      expect(isValidEditorToolKey('text')).assertEqual(true);
+      expect(isValidEditorToolKey('template')).assertEqual(true);
+    });
+
+    it('rejects invalid editor tool keys', 0, () => {
+      expect(isValidEditorToolKey('')).assertEqual(false);
+      expect(isValidEditorToolKey('unknown')).assertEqual(false);
+      expect(isValidEditorToolKey('ADJUST')).assertEqual(false);
+      expect(isValidEditorToolKey('滤镜')).assertEqual(false);
+    });
+
+    it('parses initialTool when present and valid', 0, () => {
+      const route = parseEditRouteParams({
+        source: 'picker',
+        imageUri: 'file:///tmp/a.jpg',
+        initialTool: 'filter'
+      });
+      expect(route === null).assertEqual(false);
+      expect(route?.initialTool).assertEqual('filter');
+    });
+
+    it('falls back to adjust when initialTool is invalid', 0, () => {
+      const route = parseEditRouteParams({
+        source: 'picker',
+        imageUri: 'file:///tmp/a.jpg',
+        initialTool: 'unknown_tool'
+      });
+      expect(route === null).assertEqual(false);
+      expect(route?.initialTool).assertEqual('adjust');
+    });
+
+    it('leaves initialTool undefined when not provided', 0, () => {
+      const route = parseEditRouteParams({
+        source: 'picker',
+        imageUri: 'file:///tmp/a.jpg'
+      });
+      expect(route === null).assertEqual(false);
+      expect(route?.initialTool).assertEqual(undefined);
+    });
+
+    it('parses initialTool for work source routes', 0, () => {
+      const route = parseEditRouteParams({
+        source: 'work',
+        workId: '0409-A',
+        initialTool: 'subject'
+      });
+      expect(route === null).assertEqual(false);
+      expect(route?.source).assertEqual(EditEntrySource.Work);
+      expect(route?.workId).assertEqual('0409-A');
+      expect(route?.initialTool).assertEqual('subject');
+    });
+
+    it('falls back to adjust for invalid initialTool on work route', 0, () => {
+      const route = parseEditRouteParams({
+        source: 'work',
+        workId: '0409-A',
+        initialTool: ''
+      });
+      expect(route === null).assertEqual(false);
+      expect(route?.initialTool).assertEqual(undefined);
     });
   });
 }

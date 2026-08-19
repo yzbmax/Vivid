@@ -3,6 +3,7 @@ import {
   AdjustParams,
   EditEntrySource,
   EditRouteParams,
+  EditorToolKey,
   SaveMode,
   buildSaveIntent,
   createDefaultAdjustments,
@@ -25,7 +26,10 @@ import { EditorToolBar } from '../components/editor/EditorToolBar';
  *  3. 中下部参数面板（~12-15%）：调节工具两行（重置/滑块/对比 + 调整类型选择）。
  *  4. 底部工具导航（~8-10%）：滤镜/主体/背景/调节/贴纸/文字/模板，高亮「调节」。
  *
- * 保存当前为占位（仅按钮不保存）；B 的 MockWorkStore / WorkRecord 扩展字段交付后接入。
+ * 路由参数：source（picker/work）、imageUri（picker 时）、workId（work 时）、
+ * initialTool（可选，快捷入口传入）。
+ *
+ * 保存当前为占位（仅按钮不保存）；B 的 WorkSaveService 交付后接入异步保存/草稿链路。
  * 编辑页为独立 @Entry 路由，不进入 Index 底部 Tab。
  */
 @Entry
@@ -37,7 +41,7 @@ struct EditPage {
   @State params: AdjustParams = createDefaultAdjustments();
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
-  @State activeTool: string = 'adjust';
+  @State activeTool: EditorToolKey = 'adjust';
   @State saving: boolean = false;
   @State dirty: boolean = false;
 
@@ -49,6 +53,10 @@ struct EditPage {
     this.params = createDefaultAdjustments();
     if (route != null && route.source === EditEntrySource.Picker) {
       this.imageSrc = route.imageUri ?? '';
+    }
+    // 快捷入口传入 initialTool 时直接选中对应工具；无值时保持默认 adjust。
+    if (route?.initialTool !== undefined) {
+      this.activeTool = route.initialTool;
     }
     // source=work：源图/参数恢复待 B 的 WorkRecord sourceImageUri/adjustments 字段接入。
   }
@@ -210,7 +218,7 @@ struct EditPage {
       // 底部工具导航
       EditorToolBar({
         activeTool: this.activeTool,
-        onSelectTool: (key: string) => {
+        onSelectTool: (key: EditorToolKey) => {
           this.activeTool = key;
         }
       })

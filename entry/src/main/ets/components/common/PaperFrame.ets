@@ -6,8 +6,11 @@ import { Theme } from './Theme';
  */
 @Component
 export struct PaperFrame {
-  /** 图片（作品缩略图；后续可扩展为 PixelMap） */
-  image: Resource | null = null;
+  /**
+   * 图片（作品缩略图）：支持 Resource（内置样例）或 string URI（沙箱/相册）。
+   * 空字符串或 null 时显示占位。
+   */
+  image: ResourceStr | null = null;
   /** 卷宗编号（FILE . NO 值，如 0409-A） */
   fileNo: string = '';
   /** 是否显示背后堆叠阴影 */
@@ -45,6 +48,17 @@ export struct PaperFrame {
     .opacity(0.4)
   }
 
+  /** 判断 image 是否有实际内容（排除空字符串）。 */
+  private hasImage(): boolean {
+    if (this.image == null) {
+      return false;
+    }
+    if (typeof this.image === 'string') {
+      return (this.image as string).length > 0;
+    }
+    return true;
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       // 背后堆叠阴影（纸张层次）：与装裱纸同宽高比，偏移 8,8 露出边角（避免百分比高度塌陷）
@@ -59,7 +73,7 @@ export struct PaperFrame {
       Column() {
         // 图片区
         Stack() {
-          if (this.image != null) {
+          if (this.image != null && this.hasImage()) {
             Image(this.image)
               .width('100%')
               .height('100%')
