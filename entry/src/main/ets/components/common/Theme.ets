@@ -64,7 +64,7 @@ export class Theme {
   static readonly GRID_UNIT: number = 86;                     // 5.4rem ≈ 86.4vp 背景竖线网格间距
   static readonly MARGIN_MOBILE: number = 20;                 // 1.25rem 移动端页边距
   static readonly GUTTER: number = 16;                        // 1rem 卡片间距
-  static readonly HEADER_HEIGHT: number = 56;                 // 顶栏 h-14
+  static readonly HEADER_HEIGHT: number = 46;                 // 顶栏 h-14
   static readonly NAV_BAR_HEIGHT: number = 64;                // 底部导航预留 h-16
   static readonly CARD_IMAGE_HEIGHT: number = 160;            // 作品卡缩略图 h-40
   static readonly CHIP_PADDING_X: number = 16;                // 筛选 chip 横向内边距 px-4

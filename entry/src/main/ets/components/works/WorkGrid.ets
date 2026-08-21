@@ -10,17 +10,24 @@ import { WorkRecord } from '../../models/WorkRecord';
 @Component
 export struct WorkGrid {
   @Prop items: WorkRecord[] = [];
+  emptyTitle: string = '暂无作品';
+  emptyDescription: string = '导入图片开始创作';
   onCardClick: (id: string) => void = () => {};
+  onCardLongPress: (id: string) => void = () => {};
 
   build() {
     if (this.items.length === 0) {
-      EmptyState()
+      EmptyState({ title: this.emptyTitle, description: this.emptyDescription })
     } else {
       Column() {
         ForEach(this.buildRows(), (row: WorkRecord[], index: number) => {
           Row({ space: Theme.GUTTER }) {
             ForEach(row, (item: WorkRecord) => {
-              WorkCard({ data: item, onCardClick: (id: string) => this.onCardClick(id) })
+              WorkCard({
+                data: item,
+                onCardClick: (id: string) => this.onCardClick(id),
+                onCardLongPress: (id: string) => this.onCardLongPress(id)
+              })
                 .layoutWeight(1)
             }, (item: WorkRecord) => item.id)
             if (row.length === 1) {

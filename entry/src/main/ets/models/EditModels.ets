@@ -225,7 +225,7 @@ export interface SaveIntent {
 }
 
 /**
- * 构造保存意图：
+ * 构造保存意图（正式保存）：
  * - source=Work 且有 workId → 续编更新（不重复建卡，计划书 §三 B 验收）。
  * - 否则 → 新建，标题「未题新卷」、状态已封缄。
  * now 由调用方传入，保证纯函数可单测。
@@ -260,6 +260,48 @@ export function buildSaveIntent(
     height: 0,
     adjustments: clamped,
     status: WorkStatus.Sealed,
+    createdAt: now,
+    updatedAt: now
+  };
+  return { mode: SaveMode.Create, draft };
+}
+
+/**
+ * 构造草稿保存意图（放弃返回时自动调用）：
+ * - source=Work 且有 workId → 续编更新，状态降为 Draft。
+ * - 否则 → 新建草稿，标题「未题草卷」。
+ * now 由调用方传入，保证纯函数可单测。
+ */
+export function buildDraftIntent(
+  source: EditEntrySource,
+  workId: string,
+  imageUri: string,
+  params: AdjustParams,
+  now: number
+): SaveIntent {
+  const clamped = clampAdjustments(params);
+  if (source === EditEntrySource.Work && workId !== '') {
+    const draft: WorkDraft = {
+      id: workId,
+      title: '未题草卷',
+      sourceImageUri: imageUri,
+      width: 0,
+      height: 0,
+      adjustments: clamped,
+      status: WorkStatus.Draft,
+      createdAt: 0,
+      updatedAt: now
+    };
+    return { mode: SaveMode.Update, id: workId, draft };
+  }
+  const draft: WorkDraft = {
+    id: `MOCK-${now}`,
+    title: '未题草卷',
+    sourceImageUri: imageUri,
+    width: 0,
+    height: 0,
+    adjustments: clamped,
+    status: WorkStatus.Draft,
     createdAt: now,
     updatedAt: now
   };

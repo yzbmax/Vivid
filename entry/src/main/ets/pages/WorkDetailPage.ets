@@ -6,6 +6,9 @@ import { MetadataBar, MetadataItem } from '../components/common/MetadataBar';
 import { NotesCard } from '../components/common/NotesCard';
 import { WorkRecord } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
+import { WorkSaveService } from '../services/WorkSaveService';
+import { PhotoExportService } from '../services/PhotoExportService';
+import { common } from '@kit.AbilityKit';
 
 /**
  * 作品详情页（Work Detail，stitch「Work Detail Page」卷宗详情样板）。
@@ -20,6 +23,9 @@ import { mockWorkStore } from '../models/MockWorkStore';
 struct WorkDetailPage {
   @State workId: string = '';
   @State work: WorkRecord | null = null;
+  @State exporting: boolean = false;
+
+  private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   aboutToAppear(): void {
     const params = this.getUIContext().getRouter().getParams() as Record<string, string>;
@@ -38,28 +44,59 @@ struct WorkDetailPage {
 
   /** 卷宗元数据三栏 */
   private metadataItems(): MetadataItem[] {
+    const w = this.work;
+    const resolution = (w !== null && w.width > 0 && w.height > 0)
+      ? w.width + ' × ' + w.height
+      : '未知';
+    const seal = (w !== null && w.sealGlyph.length > 0) ? w.sealGlyph : '无';
+    const date = (w !== null) ? this.formatDate(w.date, w.createdAt) : '';
     return [
-      { label: '分辨率', value: '4200 × 5600' },
-      { label: '呈报日期', value: this.work?.date ?? '' },
-      { label: '滤色覆膜', value: '朱砂 · 叁', valueColor: Theme.PRIMARY }
+      { label: '分辨率', value: resolution },
+      { label: '呈报日期', value: date },
+      { label: '封印', value: seal, valueColor: Theme.PRIMARY }
     ];
   }
 
-  /** 操作区：分享（ghost）+ 启封续编（primary） */
+  /** 日期格式化：优先使用 date 字段，无值时从 createdAt 时间戳生成 YYYY.MM.DD */
+  private formatDate(dateStr: string, timestamp: number): string {
+    if (dateStr.length > 0) {
+      return dateStr;
+    }
+    if (timestamp <= 0) {
+      return '';
+    }
+    const d = new Date(timestamp);
+    const y = d.getFullYear().toString();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return y + '.' + m + '.' + day;
+  }
+
+  /** 操作区：导出（ghost）+ 启封续编（primary） */
   @Builder
   actionArea() {
     Row({ space: 16 }) {
+      // 导出到相册按钮
       Stack({ alignContent: Alignment.Center }) {
-        Text('↗')
-          .fontSize(20)
-          .fontColor(Theme.ON_SURFACE_VARIANT)
+        if (this.exporting) {
+          LoadingProgress()
+            .width(20)
+            .height(20)
+            .color(Theme.ON_SURFACE_VARIANT)
+        } else {
+          Image($r('app.media.icon_archive'))
+            .width(20)
+            .height(20)
+            .fillColor(Theme.ON_SURFACE_VARIANT)
+        }
       }
       .width(64)
       .height(56)
       .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
       .onClick(() => {
-        this.toast('分享后续接入');
+        this.exportToGallery();
       })
+
       Row({ space: 8 }) {
         Image($r('app.media.icon_edit'))
           .width(20)
@@ -91,8 +128,54 @@ struct WorkDetailPage {
     .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
   }
 
+  /** 导出到相册 */
+  private async exportToGallery(): Promise<void> {
+    if (this.exporting || this.work == null) {
+      return;
+    }
+
+    this.exporting = true;
+
+    try {
+      const result = await WorkSaveService.exportWork(this.context, this.work.id);
+
+      if (!result.success) {
+        this.toast(result.errorMessage ?? '导出失败');
+        this.exporting = false;
+        return;
+      }
+
+      if (result.cacheFilePath) {
+        const exportResult = await PhotoExportService.saveViaDialog(
+          this.context,
+          result.cacheFilePath,
+          `Vivid_${this.work.id}`,
+          'jpg'
+        );
+
+        if (exportResult.success) {
+          this.toast('已保存到系统相册「图片」');
+          if (this.work) {
+            this.work.exportedAssetUri = exportResult.mediaUri ?? '';
+          }
+        } else if (exportResult.errorCode === 'USER_CANCELLED') {
+          this.toast('已取消导出');
+        } else {
+          this.toast(exportResult.errorMessage ?? '导出失败');
+        }
+      }
+    } catch (_err) {
+      this.toast('导出失败');
+    }
+
+    this.exporting = false;
+  }
+
   private notesText(): string {
-    return '此帧明暗反差强烈，高光处略显单薄。建议后续复核时，加重天际线的墨色压暗处理，并微调青色通道以增强寒意。';
+    if (this.work != null && this.work.description.length > 0) {
+      return this.work.description;
+    }
+    return '此卷尚无批注。';
   }
 
   build() {
@@ -122,7 +205,7 @@ struct WorkDetailPage {
               // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
               PageHeader({ title: this.work!.title, showBack: true,
                 onBack: () => this.getUIContext().getRouter().back(), topInset: true })
-              PaperFrame({ image: this.work!.previewImage, fileNo: this.work!.id })
+              PaperFrame({ image: this.work!.previewImage, imageUri: this.work!.previewImageUri, fileNo: this.work!.id })
                 .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
                 .margin({ bottom: 32 })
               MetadataBar({ columns: this.metadataItems() })

@@ -7,6 +7,10 @@ import { WorkGrid } from '../components/works/WorkGrid';
 import { WorkRecord, WorkStatus } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
 import { EditEntrySource } from '../models/EditModels';
+import { WorkUiState } from '../models/WorkUiState';
+import { WorkSaveService } from '../services/WorkSaveService';
+import { PhotoExportService } from '../services/PhotoExportService';
+import { common } from '@kit.AbilityKit';
 
 /**
  * 作品页（WorksPage，PRD F10 / §7.3，stitch_「Works Page」档存样板）。
@@ -22,6 +26,8 @@ export struct WorksPage {
     @State selectedFilter: string = 'all';
     /** 排序：true=按保存时间倒序（默认），false=正序 */
     @State sortDescending: boolean = true;
+    /** 当前正在导出的作品 ID */
+    @State exportingWorkId: string = '';
 
     private filterItems: SegmentItem[] = [
         { label: '全部卷宗 (ALL)', key: 'all' },
@@ -29,9 +35,22 @@ export struct WorksPage {
         { label: '草稿 (DRAFTS)', key: 'draft' }
     ];
 
+    private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    private unsubWorkUi: (() => void) | null = null;
+
     aboutToAppear(): void {
         mockWorkStore.init();
         this.works = mockWorkStore.list();
+        this.unsubWorkUi = WorkUiState.onChange(() => {
+            this.works = mockWorkStore.list();
+        });
+    }
+
+    aboutToDisappear(): void {
+        if (this.unsubWorkUi !== null) {
+            this.unsubWorkUi();
+            this.unsubWorkUi = null;
+        }
     }
 
     build() {
@@ -56,8 +75,13 @@ export struct WorksPage {
                             this.statBlock()
                             WorkGrid({
                                 items: this.displayedWorks(),
+                                emptyTitle: '暂无作品',
+                                emptyDescription: '导入图片开始创作',
                                 onCardClick: (id: string) => {
                                     this.onWorkClick(id);
+                                },
+                                onCardLongPress: (id: string) => {
+                                    this.onWorkLongPress(id);
                                 }
                             })
                             this.endMark()
@@ -204,5 +228,113 @@ export struct WorksPage {
         this.getUIContext().getRouter().pushUrl({ url: 'pages/WorkDetailPage', params: { workId: id } }).catch(() => {
             // 路由失败不影响列表
         });
+    }
+
+    /** 长按作品：显示操作菜单（含导出选项） */
+    private onWorkLongPress(id: string): void {
+        const work = mockWorkStore.findById(id);
+        if (!work) {
+            return;
+        }
+
+        const hasExported = work.exportedAssetUri.length > 0;
+
+        this.getUIContext().showActionSheet({
+            title: work.title,
+            message: hasExported ? '已导出到相册' : '选择操作',
+            sheets: [
+                {
+                    title: hasExported ? '重新导出到相册' : '导出到相册',
+                    action: () => this.exportToGallery(id)
+                },
+                {
+                    title: '删除作品',
+                    action: () => this.deleteWork(id)
+                }
+            ],
+            cancel: () => {}
+        });
+    }
+
+    /** 导出作品到相册 */
+    private async exportToGallery(id: string): Promise<void> {
+        if (this.exportingWorkId.length > 0) {
+            this.toast('正在导出中，请稍候');
+            return;
+        }
+
+        this.exportingWorkId = id;
+
+        try {
+            const result = await WorkSaveService.exportWork(this.context, id);
+
+            if (!result.success) {
+                this.toast(result.errorMessage ?? '导出失败');
+                this.exportingWorkId = '';
+                return;
+            }
+
+            if (result.cacheFilePath) {
+                const exportResult = await PhotoExportService.saveViaDialog(
+                    this.context,
+                    result.cacheFilePath,
+                    `Vivid_${id}`,
+                    this.getExportExtension(id)
+                );
+
+                if (exportResult.success) {
+                    this.toast('已保存到系统相册「图片」');
+                    this.refreshWorks();
+                } else if (exportResult.errorCode === 'USER_CANCELLED') {
+                    this.toast('已取消导出');
+                } else {
+                    this.toast(exportResult.errorMessage ?? '导出失败');
+                }
+            }
+        } catch (_err) {
+            this.toast('导出失败');
+        }
+
+        this.exportingWorkId = '';
+    }
+
+    /** 删除作品 */
+    private deleteWork(id: string): void {
+        this.getUIContext().showAlertDialog({
+            title: '确认删除',
+            message: '删除后无法恢复，是否继续？',
+            primaryButton: {
+                value: '取消',
+                action: () => {}
+            },
+            secondaryButton: {
+                value: '删除',
+                action: () => {
+                    // TODO: 接入 WorkRepository 后实现真实删除
+                    this.toast('删除功能待接入');
+                }
+            },
+            cancel: () => {}
+        });
+    }
+
+    /** 获取导出扩展名 */
+    private getExportExtension(id: string): string {
+        // 根据应用设置返回扩展名
+        return 'jpg';
+    }
+
+    /** 刷新作品列表 */
+    private refreshWorks(): void {
+        this.works = mockWorkStore.list();
+    }
+
+    /** 显示提示 */
+    private toast(message: string): void {
+        try {
+            this.getUIContext().getPromptAction().showToast({ message });
+        } catch (e) {
+            // 提示失败不影响操作
+        }
     }
 }

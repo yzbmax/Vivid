@@ -20,6 +20,8 @@ export class WorkRecord {
   id: string = '';
   /** 作品标题 */
   title: string = '';
+  /** 自动生成或手动编辑的作品描述（案卷批注） */
+  description: string = '';
   /** 作品页缩略图 */
   previewImage: Resource | null = null;
   /** 保存时间展示文案 */
@@ -31,6 +33,12 @@ export class WorkRecord {
   updatedAt: number = 0;
   /** 原始图片 URI；内置 Resource 样例允许为空 */
   sourceImageUri: string = '';
+  /** 缩略图本地 URI（预览用） */
+  previewImageUri: string = '';
+  /** 导出到相册后的媒体 URI */
+  exportedAssetUri: string = '';
+  /** 最后使用的编辑工具 */
+  lastTool: string = 'adjust';
   /** 原始图片宽度；未知时为 0 */
   width: number = 0;
   /** 原始图片高度；未知时为 0 */

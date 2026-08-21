@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@ohos/hypium';
 import { MockWorkStore } from '../main/ets/models/MockWorkStore';
-import { WorkRecord, WorkStatus, DEFAULT_ADJUSTMENTS } from '../main/ets/models/WorkRecord';
+import { WorkRecord, WorkStatus } from '../main/ets/models/WorkRecord';
 
 export default function mockWorkStoreTest() {
   describe('MockWorkStore', () => {
@@ -12,9 +12,9 @@ export default function mockWorkStoreTest() {
       store.init();
     });
 
-    it('initializes with 6 seed works', 0, () => {
+    it('initializes with empty works', 0, () => {
       const works = store.list();
-      expect(works.length).assertEqual(6);
+      expect(works.length).assertEqual(0);
     });
 
     it('returns list sorted by updatedAt descending', 0, () => {
@@ -34,9 +34,14 @@ export default function mockWorkStoreTest() {
     });
 
     it('finds an existing work by id', 0, () => {
-      const work = store.findById('0409-A');
+      const draft = new WorkRecord();
+      draft.title = '测试查找';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+
+      const work = store.findById(created.id);
       expect(work !== null).assertTrue();
-      expect(work!.title).assertEqual('竹林闲居图');
+      expect(work!.title).assertEqual('测试查找');
     });
 
     it('returns null for non-existent id', 0, () => {
@@ -63,18 +68,19 @@ export default function mockWorkStoreTest() {
       expect(created.updatedAt).assertEqual(created.createdAt);
     });
 
-    it('updates an existing work', 0, () => {
+    // ── update() tests（签名: update(id, patch)）──
+
+    it('updates an existing work by id and patch', 0, () => {
       const draft = new WorkRecord();
       draft.title = '原始标题';
       draft.status = WorkStatus.Draft;
       const created = store.create(draft);
 
-      const update = new WorkRecord();
-      update.id = created.id;
-      update.title = '更新后标题';
-      update.status = WorkStatus.Sealed;
-      update.adjustments = { exposure: 15, brightness: -10, contrast: 5, saturation: 0 };
-      const updated = store.update(update);
+      const patch = new WorkRecord();
+      patch.title = '更新后标题';
+      patch.status = WorkStatus.Sealed;
+      patch.adjustments = { exposure: 15, brightness: -10, contrast: 5, saturation: 0 };
+      const updated = store.update(created.id, patch);
 
       expect(updated !== null).assertTrue();
       expect(updated!.title).assertEqual('更新后标题');
@@ -82,26 +88,29 @@ export default function mockWorkStoreTest() {
       expect(updated!.adjustments.exposure).assertEqual(15);
     });
 
-    it('returns null when updating non-existent work', 0, () => {
-      const fake = new WorkRecord();
-      fake.id = 'NONEXISTENT';
-      fake.title = '不存在';
-      const result = store.update(fake);
-      expect(result).assertNull();
-      expect(store.list().length).assertEqual(6);
+    it('throws when updating non-existent work', 0, () => {
+      let threw = false;
+      try {
+        const patch = new WorkRecord();
+        patch.title = '不存在';
+        store.update('NONEXISTENT', patch);
+      } catch (_e) {
+        threw = true;
+      }
+      expect(threw).assertTrue();
+      expect(store.list().length).assertEqual(0);
     });
 
-    it('does not modify existing fields when update fields are empty', 0, () => {
+    it('does not modify existing fields when patch fields are empty', 0, () => {
       const draft = new WorkRecord();
       draft.title = '保留标题';
       draft.status = WorkStatus.Draft;
       const created = store.create(draft);
 
-      const update = new WorkRecord();
-      update.id = created.id;
+      const patch = new WorkRecord();
       // 不设置 title（保持空字符串）
-      update.status = WorkStatus.Sealed;
-      const updated = store.update(update);
+      patch.status = WorkStatus.Sealed;
+      const updated = store.update(created.id, patch);
 
       expect(updated !== null).assertTrue();
       // title 应保留原值
@@ -109,8 +118,91 @@ export default function mockWorkStoreTest() {
       expect(updated!.status).assertEqual(WorkStatus.Sealed);
     });
 
+    it('merges previewImageUri and exportedAssetUri on update', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = 'URI测试';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+
+      const patch = new WorkRecord();
+      patch.previewImageUri = 'file:///sandbox/preview.jpg';
+      patch.exportedAssetUri = 'file://media/Photo/1';
+      patch.lastTool = 'filter';
+      const updated = store.update(created.id, patch);
+
+      expect(updated!.previewImageUri).assertEqual('file:///sandbox/preview.jpg');
+      expect(updated!.exportedAssetUri).assertEqual('file://media/Photo/1');
+      expect(updated!.lastTool).assertEqual('filter');
+    });
+
+    it('bumps updatedAt on update', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = '时间更新测试';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+      const beforeUpdate = created.updatedAt;
+
+      // 确保时间差
+      const patch = new WorkRecord();
+      patch.status = WorkStatus.Sealed;
+      const updated = store.update(created.id, patch);
+
+      expect(updated!.updatedAt >= beforeUpdate).assertTrue();
+    });
+
+    // ── upsert() tests ──
+
+    it('upsert creates when id is empty', 0, () => {
+      const before = store.list().length;
+      const record = new WorkRecord();
+      record.title = '新作品';
+      record.status = WorkStatus.Draft;
+      const result = store.upsert(record);
+
+      expect(result.id.startsWith('MOCK-')).assertTrue();
+      expect(result.title).assertEqual('新作品');
+      expect(store.list().length).assertEqual(before + 1);
+    });
+
+    it('upsert updates when id exists', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = '原始';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+
+      const patch = new WorkRecord();
+      patch.id = created.id;
+      patch.title = '已更新';
+      patch.status = WorkStatus.Sealed;
+      const updated = store.upsert(patch);
+
+      expect(updated.id).assertEqual(created.id);
+      expect(updated.title).assertEqual('已更新');
+      expect(updated.status).assertEqual(WorkStatus.Sealed);
+    });
+
+    it('upsert preserves createdAt on update', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = '保留时间';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+      const originalCreatedAt = created.createdAt;
+
+      const patch = new WorkRecord();
+      patch.id = created.id;
+      patch.title = '更新后';
+      const updated = store.upsert(patch);
+
+      expect(updated.createdAt).assertEqual(originalCreatedAt);
+    });
+
     it('defaults adjustments to all zeros', 0, () => {
-      const work = store.findById('0409-A');
+      const draft = new WorkRecord();
+      draft.title = '默认参数';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+
+      const work = store.findById(created.id);
       expect(work !== null).assertTrue();
       expect(work!.adjustments.exposure).assertEqual(0);
       expect(work!.adjustments.brightness).assertEqual(0);
@@ -118,10 +210,5 @@ export default function mockWorkStoreTest() {
       expect(work!.adjustments.saturation).assertEqual(0);
     });
 
-    it('seed works have populated createdAt', 0, () => {
-      const work = store.findById('0409-A');
-      expect(work !== null).assertTrue();
-      expect(work!.createdAt > 0).assertTrue();
-    });
   });
 }

@@ -17,6 +17,8 @@ export struct PreviewArea {
   @Prop params: AdjustParams = { exposure: 0, brightness: 0, contrast: 0, saturation: 0 };
   @Prop isComparing: boolean = false;
   onCompareChange: (down: boolean) => void = () => {};
+  /** 图片加载完成后回传原始像素尺寸 */
+  onImageSizeChange: (w: number, h: number) => void = () => {};
 
   /** 预览区域可用尺寸（由外层 Column onAreaChange 更新）。 */
   @State containerW: number = 0;
@@ -45,6 +47,7 @@ export struct PreviewArea {
                 if (w > 0 && h > 0 && (w !== this.imageNaturalW || h !== this.imageNaturalH)) {
                   this.imageNaturalW = w;
                   this.imageNaturalH = h;
+                  this.onImageSizeChange(w, h);
                 }
               })
 

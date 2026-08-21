@@ -8,6 +8,7 @@ import {
   EDITOR_TOOL_KEYS,
   EditEntrySource,
   SaveMode,
+  buildDraftIntent,
   buildSaveIntent,
   clampAdjustments,
   createDefaultAdjustments,
@@ -163,6 +164,40 @@ export default function editModelsTest() {
       const intent = buildSaveIntent(EditEntrySource.Work, '', 'file:///tmp/a.jpg',
         createDefaultAdjustments(), 3000);
       expect(intent.mode).assertEqual(SaveMode.Create);
+    });
+
+    it('builds a draft create intent from a picker source', 0, () => {
+      const intent = buildDraftIntent(EditEntrySource.Picker, '', 'file:///tmp/a.jpg',
+        { exposure: 50, brightness: 0, contrast: 0, saturation: 0 }, 4000);
+      expect(intent.mode).assertEqual(SaveMode.Create);
+      expect(intent.draft.id).assertEqual('MOCK-4000');
+      expect(intent.draft.title).assertEqual('未题草卷');
+      expect(intent.draft.sourceImageUri).assertEqual('file:///tmp/a.jpg');
+      expect(intent.draft.adjustments.exposure).assertEqual(50);
+      expect(intent.draft.status).assertEqual(WorkStatus.Draft);
+      expect(intent.draft.createdAt).assertEqual(4000);
+      expect(intent.draft.updatedAt).assertEqual(4000);
+    });
+
+    it('builds a draft update intent from a work source', 0, () => {
+      const intent = buildDraftIntent(EditEntrySource.Work, '0409-C', 'file:///tmp/b.jpg',
+        { exposure: 0, brightness: 30, contrast: -10, saturation: 0 }, 5000);
+      expect(intent.mode).assertEqual(SaveMode.Update);
+      expect(intent.id).assertEqual('0409-C');
+      expect(intent.draft.id).assertEqual('0409-C');
+      expect(intent.draft.title).assertEqual('未题草卷');
+      expect(intent.draft.status).assertEqual(WorkStatus.Draft);
+      expect(intent.draft.createdAt).assertEqual(0);
+      expect(intent.draft.updatedAt).assertEqual(5000);
+      expect(intent.draft.adjustments.brightness).assertEqual(30);
+    });
+
+    it('treats a work source without id as a draft create', 0, () => {
+      const intent = buildDraftIntent(EditEntrySource.Work, '', 'file:///tmp/a.jpg',
+        createDefaultAdjustments(), 6000);
+      expect(intent.mode).assertEqual(SaveMode.Create);
+      expect(intent.draft.status).assertEqual(WorkStatus.Draft);
+      expect(intent.draft.title).assertEqual('未题草卷');
     });
 
     it('stub store creates and finds a draft', 0, () => {

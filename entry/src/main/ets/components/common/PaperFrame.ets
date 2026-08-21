@@ -6,11 +6,10 @@ import { Theme } from './Theme';
  */
 @Component
 export struct PaperFrame {
-  /**
-   * 图片（作品缩略图）：支持 Resource（内置样例）或 string URI（沙箱/相册）。
-   * 空字符串或 null 时显示占位。
-   */
-  image: ResourceStr | null = null;
+  /** 图片（作品缩略图；后续可扩展为 PixelMap） */
+  image: Resource | null = null;
+  /** 图片 URI（用户保存作品的沙箱路径） */
+  imageUri: string = '';
   /** 卷宗编号（FILE . NO 值，如 0409-A） */
   fileNo: string = '';
   /** 是否显示背后堆叠阴影 */
@@ -75,6 +74,11 @@ export struct PaperFrame {
         Stack() {
           if (this.image != null && this.hasImage()) {
             Image(this.image)
+              .width('100%')
+              .height('100%')
+              .objectFit(ImageFit.Cover)
+          } else if (this.imageUri.length > 0) {
+            Image(this.imageUri)
               .width('100%')
               .height('100%')
               .objectFit(ImageFit.Cover)

@@ -12,6 +12,7 @@ import { WorkRecord, WorkStatus } from '../../models/WorkRecord';
 export struct WorkCard {
   data: WorkRecord = new WorkRecord();
   onCardClick: (id: string) => void = () => {};
+  onCardLongPress: (id: string) => void = () => {};
 
   @Styles
   cardPressed() {
@@ -50,6 +51,22 @@ export struct WorkCard {
             .align(Alignment.TopEnd)
             .margin({ top: 8, right: 8 })
         }
+
+        // 导出状态标记（右下角）
+        if (this.data.exportedAssetUri.length > 0) {
+          Stack({ alignContent: Alignment.Center }) {
+            Image($r('app.media.icon_archive'))
+              .width(12)
+              .height(12)
+              .fillColor(Theme.ON_PRIMARY)
+          }
+          .width(20)
+          .height(20)
+          .borderRadius(10)
+          .backgroundColor('#4CD964')
+          .align(Alignment.BottomEnd)
+          .margin({ bottom: 8, right: 8 })
+        }
       }
       .width('100%')
       .height(Theme.CARD_IMAGE_HEIGHT)
@@ -64,7 +81,7 @@ export struct WorkCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row() {
-          Text(this.data.date)
+          Text(this.displayDate())
             .fontFamily(Theme.FONT_MONO)
             .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
             .fontColor(Theme.ON_SURFACE_VARIANT)
@@ -87,12 +104,35 @@ export struct WorkCard {
     .onClick(() => {
       this.onCardClick(this.data.id);
     })
+    .gesture(
+      GestureGroup(GestureMode.Parallel,
+        LongPressGesture({ repeat: false })
+          .onAction(() => {
+            this.onCardLongPress(this.data.id);
+          })
+      )
+    )
     .stateStyles({ pressed: this.cardPressed })
   }
 
+  /** 日期显示：优先用 date 字段，无值时从 createdAt 格式化 */
+  private displayDate(): string {
+    if (this.data.date.length > 0) {
+      return this.data.date;
+    }
+    if (this.data.createdAt <= 0) {
+      return '';
+    }
+    const d = new Date(this.data.createdAt);
+    const y = d.getFullYear().toString();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return y + '.' + m + '.' + day;
+  }
+
   /**
-   * 缩略图源：优先使用沙箱 URI（真实导入作品），回退到内置 Resource（mock 样例），
-   * 最终回退到占位图。返回 ResourceStr 以同时支持 Resource 和 string URI。
+   * 缩略图源：sourceImageUri > previewImage > previewImageUri > 兜底占位图。
+   * 返回 ResourceStr 以同时支持 Resource 和 string URI。
    */
   private previewSource(): ResourceStr {
     if (this.data.sourceImageUri.length > 0) {
@@ -101,6 +141,9 @@ export struct WorkCard {
     const preview: Resource | null = this.data.previewImage;
     if (preview !== null) {
       return preview;
+    }
+    if (this.data.previewImageUri.length > 0) {
+      return this.data.previewImageUri;
     }
     return $r('app.media.work_mountain');
   }

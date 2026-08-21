@@ -4,7 +4,7 @@ import { buildMockWorks } from './MockWorks';
 /**
  * 作品 Mock Store：管理作品列表的增删改查。
  *
- * 首次调用 init() 时加载 MockWorks 的 6 条静态数据作为种子；
+ * 首次调用 init() 时加载 MockWorks 的种子数据（当前为空）；
  * 后续 create / update 在进程内生效，不跨重启持久化。
  *
  * 方法命名：list / findById / create / update（开发者 C 统一使用）。
@@ -52,45 +52,75 @@ export class MockWorkStore {
 
   /**
    * 更新作品：按 ID 匹配，合并传入的字段，刷新 updatedAt。
-   * 匹配不到时返回 null，不修改列表。
+   * 匹配不到时抛出异常，不修改列表。
    */
-  update(record: WorkRecord): WorkRecord | null {
-    const index = this.works.findIndex((w: WorkRecord) => w.id === record.id);
+  update(id: string, patch: WorkRecord): WorkRecord {
+    const index = this.works.findIndex((w: WorkRecord) => w.id === id);
     if (index < 0) {
-      return null;
+      throw new Error(`Work not found: ${id}`);
     }
     const existing = this.works[index];
     // 合并字段（保留已有值，用传入值覆盖）
-    if (record.title.length > 0) {
-      existing.title = record.title;
+    if (patch.title.length > 0) {
+      existing.title = patch.title;
     }
-    if (record.sourceImageUri.length > 0) {
-      existing.sourceImageUri = record.sourceImageUri;
+    if (patch.sourceImageUri.length > 0) {
+      existing.sourceImageUri = patch.sourceImageUri;
     }
-    if (record.width > 0) {
-      existing.width = record.width;
+    if (patch.width > 0) {
+      existing.width = patch.width;
     }
-    if (record.height > 0) {
-      existing.height = record.height;
+    if (patch.height > 0) {
+      existing.height = patch.height;
     }
-    if (record.previewImage !== null) {
-      existing.previewImage = record.previewImage;
+    if (patch.previewImage !== null) {
+      existing.previewImage = patch.previewImage;
     }
-    if (record.sealGlyph.length > 0) {
-      existing.sealGlyph = record.sealGlyph;
+    if (patch.sealGlyph.length > 0) {
+      existing.sealGlyph = patch.sealGlyph;
     }
-    if (record.date.length > 0) {
-      existing.date = record.date;
+    if (patch.date.length > 0) {
+      existing.date = patch.date;
     }
-    existing.status = record.status;
+    if (patch.previewImageUri.length > 0) {
+      existing.previewImageUri = patch.previewImageUri;
+    }
+    if (patch.exportedAssetUri.length > 0) {
+      existing.exportedAssetUri = patch.exportedAssetUri;
+    }
+    if (patch.lastTool.length > 0) {
+      existing.lastTool = patch.lastTool;
+    }
+    if (patch.description.length > 0) {
+      existing.description = patch.description;
+    }
+    existing.status = patch.status;
     existing.adjustments = {
-      exposure: record.adjustments.exposure,
-      brightness: record.adjustments.brightness,
-      contrast: record.adjustments.contrast,
-      saturation: record.adjustments.saturation
+      exposure: patch.adjustments.exposure,
+      brightness: patch.adjustments.brightness,
+      contrast: patch.adjustments.contrast,
+      saturation: patch.adjustments.saturation
     };
     existing.updatedAt = Date.now();
     return existing;
+  }
+
+  /**
+   * 新建或更新：id 为空时创建，否则更新。
+   * 统一入口，避免调用方判断 create/update。
+   */
+  upsert(record: WorkRecord): WorkRecord {
+    if (record.id === '') {
+      return this.create(record);
+    }
+    return this.update(record.id, record);
+  }
+
+  /** 统计今日创建的作品数量（用于标题自动生成序号） */
+  countToday(): number {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return this.works.filter((w: WorkRecord) => w.createdAt >= todayStart).length;
   }
 }
 

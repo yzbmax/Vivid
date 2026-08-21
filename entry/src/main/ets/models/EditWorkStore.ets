@@ -1,7 +1,10 @@
 import { WorkDraft } from './EditModels';
 
 /**
- * 临时桩：内存作品草稿仓库（C 独占，进程内有效，重启不恢复）。
+ * @deprecated 兼容遗留：内存作品草稿仓库（C 独占，进程内有效，重启不恢复）。
+ *
+ * 本阶段仅停止引用并标记为兼容遗留，不删除。后续如需删除须单独确认和单独提交。
+ * 所有新代码应使用 MockWorkStore（统一作品仓库）。
  *
  * 方法名与冻结契约（list / findById / create / update）一致，但出入参是 C 侧的
  * WorkDraft（WorkRecord 尚无 sourceImageUri/adjustments 等扩展字段）。

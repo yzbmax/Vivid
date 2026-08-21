@@ -5,17 +5,27 @@ import {
   EditRouteParams,
   EditorToolKey,
   SaveMode,
+  buildDraftIntent,
   buildSaveIntent,
   createDefaultAdjustments,
   editRouteError,
   parseEditRouteParams
 } from '../models/EditModels';
-import { EditWorkStore } from '../models/EditWorkStore';
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
 import { AdjustPanel } from '../components/editor/AdjustPanel';
 import { EditorToolBar } from '../components/editor/EditorToolBar';
+import { common } from '@kit.AbilityKit';
+import { AppSettingsStore } from '../models/AppSettingsStore';
+import { toExportProfile } from '../models/AppSettingsModels';
+import { ImageRenderService } from '../services/ImageRenderService';
+import { PhotoExportService } from '../services/PhotoExportService';
+import { WorkRecord } from '../models/WorkRecord';
+import { mockWorkStore } from '../models/MockWorkStore';
+import { WorkUiState } from '../models/WorkUiState';
+import { generateWorkTitle } from '../models/WorkTitleGenerator';
+import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
 
 /**
  * 独立调色编辑页。
@@ -44,6 +54,8 @@ struct EditPage {
   @State activeTool: EditorToolKey = 'adjust';
   @State saving: boolean = false;
   @State dirty: boolean = false;
+  @State imageWidth: number = 0;
+  @State imageHeight: number = 0;
 
   aboutToAppear(): void {
     const raw = this.getUIContext().getRouter().getParams() as Record<string, string>;
@@ -53,12 +65,25 @@ struct EditPage {
     this.params = createDefaultAdjustments();
     if (route != null && route.source === EditEntrySource.Picker) {
       this.imageSrc = route.imageUri ?? '';
+    } else if (route != null && route.source === EditEntrySource.Work) {
+      mockWorkStore.init();
+      const work = mockWorkStore.findById(route.workId ?? '');
+      if (work !== null) {
+        this.imageSrc = work.sourceImageUri;
+        this.params = {
+          exposure: work.adjustments.exposure,
+          brightness: work.adjustments.brightness,
+          contrast: work.adjustments.contrast,
+          saturation: work.adjustments.saturation
+        };
+      } else {
+        this.errorText = '作品不存在';
+      }
     }
     // 快捷入口传入 initialTool 时直接选中对应工具；无值时保持默认 adjust。
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
     }
-    // source=work：源图/参数恢复待 B 的 WorkRecord sourceImageUri/adjustments 字段接入。
   }
 
   build() {
@@ -178,22 +203,14 @@ struct EditPage {
         isComparing: this.isComparing,
         onCompareChange: (down: boolean) => {
           this.isComparing = down;
+        },
+        onImageSizeChange: (w: number, h: number) => {
+          this.imageWidth = w;
+          this.imageHeight = h;
         }
       })
         .layoutWeight(1)
-        .padding({ top: Theme.GUTTER })
-
-      if (this.route?.source === EditEntrySource.Work) {
-        Row() {
-          Text('续编恢复待 WorkRecord 源图/参数字段接入，当前从默认参数开始')
-            .fontFamily(Theme.FONT_SANS)
-            .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
-            .fontColor(Theme.ON_SURFACE_VARIANT_70)
-            .textAlign(TextAlign.Center)
-        }
-        .width('100%')
-        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: 4 })
-      }
+        .padding({ top: Theme.GUTTER ,bottom: Theme.GUTTER })
 
       // 中下部参数面板：仅「调节」工具有内容，其余占位
       if (this.activeTool === 'adjust') {
@@ -313,40 +330,100 @@ struct EditPage {
     return '';
   }
 
-  private save(): void {
+  private async save(): Promise<void> {
     if (this.saving) {
       return;
     }
     this.saving = true;
+
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const route = this.route;
-    const intent = buildSaveIntent(
-      route?.source ?? EditEntrySource.Picker,
-      route?.workId ?? '',
-      this.imageSrc,
-      this.params,
-      Date.now()
-    );
-    if (intent.mode === SaveMode.Update) {
-      const updated = EditWorkStore.update(intent.id ?? '', intent.draft);
-      if (updated == null) {
+
+    try {
+      // 1. 获取源图 URI
+      const sourceUri = this.imageSrc;
+      if (!sourceUri) {
+        this.toast('源图不可用，请返回重试');
         this.saving = false;
-        this.toast('卷宗不存在，无法续编');
         return;
       }
-    } else {
-      EditWorkStore.create(intent.draft);
+
+      // 2. 获取导出配置
+      const exportSettings = await AppSettingsStore.getExportSettings();
+      const exportProfile = toExportProfile(exportSettings);
+
+      // 3. 渲染调色后的图片
+      const pixelMap = await ImageRenderService.render(sourceUri, this.params, exportProfile);
+
+      // 4. 编码到 cacheDir
+      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, pixelMap, exportProfile);
+      pixelMap.release();
+
+      if (!cacheFilePath) {
+        this.toast('图片编码失败');
+        this.saving = false;
+        return;
+      }
+
+      // 5. 写入系统相册
+      const fileName = `Vivid_${Date.now()}`;
+      const ext = exportProfile.extension === '.png' ? 'png' : 'jpg';
+      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+
+      if (exportResult.success) {
+        this.toast('已保存到系统相册「图片」');
+      } else if (exportResult.errorCode === 'USER_CANCELLED') {
+        this.saving = false;
+        return;
+      } else {
+        this.toast(exportResult.errorMessage ?? '保存到相册失败');
+        this.saving = false;
+        return;
+      }
+
+      // 6. 保存作品记录到统一仓库
+      const intent = buildSaveIntent(
+        route?.source ?? EditEntrySource.Picker,
+        route?.workId ?? '',
+        this.imageSrc,
+        this.params,
+        Date.now()
+      );
+      mockWorkStore.init();
+      const now = Date.now();
+      const record = new WorkRecord();
+      record.id = intent.draft.id;
+      record.title = generateWorkTitle(now, mockWorkStore.countToday());
+      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
+      record.sourceImageUri = intent.draft.sourceImageUri;
+      record.previewImageUri = intent.draft.sourceImageUri;
+      record.width = this.imageWidth;
+      record.height = this.imageHeight;
+      record.adjustments = intent.draft.adjustments;
+      record.status = intent.draft.status;
+      record.createdAt = now;
+      record.updatedAt = now;
+      if (intent.mode === SaveMode.Update) {
+        mockWorkStore.update(intent.id ?? '', record);
+      } else {
+        mockWorkStore.create(record);
+      }
+      WorkUiState.bumpRevision();
+
+      this.dirty = false;
+      this.getUIContext().getRouter().back();
+    } catch (_err) {
+      this.toast('保存失败，请重试');
+    } finally {
+      this.saving = false;
     }
-    this.dirty = false;
-    this.saving = false;
-    this.toast(intent.mode === SaveMode.Update ? '已续编保存' : '已落印保存');
-    this.getUIContext().getRouter().back();
   }
 
   private tryBack(): void {
     if (this.dirty && this.errorText === '') {
       this.getUIContext().showAlertDialog({
         title: '放弃未保存的调整？',
-        message: '当前调整尚未落印，返回将丢失。',
+        message: '当前调整尚未落印，返回将自动存为草稿。',
         primaryButton: {
           value: '继续编辑',
           action: () => {
@@ -354,7 +431,7 @@ struct EditPage {
         },
         secondaryButton: {
           value: '放弃返回',
-          action: () => this.getUIContext().getRouter().back()
+          action: () => this.saveDraft()
         },
         cancel: () => {
         }
@@ -362,6 +439,46 @@ struct EditPage {
     } else {
       this.getUIContext().getRouter().back();
     }
+  }
+
+  private async saveDraft(): Promise<void> {
+    const route = this.route;
+
+    try {
+      const intent = buildDraftIntent(
+        route?.source ?? EditEntrySource.Picker,
+        route?.workId ?? '',
+        this.imageSrc,
+        this.params,
+        Date.now()
+      );
+      mockWorkStore.init();
+      const now = Date.now();
+      const record = new WorkRecord();
+      record.id = intent.draft.id;
+      record.title = generateWorkTitle(now, mockWorkStore.countToday());
+      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
+      record.sourceImageUri = intent.draft.sourceImageUri;
+      record.previewImageUri = intent.draft.sourceImageUri;
+      record.width = this.imageWidth;
+      record.height = this.imageHeight;
+      record.adjustments = intent.draft.adjustments;
+      record.status = intent.draft.status;
+      record.createdAt = now;
+      record.updatedAt = now;
+      if (intent.mode === SaveMode.Update) {
+        mockWorkStore.update(intent.id ?? '', record);
+      } else {
+        mockWorkStore.create(record);
+      }
+      WorkUiState.bumpRevision();
+      this.toast('已存为草稿');
+    } catch (_err) {
+      // 草稿保存失败不阻断返回
+    }
+
+    this.dirty = false;
+    this.getUIContext().getRouter().back();
   }
 
   onBackPress(): boolean {

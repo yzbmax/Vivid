@@ -13,7 +13,10 @@ import { QuickToolsSection } from './QuickToolsSection';
 import { RecentWorkSection } from './RecentWorkSection';
 import { ProcessSection } from './ProcessSection';
 import { Footer } from './Footer';
-import { FeatureItem, WorkItem, ToolItem } from './HomeModels';
+import { FeatureItem, ToolItem } from './HomeModels';
+import { WorkRecord } from '../../models/WorkRecord';
+import { mockWorkStore } from '../../models/MockWorkStore';
+import { WorkUiState } from '../../models/WorkUiState';
 
 @Component
 export struct HomePage {
@@ -40,12 +43,24 @@ export struct HomePage {
     ),
   ];
 
-  // 近作列表数据：3 条近期作品
-  @State works: WorkItem[] = [
-    new WorkItem($r('app.string.home_work1_title'), $r('app.string.home_work1_date')),
-    new WorkItem($r('app.string.home_work2_title'), $r('app.string.home_work2_date')),
-    new WorkItem($r('app.string.home_work3_title'), $r('app.string.home_work3_date')),
-  ];
+  // 近作列表数据：从 MockWorkStore 获取最近 3 条
+  @State works: WorkRecord[] = [];
+  private unsubWorkUi: (() => void) | null = null;
+
+  aboutToAppear(): void {
+    mockWorkStore.init();
+    this.works = mockWorkStore.list().slice(0, 3);
+    this.unsubWorkUi = WorkUiState.onChange(() => {
+      this.works = mockWorkStore.list().slice(0, 3);
+    });
+  }
+
+  aboutToDisappear(): void {
+    if (this.unsubWorkUi !== null) {
+      this.unsubWorkUi();
+      this.unsubWorkUi = null;
+    }
+  }
 
   // 快捷功能数据：8 个工具入口，2×4 网格布局
   @State tools: ToolItem[] = [
@@ -81,7 +96,15 @@ export struct HomePage {
             QuickToolsSection({ tools: this.tools })
 
             // ④ 近作横滑区
-            RecentWorkSection({ works: this.works })
+            RecentWorkSection({
+              works: this.works,
+              onCardClick: (id: string) => {
+                this.getUIContext().getRouter().pushUrl({
+                  url: 'pages/EditPage',
+                  params: { source: 'work', workId: id }
+                }).catch(() => {});
+              }
+            })
 
             // ⑤ 技艺列表区
             ProcessSection({ features: this.features })
