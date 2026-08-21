@@ -17,6 +17,10 @@ import { FeatureItem, ToolItem } from './HomeModels';
 import { WorkRecord } from '../../models/WorkRecord';
 import { mockWorkStore } from '../../models/MockWorkStore';
 import { WorkUiState } from '../../models/WorkUiState';
+import { EditEntrySource, EditorToolKey, PendingEditIntent } from '../../models/EditModels';
+import { MockAuthStore } from '../../models/MockAuthStore';
+import { PendingEditIntentStore } from '../../models/PendingEditIntentStore';
+import { PhotoPickerService, PhotoPickResult } from '../../services/PhotoPickerService';
 
 @Component
 export struct HomePage {
@@ -46,6 +50,7 @@ export struct HomePage {
   // 近作列表数据：从 MockWorkStore 获取最近 3 条
   @State works: WorkRecord[] = [];
   private unsubWorkUi: (() => void) | null = null;
+  private isPickingImage: boolean = false;
 
   aboutToAppear(): void {
     mockWorkStore.init();
@@ -64,15 +69,94 @@ export struct HomePage {
 
   // 快捷功能数据：8 个工具入口，2×4 网格布局
   @State tools: ToolItem[] = [
-    new ToolItem($r('app.string.home_tool1'), $r('app.media.home_ai_smart_Cutout')),
-    new ToolItem($r('app.string.home_tool2'), $r('app.media.home_filter_spark')),
-    new ToolItem($r('app.string.home_tool3'), $r('app.media.home_background')),
-    new ToolItem($r('app.string.home_tool4'), $r('app.media.home_Adjust')),
-    new ToolItem($r('app.string.home_tool5'), $r('app.media.home_object_scan')),
-    new ToolItem($r('app.string.home_tool6'), $r('app.media.home_Sticker')),
-    new ToolItem($r('app.string.home_tool7'), $r('app.media.home_Font')),
-    new ToolItem($r('app.string.home_tool8'), $r('app.media.home_Template')),
+    new ToolItem('subject', $r('app.string.home_tool1'), $r('app.media.home_ai_smart_Cutout')),
+    new ToolItem('filter', $r('app.string.home_tool2'), $r('app.media.home_filter_spark')),
+    new ToolItem('background', $r('app.string.home_tool3'), $r('app.media.home_background')),
+    new ToolItem('adjust', $r('app.string.home_tool4'), $r('app.media.home_Adjust')),
+    new ToolItem('subject', $r('app.string.home_tool5'), $r('app.media.home_object_scan')),
+    new ToolItem('sticker', $r('app.string.home_tool6'), $r('app.media.home_Sticker')),
+    new ToolItem('text', $r('app.string.home_tool7'), $r('app.media.home_Font')),
+    new ToolItem('template', $r('app.string.home_tool8'), $r('app.media.home_Template')),
   ];
+
+  private async startImport(initialTool: EditorToolKey): Promise<void> {
+    if (this.isPickingImage) {
+      return;
+    }
+    this.isPickingImage = true;
+    try {
+      const result: PhotoPickResult = await PhotoPickerService.pickSingleImage();
+      if (result.status === 'cancelled') {
+        return;
+      }
+      if (result.status === 'failed') {
+        this.showToast($r('app.string.home_cta_failed'));
+        return;
+      }
+
+      if (MockAuthStore.getSession().status === 'authenticated') {
+        await this.openEditor(result.imageUri, initialTool);
+        return;
+      }
+
+      const intent: PendingEditIntent = {
+        imageUri: result.imageUri,
+        initialTool: initialTool,
+        createdAt: Date.now()
+      };
+      PendingEditIntentStore.set(intent);
+      this.showLoginGate();
+    } finally {
+      this.isPickingImage = false;
+    }
+  }
+
+  private async openEditor(imageUri: string, initialTool: EditorToolKey): Promise<void> {
+    try {
+      await this.getUIContext().getRouter().pushUrl({
+        url: 'pages/EditPage',
+        params: {
+          source: EditEntrySource.Picker,
+          imageUri: imageUri,
+          initialTool: initialTool
+        }
+      });
+    } catch (_err) {
+      this.showToast('无法进入编辑页，请重试');
+    }
+  }
+
+  private showLoginGate(): void {
+    this.getUIContext().showAlertDialog({
+      title: '登录后方可呈报卷宗',
+      message: '所选照片仅用于本次编辑，登录后将继续进入调色页。',
+      primaryButton: {
+        value: '前往登录',
+        action: () => this.openLogin()
+      },
+      secondaryButton: {
+        value: '暂不登录',
+        action: () => PendingEditIntentStore.clear()
+      },
+      cancel: () => PendingEditIntentStore.clear()
+    });
+  }
+
+  private async openLogin(): Promise<void> {
+    try {
+      await this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
+    } catch (_err) {
+      PendingEditIntentStore.clear();
+      this.showToast('无法打开登录页，请重试');
+    }
+  }
+
+  private showToast(message: ResourceStr): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 3000 });
+    } catch (_err) {
+    }
+  }
 
   build() {
     Stack() {
@@ -87,13 +171,16 @@ export struct HomePage {
         Scroll() {
           Column() {
             // ① 主视觉卡：点击可从相册选图
-            HeroCard()
+            HeroCard({ onImportClick: () => this.startImport('adjust') })
 
             // ② 辅助说明：隐私文案
             CtaBlock()
 
             // ③ 快捷功能区：2×4 功能网格
-            QuickToolsSection({ tools: this.tools })
+            QuickToolsSection({
+              tools: this.tools,
+              onToolClick: (key: EditorToolKey) => this.startImport(key)
+            })
 
             // ④ 近作横滑区
             RecentWorkSection({

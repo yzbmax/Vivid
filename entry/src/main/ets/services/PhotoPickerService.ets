@@ -1,17 +1,31 @@
 import { BusinessError } from '@kit.BasicServicesKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 
+export interface SelectedPhotoPickResult {
+  status: 'selected';
+  imageUri: string;
+}
+
+export interface CancelledPhotoPickResult {
+  status: 'cancelled';
+}
+
+export interface FailedPhotoPickResult {
+  status: 'failed';
+  errorCode?: number;
+}
+
 export type PhotoPickResult =
-  | { status: 'selected'; imageUri: string }
-  | { status: 'cancelled' }
-  | { status: 'failed'; errorCode?: number };
+  SelectedPhotoPickResult | CancelledPhotoPickResult | FailedPhotoPickResult;
 
 /** Convert picker output into the page-safe result contract. */
 export function normalizePhotoUris(photoUris: string[]): PhotoPickResult {
   if (photoUris.length === 0 || photoUris[0].length === 0) {
-    return { status: 'cancelled' };
+    const cancelled: CancelledPhotoPickResult = { status: 'cancelled' };
+    return cancelled;
   }
-  return { status: 'selected', imageUri: photoUris[0] };
+  const selected: SelectedPhotoPickResult = { status: 'selected', imageUri: photoUris[0] };
+  return selected;
 }
 
 /** System photo selection without requesting broad gallery permissions. */
@@ -28,9 +42,11 @@ export class PhotoPickerService {
     } catch (err) {
       const error: BusinessError = err as BusinessError;
       if (error.code === 13900042) {
-        return { status: 'cancelled' };
+        const cancelled: CancelledPhotoPickResult = { status: 'cancelled' };
+        return cancelled;
       }
-      return { status: 'failed', errorCode: error.code };
+      const failed: FailedPhotoPickResult = { status: 'failed', errorCode: error.code };
+      return failed;
     }
   }
 }

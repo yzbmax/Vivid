@@ -4,6 +4,8 @@ import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { PageHeader } from '../components/common/PageHeader';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
+import { EditEntrySource } from '../models/EditModels';
+import { PendingEditIntentStore } from '../models/PendingEditIntentStore';
 
 enum LoginMode {
   CODE,
@@ -63,6 +65,7 @@ struct LoginPage {
   }
 
   private goBack(): void {
+    PendingEditIntentStore.clear();
     try {
       this.getUIContext().getRouter().back();
     } catch (err) {
@@ -72,7 +75,11 @@ struct LoginPage {
 
   private async openRegister(): Promise<void> {
     try {
-      await this.getUIContext().getRouter().pushUrl({ url: 'pages/RegisterPage' });
+      if (PendingEditIntentStore.peek() !== undefined) {
+        await this.getUIContext().getRouter().replaceUrl({ url: 'pages/RegisterPage' });
+      } else {
+        await this.getUIContext().getRouter().pushUrl({ url: 'pages/RegisterPage' });
+      }
     } catch (err) {
       console.error(`Failed to open register page: ${JSON.stringify(err)}`);
     }
@@ -103,7 +110,7 @@ struct LoginPage {
     }
   }
 
-  private submit(): void {
+  private async submit(): Promise<void> {
     this.phoneError = validatePhone(this.phone);
     this.codeError = '';
     this.passwordError = '';
@@ -132,7 +139,33 @@ struct LoginPage {
       }
     }
     AuthUiState.bumpRevision();
+    await this.resumePendingEditOrGoBack();
+  }
+
+  private async resumePendingEditOrGoBack(): Promise<void> {
+    const intent = PendingEditIntentStore.consume();
+    if (intent === undefined) {
+      this.goBack();
+      return;
+    }
+    try {
+      await this.getUIContext().getRouter().replaceUrl({
+        url: 'pages/EditPage',
+        params: {
+          source: EditEntrySource.Picker,
+          imageUri: intent.imageUri,
+          initialTool: intent.initialTool
+        }
+      });
+    } catch (_err) {
+      PendingEditIntentStore.set(intent);
+      this.showToast('无法恢复所选照片，请重试');
+    }
+  }
+
+  onBackPress(): boolean {
     this.goBack();
+    return true;
   }
 
   private authErrorMessage(errorCode?: AuthErrorCode): string {

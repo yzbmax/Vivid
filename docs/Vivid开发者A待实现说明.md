@@ -1,10 +1,118 @@
-# Vivid 开发者 A 待实现说明
+# Vivid 开发者 A 实现与待验收说明
 
-> 更新时间：2026-08-19
+> 更新时间：2026-08-21
 > 对应计划：`docs/Vivid下一阶段开发需求计划书.md`
 > 责任范围：Task 2、Task 3、Task 8，以及 A 负责的集成回归
 
-## 一、当前结论
+## 一、当前结论（2026-08-21）
+
+开发者 C 已合入 `EditorToolKey`、`EditRouteParams.initialTool` 和 `PendingEditIntent` 冻结契约，开发者 A 的代码实现不再受契约阻塞。
+
+开发者 A 已完成导出设置、系统选图服务、单条待续编辑意图、首页登录门禁、主导入与 8 个快捷入口，以及登录/注册成功后的编辑恢复。当前尚未完成的是 C 独占测试文件的最终注册/修复、真机手工回归和项目级构建验收；因此不能表述为完整集成验收通过。
+
+## 二、本轮新增完成
+
+### 2.1 待续编辑意图
+
+文件：
+
+- `entry/src/main/ets/models/PendingEditIntentStore.ets`
+- `entry/src/test/PendingEditIntentStore.test.ets`
+
+已实现单条进程内 `set/peek/consume/clear`，所有读写返回对象副本，`consume()` 只返回一次。测试覆盖设置、窥视、覆盖、清除、单次消费和外部对象不可修改内部状态。
+
+### 2.2 首页集中选图与登录门禁
+
+文件：
+
+- `entry/src/main/ets/components/home/HomePage.ets`
+- `entry/src/main/ets/components/home/HeroCard.ets`
+- `entry/src/main/ets/components/home/HomeModels.ets`
+- `entry/src/main/ets/components/home/QuickToolsSection.ets`
+
+已完成：
+
+- `HeroCard` 只通过回调上报点击；
+- `HomePage` 使用单一、防重复入口编排选图、认证和路由；
+- 取消选图静默留在首页，失败显示原有提示；
+- 已登录用户携带 `source/imageUri/initialTool` 进入编辑页；
+- 未登录用户保存待续意图并显示“暂不登录 / 前往登录”弹窗；
+- 拒绝登录、关闭弹窗和登录页打开失败时清空意图；
+- 8 项严格映射为 `subject/filter/background/adjust/subject/sticker/text/template`；
+- 快捷格使用现有设计语言下的 `0.98` 按压反馈。
+
+### 2.3 登录与注册恢复
+
+文件：
+
+- `entry/src/main/ets/pages/LoginPage.ets`
+- `entry/src/main/ets/pages/RegisterPage.ets`
+
+已完成：
+
+- 登录或注册成功后先刷新 `AuthUiState`，再消费待续意图；
+- 有意图时使用 `replaceUrl(EditPage)` 恢复照片和初始工具；
+- 路由失败时恢复意图并提示；
+- 无意图时保留原有返回逻辑；
+- 带待续意图时从登录前往注册使用替换式导航；
+- 登录/注册顶部返回和系统返回均清空未消费意图；
+- 页面暂时跳往注册页或协议页时不在生命周期回调中误清意图。
+
+### 2.4 选图结果 ArkTS 兼容修正
+
+`PhotoPickerService.ets` 已将内联对象字面量类型改为显式接口，保持原可判别结果语义，并消除 A 文件的 ArkTS Linter 错误。
+
+## 三、伙伴代码审阅结论
+
+已确认可供 A 接入：
+
+- C 的共享编辑契约与冻结计划一致；
+- 编辑页能够解析并应用 `initialTool`；
+- 作品页、详情页和首页近作已统一使用 `MockWorkStore`；
+- `AppSettingsStore.test.ets` 已注册到主测试列表。
+
+仍需伙伴跟进：
+
+1. `entry/src/test/EditModels.test.ets` 仍有 11 处未显式声明类型的对象字面量，导致 `UnitTestArkTS` 编译失败；该文件由 C 独占，A 未修改。
+2. 编辑页当前直接重复编排渲染、导出和作品写入，没有复用新增的 `WorkSaveService`；短期不阻塞 A 接入，但两条保存链路存在后续行为漂移风险。
+3. ArkTS Linter 对 `PhotoExportService` 报告 `WRITE_IMAGEVIDEO` 权限要求，对 `ImageRenderService` / `WorkFileService` 报告多处可能抛出异常；需要 B/C 在 Task 10 结合 API 24 和真机行为确认。
+
+## 四、仍待实现或验收
+
+### 4.1 等待 C 注册新增测试并修复基线
+
+C 需要在其独占的 `entry/src/test/List.test.ets` 中注册 `PendingEditIntentStore.test.ets`。当前测试在执行测试体前即被 `EditModels.test.ets` 的 ArkTS 编译错误阻断，修复前不能得到完整测试结果。
+
+### 4.2 等待 Task 10 手工与真机验收
+
+仍需覆盖：
+
+- 主导入和 8 个快捷入口的已登录、匿名、取消选图、拒绝登录流程；
+- 登录成功、注册成功、登录/注册匿名返回和普通登录无意图流程；
+- 设置页退出重进及应用重启后的选择恢复；
+- 编辑初始工具定位、页面和日志不泄露照片 URI 或认证信息；
+- 相册写入权限、PNG/JPEG 六档导出和作品保存闭环。
+
+### 4.3 构建环境阻断
+
+`default@BuildArkTS` 已完成资源处理和 ArkTS 页面静态检查，A 文件未报告 Linter 错误；随后 DevEco SDK 在生成 source map 时仍触发：
+
+```text
+TypeError: Cannot read properties of undefined (reading 'share')
+```
+
+因此项目级 debug 构建仍不能标记为通过。
+
+## 五、协作边界记录
+
+- A 未修改 `EditModels.ets`、`EditPage.ets`、`components/editor/`、作品模型、作品 Store 和导出编码实现。
+- A 未修改 C 独占的 `entry/src/test/List.test.ets` 与 `EditModels.test.ets`。
+- 未删除文件、未新增第三方依赖、未生成签名安装包。
+- 本轮未创建分支、未提交、未推送；当前分支仍为 `merge/all-three`。
+
+---
+
+## 六、2026-08-19 历史交接记录（以下阻塞状态已失效）
 
 开发者 A 已完成导出设置的数据模型、持久化 Store、设置页接线和独立的系统选图服务基础。
 

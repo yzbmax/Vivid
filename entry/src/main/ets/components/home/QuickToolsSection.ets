@@ -3,10 +3,17 @@
 // 由 HomePage 通过 @Prop 传入 ToolItem[] 数据。
 
 import { ToolItem } from './HomeModels';
+import { EditorToolKey } from '../../models/EditModels';
 
 @Component
 export struct QuickToolsSection {
   @Prop tools: ToolItem[] = [];
+  onToolClick: (key: EditorToolKey) => void = () => {};
+
+  @Styles
+  toolPressed() {
+    .scale({ x: 0.98, y: 0.98 })
+  }
 
   build() {
     Column() {
@@ -32,7 +39,7 @@ export struct QuickToolsSection {
           GridItem() {
             this.ToolCell(item)
           }
-        }, (item: ToolItem, index: number) => index.toString())
+        }, (_item: ToolItem, index: number) => index.toString())
       }
       .columnsTemplate('1fr 1fr 1fr 1fr')
       .rowsGap(16)
@@ -77,5 +84,8 @@ export struct QuickToolsSection {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
+    .onClick(() => this.onToolClick(item.key))
+    .stateStyles({ pressed: this.toolPressed })
+    .animation({ duration: 150, curve: Curve.EaseOut })
   }
 }

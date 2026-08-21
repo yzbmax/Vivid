@@ -3,6 +3,8 @@ import { validateCode, validatePassword, validatePasswordConfirmation, validateP
 import { PageHeader } from '../components/common/PageHeader';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
+import { EditEntrySource } from '../models/EditModels';
+import { PendingEditIntentStore } from '../models/PendingEditIntentStore';
 
 @Entry
 @Component
@@ -27,6 +29,7 @@ struct RegisterPage {
   }
 
   private goBack(): void {
+    PendingEditIntentStore.clear();
     try {
       this.getUIContext().getRouter().back();
     } catch (err) {
@@ -58,7 +61,7 @@ struct RegisterPage {
     }
   }
 
-  private submit(): void {
+  private async submit(): Promise<void> {
     this.phoneError = validatePhone(this.phone);
     this.codeError = validateCode(this.code);
     this.passwordError = validatePassword(this.password);
@@ -74,7 +77,40 @@ struct RegisterPage {
       return;
     }
     AuthUiState.bumpRevision();
+    await this.resumePendingEditOrGoBack();
+  }
+
+  private async resumePendingEditOrGoBack(): Promise<void> {
+    const intent = PendingEditIntentStore.consume();
+    if (intent === undefined) {
+      this.goBack();
+      return;
+    }
+    try {
+      await this.getUIContext().getRouter().replaceUrl({
+        url: 'pages/EditPage',
+        params: {
+          source: EditEntrySource.Picker,
+          imageUri: intent.imageUri,
+          initialTool: intent.initialTool
+        }
+      });
+    } catch (_err) {
+      PendingEditIntentStore.set(intent);
+      this.showToast('无法恢复所选照片，请重试');
+    }
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (_err) {
+    }
+  }
+
+  onBackPress(): boolean {
     this.goBack();
+    return true;
   }
 
   private applyAuthError(errorCode?: AuthErrorCode): void {

@@ -1,3 +1,5 @@
+import { EditorToolKey } from '../../models/EditModels';
+
 // 首页数据模型：定义"技艺列表"与"近作列表"的数据结构。
 // 由 HomePage 实例化后通过 @Prop 单向传入各子组件。
 
@@ -41,11 +43,13 @@ export class WorkItem {
  * - isHot: 是否显示"热"角标
  */
 export class ToolItem {
+  key: EditorToolKey;
   name: ResourceStr;
   icon: Resource;
   isHot: boolean;
 
-  constructor(name: ResourceStr, icon: Resource, isHot: boolean = false) {
+  constructor(key: EditorToolKey, name: ResourceStr, icon: Resource, isHot: boolean = false) {
+    this.key = key;
     this.name = name;
     this.icon = icon;
     this.isHot = isHot;
