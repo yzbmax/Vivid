@@ -62,32 +62,34 @@ export interface PendingEditIntent {
   createdAt: number;
 }
 
-/** 四项调色参数快照，范围 -100 … +100。 */
+/** 五项调色参数快照，范围 -100 … +100。 */
 export interface AdjustParams {
   exposure: number;
   brightness: number;
   contrast: number;
   saturation: number;
+  temperature: number;   // V2 新增：色温，RegionRenderer 像素级渲染使用
 }
 
 /** 调色参数边界。 */
 export const ADJUST_MIN: number = -100;
 export const ADJUST_MAX: number = 100;
 
-/** 默认调色参数（四项全 0）。 */
+/** 默认调色参数（五项全 0）。 */
 export const DEFAULT_ADJUSTMENTS: AdjustParams = {
   exposure: 0,
   brightness: 0,
   contrast: 0,
-  saturation: 0
+  saturation: 0,
+  temperature: 0
 };
 
 /** 返回独立默认参数副本，避免共享同一对象引用。 */
 export function createDefaultAdjustments(): AdjustParams {
-  return { exposure: 0, brightness: 0, contrast: 0, saturation: 0 };
+  return { exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0 };
 }
 
-/** 四项参数逐项钳制到 [ADJUST_MIN, ADJUST_MAX] 并取整。 */
+/** 五项参数逐项钳制到 [ADJUST_MIN, ADJUST_MAX] 并取整。 */
 export function clampAdjustments(p: AdjustParams): AdjustParams {
   const clamp = (v: number): number =>
     Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, Math.round(v)));
@@ -95,7 +97,8 @@ export function clampAdjustments(p: AdjustParams): AdjustParams {
     exposure: clamp(p.exposure),
     brightness: clamp(p.brightness),
     contrast: clamp(p.contrast),
-    saturation: clamp(p.saturation)
+    saturation: clamp(p.saturation),
+    temperature: clamp(p.temperature)
   };
 }
 
@@ -178,6 +181,8 @@ export interface AdjustEffects {
   contrast: number;
   /** 组件饱和度，1=原始，范围 [0.2, 1.8]。 */
   saturate: number;
+  /** V2 新增：色温暖度偏移，[-0.12, 0.12]。正=暖，负=冷。 */
+  warmth: number;
 }
 
 /**
@@ -192,7 +197,8 @@ export function mapParamsToEffects(p: AdjustParams): AdjustEffects {
   const luminanceLight = lum >= 0;
   const contrast = Math.round((1 + (e.contrast / 100) * 0.9) * 1000) / 1000; // [0.1, 1.9]
   const saturate = Math.round((1 + (e.saturation / 100) * 0.8) * 1000) / 1000; // [0.2, 1.8]
-  return { luminanceAlpha, luminanceLight, contrast, saturate };
+  const warmth = Math.round((e.temperature / 100) * 0.12 * 1000) / 1000; // [-0.12, 0.12]
+  return { luminanceAlpha, luminanceLight, contrast, saturate, warmth };
 }
 
 /** 保存动作：新建 或 续编更新。 */
@@ -334,10 +340,197 @@ export interface AdjustTypeDef {
   unit: string;
 }
 
-/** 「调节」工具内的四种调整类型。 */
+/** 「调节」工具内的五种调整类型（V2 新增 temperature）。 */
 export const ADJUST_TYPES: AdjustTypeDef[] = [
   { key: 'exposure', label: '曝光', unit: 'EXP' },
   { key: 'brightness', label: '亮度', unit: 'LUM' },
   { key: 'contrast', label: '对比度', unit: 'CON' },
-  { key: 'saturation', label: '饱和度', unit: 'SAT' }
+  { key: 'saturation', label: '饱和度', unit: 'SAT' },
+  { key: 'temperature', label: '色温', unit: 'TMP' }
 ];
+
+// ───────────────────────── V2 区域调色类型（主体/背景分离）─────────────────────────
+
+/** 区域键：主体 或 背景。 */
+export type RegionKey = 'subject' | 'background';
+
+/** 双区域调色参数（主体和背景各自独立）。 */
+export interface RegionAdjustments {
+  subject: AdjustParams;
+  background: AdjustParams;
+}
+
+/** 返回独立的默认双区域参数（五项全 0）。 */
+export function createDefaultRegionAdjustments(): RegionAdjustments {
+  return {
+    subject: createDefaultAdjustments(),
+    background: createDefaultAdjustments()
+  };
+}
+
+/** 深拷贝 AdjustParams（ArkTS 不支持对象展开 { ...obj }）。 */
+export function cloneAdjustments(p: AdjustParams): AdjustParams {
+  return {
+    exposure: p.exposure,
+    brightness: p.brightness,
+    contrast: p.contrast,
+    saturation: p.saturation,
+    temperature: p.temperature
+  };
+}
+
+/** 深拷贝 RegionAdjustments（两个子对象各自独立）。 */
+export function cloneRegionAdjustments(src: RegionAdjustments): RegionAdjustments {
+  return {
+    subject: cloneAdjustments(src.subject),
+    background: cloneAdjustments(src.background)
+  };
+}
+
+/**
+ * 区域调整类型（4 项，不含 exposure）。
+ * exposure 是纯 CSS 预览参数（通过叠加透明度层模拟），不参与 Worker 像素级渲染。
+ * 区域模式需要像素精确，所以排除 exposure。
+ */
+export const REGION_ADJUST_TYPES: AdjustTypeDef[] = [
+  { key: 'brightness', label: '亮度', unit: 'LUM' },
+  { key: 'contrast', label: '对比度', unit: 'CON' },
+  { key: 'saturation', label: '饱和度', unit: 'SAT' },
+  { key: 'temperature', label: '色温', unit: 'TMP' }
+];
+
+// ───────────────────────── 贴纸（自由贴签）类型定义 ─────────────────────────
+
+/** 贴纸分类键。 */
+export type StickerCategory = 'seal' | 'corner' | 'label' | 'auspicious';
+
+/** 贴纸渲染类型（决定 StickerLayer 如何绘制）。 */
+export enum StickerRenderType {
+  /** 印章：红底白字方框，纯代码绘制（复用 SealBadge 模式）。 */
+  SealStamp = 'seal_stamp',
+  /** 角花：SVG/PNG 图片资源。 */
+  CornerFlower = 'corner_flower',
+  /** 标签条：宣纸底+墨字，纯代码绘制。 */
+  LabelStrip = 'label_strip',
+  /** 吉祥图：SVG/PNG 图案。 */
+  AuspiciousIcon = 'auspicious_icon'
+}
+
+/** 贴纸模板（从模板创建实例）。 */
+export interface StickerTemplate {
+  id: string;
+  name: string;
+  category: StickerCategory;
+  renderType: StickerRenderType;
+  /** 图片资源（SealStamp / LabelStrip 为 null，纯代码绘制）。 */
+  resource: Resource | null;
+  /** 印章文字 / 标签文字。 */
+  textContent: string;
+  /** 默认显示尺寸（vp）。 */
+  defaultSize: number;
+}
+
+/** 贴纸实例（放置在预览区的一个贴纸）。 */
+export interface StickerItem {
+  /** 唯一实例 id。 */
+  instanceId: string;
+  /** 对应模板 id。 */
+  templateId: string;
+  /** 像素偏移（相对预览区左上角）。 */
+  posX: number;
+  posY: number;
+  /** 显示尺寸（vp）。 */
+  size: number;
+  /** 旋转角度（度）。 */
+  rotation: number;
+  /** 透明度 0.3~1.0。 */
+  opacity: number;
+  /** 层级（越大越靠前）。 */
+  zIndex: number;
+}
+
+/** 贴纸分类定义。 */
+export interface StickerCategoryDef {
+  key: StickerCategory;
+  label: string;
+}
+
+/** 贴纸分类列表。 */
+export const STICKER_CATEGORIES: StickerCategoryDef[] = [
+  { key: 'seal', label: '闲章' },
+  { key: 'corner', label: '角花' },
+  { key: 'label', label: '签条' },
+  { key: 'auspicious', label: '吉祥' }
+];
+
+/** 贴纸数量上限。 */
+export const STICKER_MAX_COUNT: number = 12;
+
+/** 贴纸模板库（初始 14 枚）。 */
+export const STICKER_TEMPLATES: StickerTemplate[] = [
+  // ── 闲章（纯代码绘制，无需图片资源）──
+  { id: 'seal-01', name: '雅正', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '雅', defaultSize: 48 },
+  { id: 'seal-02', name: '墨戏', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '墨', defaultSize: 48 },
+  { id: 'seal-03', name: '清玩', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '清', defaultSize: 48 },
+  { id: 'seal-04', name: '静心', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '静', defaultSize: 48 },
+  { id: 'seal-05', name: '怡然', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '怡', defaultSize: 48 },
+  { id: 'seal-06', name: '逸趣', category: 'seal', renderType: StickerRenderType.SealStamp, resource: null, textContent: '逸', defaultSize: 48 },
+
+  // ── 角花（需 SVG 资源）──
+  { id: 'corner-01', name: '回纹角花', category: 'corner', renderType: StickerRenderType.CornerFlower, resource: $r('app.media.sticker_corner_hui'), textContent: '', defaultSize: 64 },
+  { id: 'corner-02', name: '云纹角花', category: 'corner', renderType: StickerRenderType.CornerFlower, resource: $r('app.media.sticker_corner_yun'), textContent: '', defaultSize: 64 },
+  { id: 'corner-03', name: '梅花角花', category: 'corner', renderType: StickerRenderType.CornerFlower, resource: $r('app.media.sticker_corner_mei'), textContent: '', defaultSize: 64 },
+  { id: 'corner-04', name: '莲花角花', category: 'corner', renderType: StickerRenderType.CornerFlower, resource: $r('app.media.sticker_corner_lian'), textContent: '', defaultSize: 64 },
+
+  // ── 签条（纯代码绘制，无需图片资源）──
+  { id: 'label-01', name: '题签', category: 'label', renderType: StickerRenderType.LabelStrip, resource: null, textContent: '题签', defaultSize: 48 },
+  { id: 'label-02', name: '品名', category: 'label', renderType: StickerRenderType.LabelStrip, resource: null, textContent: '品名', defaultSize: 48 },
+
+  // ── 吉祥图（需 SVG 资源）──
+  { id: 'ausp-01', name: '如意', category: 'auspicious', renderType: StickerRenderType.AuspiciousIcon, resource: $r('app.media.sticker_ausp_ruyi'), textContent: '', defaultSize: 56 },
+  { id: 'ausp-02', name: '祥云', category: 'auspicious', renderType: StickerRenderType.AuspiciousIcon, resource: $r('app.media.sticker_ausp_cloud'), textContent: '', defaultSize: 56 }
+];
+
+/**
+ * 根据模板 id 查找模板。
+ * 未找到时返回 null。
+ */
+export function findStickerTemplate(templateId: string): StickerTemplate | null {
+  for (let i = 0; i < STICKER_TEMPLATES.length; i++) {
+    if (STICKER_TEMPLATES[i].id === templateId) {
+      return STICKER_TEMPLATES[i];
+    }
+  }
+  return null;
+}
+
+/**
+ * 创建贴纸实例（默认放置在预览区中心）。
+ * centerX / centerY 为预览区中心像素坐标。
+ */
+export function createStickerInstance(templateId: string, centerX: number, centerY: number): StickerItem {
+  const tpl = findStickerTemplate(templateId);
+  const defaultSize = tpl != null ? tpl.defaultSize : 48;
+  const microRotate = Math.floor(Math.random() * 7) - 3; // -3~+3 微倾（印章感）
+  return {
+    instanceId: 'sticker-' + Date.now().toString() + '-' + Math.floor(Math.random() * 1000).toString(),
+    templateId: templateId,
+    posX: centerX - defaultSize / 2,
+    posY: centerY - defaultSize / 2,
+    size: defaultSize,
+    rotation: microRotate,
+    opacity: 1.0,
+    zIndex: Date.now()
+  };
+}
+
+/** 按分类过滤模板。 */
+export function filterTemplatesByCategory(category: StickerCategory): StickerTemplate[] {
+  const result: StickerTemplate[] = [];
+  for (let i = 0; i < STICKER_TEMPLATES.length; i++) {
+    if (STICKER_TEMPLATES[i].category === category) {
+      result.push(STICKER_TEMPLATES[i]);
+    }
+  }
+  return result;
+}

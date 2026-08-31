@@ -85,6 +85,7 @@ export struct PaperFrame {
           } else {
             Column() {
               Text('无预览')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontColor(Theme.ON_SURFACE_VARIANT)
             }
             .width('100%')
@@ -114,6 +115,7 @@ export struct PaperFrame {
           Blank()
           Row() {
             Text('✓')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(16)
               .fontColor(Theme.PRIMARY)
           }

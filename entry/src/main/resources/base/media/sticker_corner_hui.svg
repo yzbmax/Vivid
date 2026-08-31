@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- 回纹角花：古典回纹图案，适合装饰画面四角 -->
+  <g fill="none" stroke="#7B171B" stroke-width="3" stroke-linecap="square">
+    <!-- 外框回纹 -->
+    <path d="M16 16 H80 V32 H32 V80 H16 Z"/>
+    <path d="M40 40 H64 V48 H48 V64 H40 Z"/>
+    <!-- 回纹延伸 -->
+    <path d="M80 16 V48 H96 V16"/>
+    <path d="M16 80 H48 V96 H16"/>
+    <!-- 内角装饰 -->
+    <path d="M48 48 L64 64"/>
+    <path d="M32 16 V24"/>
+    <path d="M16 32 H24"/>
+  </g>
+</svg>

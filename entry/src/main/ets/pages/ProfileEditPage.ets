@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AuthUiState } from '../models/AuthUiState';
 import { MockAuthStore } from '../models/MockAuthStore';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -130,11 +131,12 @@ struct ProfileEditPage {
             if (!this.isAuthenticated()) {
               Column({ space: 14 }) {
                 Text('请先登录')
-                  .fontFamily('Noto Serif SC')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(24)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(MASK_SEAL.ink);
                 Text('登录后才能编辑个人册页')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(14)
                   .fontColor(MASK_SEAL.inkMuted);
                 SealButton({ text: '前往登录', secondary: false, onTap: () => this.openLogin() });
@@ -147,7 +149,7 @@ struct ProfileEditPage {
             } else {
               Column({ space: 14 }) {
                 Text('个人册页')
-                  .fontFamily('monospace')
+                  .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
                   .letterSpacing(1.5)
@@ -161,7 +163,7 @@ struct ProfileEditPage {
                     .borderRadius(41);
                 } else {
                   Text(this.avatarGlyph)
-                    .fontFamily('Noto Serif SC')
+                    .fontFamily(Theme.FONT_SERIF)
                     .fontSize(36)
                     .fontWeight(FontWeight.Bold)
                     .fontColor(MASK_SEAL.primary)
@@ -175,15 +177,17 @@ struct ProfileEditPage {
                 }
                 SealButton({ text: '从相册上传头像', secondary: true, onTap: () => this.chooseAvatar() });
                 Text(this.avatarUri.length > 0 ? '相册头像优先显示，保存后生效' : '也可以使用下方印章字形作为头像')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(13)
                   .fontColor(MASK_SEAL.inkMuted);
                 Text('选择印章字形')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(13)
                   .fontColor(MASK_SEAL.inkMuted);
                 Row({ space: 8 }) {
                   ForEach(this.avatarGlyphs, (glyph: string) => {
                     Text(glyph)
-                      .fontFamily('Noto Serif SC')
+                      .fontFamily(Theme.FONT_SERIF)
                       .fontSize(22)
                       .fontWeight(FontWeight.Bold)
                       .fontColor(glyph === this.avatarGlyph ? Color.White : MASK_SEAL.primary)
@@ -211,7 +215,7 @@ struct ProfileEditPage {
 
               Column({ space: 8 }) {
                 Text('昵称')
-                  .fontFamily('monospace')
+                  .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
                   .width('100%');
@@ -231,6 +235,7 @@ struct ProfileEditPage {
                   });
                 if (this.profileError.length > 0) {
                   Text(this.profileError)
+                    .fontFamily(Theme.FONT_SERIF)
                     .fontSize(12)
                     .fontColor(MASK_SEAL.error)
                     .width('100%');

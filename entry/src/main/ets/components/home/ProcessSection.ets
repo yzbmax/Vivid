@@ -3,6 +3,7 @@
 // 由 HomePage 通过 @Prop 传入 FeatureItem[] 数据。
 
 import { FeatureItem } from './HomeModels';
+import { Theme } from '../common/Theme';
 
 @Component
 export struct ProcessSection {
@@ -13,11 +14,13 @@ export struct ProcessSection {
       // 区块标题：中文"技艺" + 英文"PROCESS"
       Row() {
         Text($r('app.string.home_section_cn'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.ink_dark'))
 
         Text($r('app.string.home_section_en'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(11)
           .letterSpacing(2)
           .margin({ left: 8 })
@@ -67,11 +70,13 @@ export struct ProcessSection {
           // 中间：标题 + 描述
           Column() {
             Text(item.title)
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(15)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('app.color.ink_dark'))
 
             Text(item.desc)
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(12)
               .margin({ top: 4 })
               .lineHeight(18)
@@ -83,6 +88,7 @@ export struct ProcessSection {
 
           // 右侧：编号
           Text(`0${index + 1}`)
+            .fontFamily(Theme.FONT_SERIF)
             .fontSize(11)
             .fontColor($r('app.color.stone_gray'))
         }

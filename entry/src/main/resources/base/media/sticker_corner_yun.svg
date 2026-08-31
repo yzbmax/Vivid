@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- 云纹角花：传统祥云纹样 -->
+  <g fill="none" stroke="#7B171B" stroke-width="2.5">
+    <!-- 主云头 -->
+    <path d="M20 80 Q20 40 50 30 Q60 10 90 20 Q110 5 130 25 Q150 15 155 40 Q175 35 170 60 Q190 65 175 85" stroke-linecap="round"/>
+    <!-- 云尾卷曲 -->
+    <path d="M20 80 Q30 100 50 95 Q40 110 60 115" stroke-linecap="round"/>
+    <!-- 内部旋纹 -->
+    <path d="M70 45 Q80 35 95 40 Q100 50 90 55 Q80 52 78 45" stroke-linecap="round"/>
+    <path d="M120 35 Q130 28 140 35 Q142 45 132 48 Q124 44 125 38" stroke-linecap="round"/>
+    <!-- 小点缀 -->
+    <circle cx="50" cy="60" r="3" fill="#7B171B"/>
+    <circle cx="110" cy="50" r="2.5" fill="#7B171B"/>
+  </g>
+</svg>

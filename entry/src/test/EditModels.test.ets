@@ -65,10 +65,12 @@ export default function editModelsTest() {
       expect(p.brightness).assertEqual(0);
       expect(p.contrast).assertEqual(0);
       expect(p.saturation).assertEqual(0);
+      expect(p.temperature).assertEqual(0);
       expect(DEFAULT_ADJUSTMENTS.exposure).assertEqual(0);
       expect(DEFAULT_ADJUSTMENTS.brightness).assertEqual(0);
       expect(DEFAULT_ADJUSTMENTS.contrast).assertEqual(0);
       expect(DEFAULT_ADJUSTMENTS.saturation).assertEqual(0);
+      expect(DEFAULT_ADJUSTMENTS.temperature).assertEqual(0);
     });
 
     it('returns an independent object on each default call', 0, () => {
@@ -78,7 +80,7 @@ export default function editModelsTest() {
     });
 
     it('clamps adjustments into the -100..100 range', 0, () => {
-      const out = clampAdjustments({ exposure: 120, brightness: -120, contrast: 50, saturation: 0 });
+      const out = clampAdjustments({ exposure: 120, brightness: -120, contrast: 50, saturation: 0, temperature: 0 });
       expect(out.exposure).assertEqual(ADJUST_MAX);
       expect(out.brightness).assertEqual(ADJUST_MIN);
       expect(out.contrast).assertEqual(50);
@@ -86,7 +88,7 @@ export default function editModelsTest() {
     });
 
     it('rounds and clamps fractional values', 0, () => {
-      const out = clampAdjustments({ exposure: 101.6, brightness: -99.4, contrast: 99.6, saturation: -100.5 });
+      const out = clampAdjustments({ exposure: 101.6, brightness: -99.4, contrast: 99.6, saturation: -100.5, temperature: 0 });
       expect(out.exposure).assertEqual(100);
       expect(out.brightness).assertEqual(-99);
       expect(out.contrast).assertEqual(100);
@@ -110,35 +112,43 @@ export default function editModelsTest() {
       expect(fx.luminanceLight).assertEqual(true);
       expect(fx.contrast).assertEqual(1);
       expect(fx.saturate).assertEqual(1);
+      expect(fx.warmth).assertEqual(0);
     });
 
     it('maps exposure to a light or dark overlay', 0, () => {
-      const light = mapParamsToEffects({ exposure: 100, brightness: 0, contrast: 0, saturation: 0 });
+      const light = mapParamsToEffects({ exposure: 100, brightness: 0, contrast: 0, saturation: 0, temperature: 0 });
       expect(light.luminanceAlpha).assertEqual(0.3);
       expect(light.luminanceLight).assertEqual(true);
-      const dark = mapParamsToEffects({ exposure: -100, brightness: 0, contrast: 0, saturation: 0 });
+      const dark = mapParamsToEffects({ exposure: -100, brightness: 0, contrast: 0, saturation: 0, temperature: 0 });
       expect(dark.luminanceAlpha).assertEqual(0.3);
       expect(dark.luminanceLight).assertEqual(false);
     });
 
     it('combines exposure and brightness into luminance overlay', 0, () => {
-      const fx = mapParamsToEffects({ exposure: 100, brightness: 100, contrast: 0, saturation: 0 });
+      const fx = mapParamsToEffects({ exposure: 100, brightness: 100, contrast: 0, saturation: 0, temperature: 0 });
       expect(fx.luminanceAlpha).assertEqual(0.55);
       expect(fx.luminanceLight).assertEqual(true);
     });
 
     it('maps contrast and saturation to component effects', 0, () => {
-      const up = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: 100, saturation: 100 });
+      const up = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: 100, saturation: 100, temperature: 0 });
       expect(up.contrast).assertEqual(1.9);
       expect(up.saturate).assertEqual(1.8);
-      const down = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: -100, saturation: -100 });
+      const down = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: -100, saturation: -100, temperature: 0 });
       expect(down.contrast).assertEqual(0.1);
       expect(down.saturate).assertEqual(0.2);
     });
 
+    it('maps temperature to warmth effect', 0, () => {
+      const warm = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 100 });
+      expect(warm.warmth).assertEqual(0.12);
+      const cool = mapParamsToEffects({ exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: -100 });
+      expect(cool.warmth).assertEqual(-0.12);
+    });
+
     it('builds a create intent from a picker source', 0, () => {
       const intent = buildSaveIntent(EditEntrySource.Picker, '', 'file:///tmp/a.jpg',
-        { exposure: 150, brightness: 0, contrast: 0, saturation: 0 }, 1000);
+        { exposure: 150, brightness: 0, contrast: 0, saturation: 0, temperature: 0 }, 1000);
       expect(intent.mode).assertEqual(SaveMode.Create);
       expect(intent.draft.id).assertEqual('MOCK-1000');
       expect(intent.draft.title).assertEqual('未题新卷');
@@ -151,7 +161,7 @@ export default function editModelsTest() {
 
     it('builds an update intent from a work source', 0, () => {
       const intent = buildSaveIntent(EditEntrySource.Work, '0409-A', 'file:///tmp/a.jpg',
-        { exposure: 10, brightness: -20, contrast: 30, saturation: 0 }, 2000);
+        { exposure: 10, brightness: -20, contrast: 30, saturation: 0, temperature: 0 }, 2000);
       expect(intent.mode).assertEqual(SaveMode.Update);
       expect(intent.id).assertEqual('0409-A');
       expect(intent.draft.id).assertEqual('0409-A');
@@ -168,7 +178,7 @@ export default function editModelsTest() {
 
     it('builds a draft create intent from a picker source', 0, () => {
       const intent = buildDraftIntent(EditEntrySource.Picker, '', 'file:///tmp/a.jpg',
-        { exposure: 50, brightness: 0, contrast: 0, saturation: 0 }, 4000);
+        { exposure: 50, brightness: 0, contrast: 0, saturation: 0, temperature: 0 }, 4000);
       expect(intent.mode).assertEqual(SaveMode.Create);
       expect(intent.draft.id).assertEqual('MOCK-4000');
       expect(intent.draft.title).assertEqual('未题草卷');
@@ -181,7 +191,7 @@ export default function editModelsTest() {
 
     it('builds a draft update intent from a work source', 0, () => {
       const intent = buildDraftIntent(EditEntrySource.Work, '0409-C', 'file:///tmp/b.jpg',
-        { exposure: 0, brightness: 30, contrast: -10, saturation: 0 }, 5000);
+        { exposure: 0, brightness: 30, contrast: -10, saturation: 0, temperature: 0 }, 5000);
       expect(intent.mode).assertEqual(SaveMode.Update);
       expect(intent.id).assertEqual('0409-C');
       expect(intent.draft.id).assertEqual('0409-C');
@@ -237,7 +247,7 @@ export default function editModelsTest() {
         sourceImageUri: 'file:///tmp/a.jpg',
         width: 0,
         height: 0,
-        adjustments: { exposure: 20, brightness: 0, contrast: 0, saturation: 0 },
+        adjustments: { exposure: 20, brightness: 0, contrast: 0, saturation: 0, temperature: 0 },
         status: WorkStatus.Sealed,
         createdAt: 1,
         updatedAt: 99
@@ -271,12 +281,13 @@ export default function editModelsTest() {
       expect(EDITOR_TOOLS[0].label).assertEqual('滤镜');
     });
 
-    it('defines the four adjust types', 0, () => {
-      expect(ADJUST_TYPES.length).assertEqual(4);
+    it('defines the five adjust types (V2: + temperature)', 0, () => {
+      expect(ADJUST_TYPES.length).assertEqual(5);
       expect(ADJUST_TYPES[0].key).assertEqual('exposure');
       expect(ADJUST_TYPES[1].key).assertEqual('brightness');
       expect(ADJUST_TYPES[2].key).assertEqual('contrast');
       expect(ADJUST_TYPES[3].key).assertEqual('saturation');
+      expect(ADJUST_TYPES[4].key).assertEqual('temperature');
     });
 
     it('defines seven valid editor tool keys', 0, () => {

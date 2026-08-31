@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- 梅花角花：五瓣梅花+枝干 -->
+  <g fill="none" stroke="#7B171B" stroke-width="2">
+    <!-- 枝干 -->
+    <path d="M10 120 Q40 100 70 80 Q90 65 100 40 Q105 25 115 15" stroke-linecap="round" stroke-width="3"/>
+    <path d="M70 80 Q85 90 95 110" stroke-linecap="round" stroke-width="2"/>
+    <!-- 梅花1（主花） -->
+    <circle cx="80" cy="65" r="5" fill="#B23B2F"/>
+    <circle cx="72" cy="58" r="5" fill="#B23B2F"/>
+    <circle cx="88" cy="58" r="5" fill="#B23B2F"/>
+    <circle cx="74" cy="72" r="5" fill="#B23B2F"/>
+    <circle cx="86" cy="72" r="5" fill="#B23B2F"/>
+    <circle cx="80" cy="65" r="2.5" fill="#7B171B"/>
+    <!-- 梅花2（小花苞） -->
+    <circle cx="105" cy="35" r="3.5" fill="#B23B2F"/>
+    <circle cx="100" cy="30" r="3.5" fill="#B23B2F"/>
+    <circle cx="110" cy="30" r="3.5" fill="#B23B2F"/>
+    <circle cx="102" cy="40" r="3.5" fill="#B23B2F"/>
+    <circle cx="108" cy="40" r="3.5" fill="#B23B2F"/>
+    <circle cx="105" cy="35" r="2" fill="#7B171B"/>
+    <!-- 花蕊点缀 -->
+    <circle cx="95" cy="108" r="2" fill="#B23B2F"/>
+    <circle cx="92" cy="105" r="2" fill="#B23B2F"/>
+    <circle cx="98" cy="105" r="2" fill="#B23B2F"/>
+  </g>
+</svg>

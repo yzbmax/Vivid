@@ -43,6 +43,19 @@ struct Index {
     .padding({ bottom: this.navBarHeightVp })
   }
 
+  aboutToAppear(): void {
+    // 注册双字体：中文用 NotoSerifSC，英文/数字用 NotoSerif
+    const fontApi = this.getUIContext().getFont();
+    fontApi.registerFont({
+      familyName: 'NotoSerifSC',
+      familySrc: $rawfile('font/NotoSerifSC-VariableFont_wght.ttf')
+    });
+    fontApi.registerFont({
+      familyName: 'NotoSerif',
+      familySrc: $rawfile('font/NotoSerif-VariableFont_wdth,wght.ttf')
+    });
+  }
+
   build() {
     Tabs({ barPosition: BarPosition.End }) {
       TabContent() {

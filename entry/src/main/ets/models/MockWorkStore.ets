@@ -1,5 +1,6 @@
 import { WorkRecord, WorkStatus } from './WorkRecord';
 import { buildMockWorks } from './MockWorks';
+import { cloneRegionAdjustments } from './EditModels';
 
 /**
  * 作品 Mock Store：管理作品列表的增删改查。
@@ -99,8 +100,13 @@ export class MockWorkStore {
       exposure: patch.adjustments.exposure,
       brightness: patch.adjustments.brightness,
       contrast: patch.adjustments.contrast,
-      saturation: patch.adjustments.saturation
+      saturation: patch.adjustments.saturation,
+      temperature: patch.adjustments.temperature
     };
+    // V2: 同步区域参数
+    if (patch.regionAdjustments !== undefined) {
+      existing.regionAdjustments = cloneRegionAdjustments(patch.regionAdjustments);
+    }
     existing.updatedAt = Date.now();
     return existing;
   }

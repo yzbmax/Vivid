@@ -1,6 +1,8 @@
 // 页脚：品牌署名 VIVID · DIGITAL ART ARCHIVE。
 // 居中排列，石灰副色小字，呼应文书卷宗的落款。
 
+import { Theme } from '../common/Theme';
+
 @Component
 export struct Footer {
   build() {
@@ -14,6 +16,7 @@ export struct Footer {
 
       // 落款
       Text($r('app.string.home_footer'))
+        .fontFamily(Theme.FONT_SERIF)
         .fontSize(11)
         .letterSpacing(2)
         .fontColor($r('app.color.stone_gray'))

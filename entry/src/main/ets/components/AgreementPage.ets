@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealPaperBackground } from './MaskSeal';
 import { PageHeader } from './common/PageHeader';
+import { Theme } from './common/Theme';
 
 @Component
 export struct AgreementPage {
@@ -24,22 +25,23 @@ export struct AgreementPage {
         Column({ space: 18 }) {
           Column({ space: 6 }) {
             Text('呈报依据')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(11)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(2);
             Text(this.title)
-              .fontFamily('Noto Serif SC')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(MASK_SEAL.ink);
             Text(`更新日期：${this.updatedAt}`)
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(11)
               .fontColor(MASK_SEAL.inkMuted);
           }
           .width('100%');
           Text('界面示例，非正式法律文本')
+            .fontFamily(Theme.FONT_SERIF)
             .width('100%')
             .fontSize(13)
             .fontColor(MASK_SEAL.primary)
@@ -49,11 +51,12 @@ export struct AgreementPage {
           ForEach(this.sections, (section: string, index: number) => {
             Column({ space: 8 }) {
               Text(`第 ${index + 1} 条`)
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(19)
                 .fontWeight(FontWeight.Bold)
                 .fontColor(MASK_SEAL.ink);
               Text(section)
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(15)
                 .lineHeight(25)
                 .fontColor(MASK_SEAL.inkMuted);
@@ -64,7 +67,7 @@ export struct AgreementPage {
             .border({ width: 1, color: '#ded0cc' });
           }, (section: string) => section);
           Text('呈报复核 · 文书示例')
-            .fontFamily('monospace')
+            .fontFamily(Theme.FONT_MONO)
             .fontSize(10)
             .fontColor('#8a5c57')
             .letterSpacing(1)

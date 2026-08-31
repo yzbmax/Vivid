@@ -4,6 +4,7 @@
 // 由 HomePage 通过 @Prop 传入 WorkRecord[] 数据。
 
 import { WorkRecord } from '../../models/WorkRecord';
+import { Theme } from '../common/Theme';
 
 @Component
 export struct RecentWorkSection {
@@ -15,11 +16,13 @@ export struct RecentWorkSection {
       // 区块标题：中文"近作" + 英文"RECENT WORKS"
       Row() {
         Text($r('app.string.home_work_cn'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.ink_dark'))
 
         Text($r('app.string.home_work_en'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(11)
           .letterSpacing(2)
           .margin({ left: 8 })
@@ -33,9 +36,11 @@ export struct RecentWorkSection {
         // 空状态提示
         Column() {
           Text('暂无近作')
+            .fontFamily(Theme.FONT_SERIF)
             .fontSize(14)
             .fontColor($r('app.color.stone_gray'))
           Text('去编辑一张吧')
+            .fontFamily(Theme.FONT_SERIF)
             .fontSize(12)
             .margin({ top: 4 })
             .fontColor($r('app.color.stone_gray'))
@@ -85,6 +90,7 @@ export struct RecentWorkSection {
           // 无预览图：显示占位
           Column() {
             Text($r('app.string.home_seal'))
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(26)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('app.color.ink_red'))
@@ -105,12 +111,14 @@ export struct RecentWorkSection {
         Row() {
           Column() {
             Text(item.title)
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
               .fontColor(Color.White)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
             Text(item.date)
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(10)
               .margin({ top: 2 })
               .fontColor('#CCFFFFFF')

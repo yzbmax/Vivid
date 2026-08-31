@@ -35,6 +35,7 @@ export function PageHeader($$: PageHeaderParams) {
       // 标题（衬线、居中、占满剩余宽度）
       Text($$.title)
         .fontFamily(Theme.FONT_SERIF)
+
         .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
         .fontWeight(600)
         .fontColor(Theme.ON_SURFACE)

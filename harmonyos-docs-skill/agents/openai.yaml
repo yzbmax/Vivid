@@ -1,0 +1,3 @@
+display_name: HarmonyOS Docs
+short_description: Search and fetch the latest HarmonyOS developer documentation from Huawei's portal.
+default_prompt: Search the HarmonyOS developer docs for
