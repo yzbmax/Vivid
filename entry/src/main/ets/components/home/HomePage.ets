@@ -72,10 +72,10 @@ export struct HomePage {
     new ToolItem('subject', $r('app.string.home_tool1'), $r('app.media.home_ai_smart_Cutout')),
     new ToolItem('filter', $r('app.string.home_tool2'), $r('app.media.home_filter_spark')),
     new ToolItem('background', $r('app.string.home_tool3'), $r('app.media.home_background')),
-    new ToolItem('adjust', $r('app.string.home_tool4'), $r('app.media.home_Adjust')),
+    new ToolItem('adjust', $r('app.string.home_tool4'), $r('app.media.home_adjust')),
     new ToolItem('subject', $r('app.string.home_tool5'), $r('app.media.home_object_scan')),
     new ToolItem('sticker', $r('app.string.home_tool6'), $r('app.media.home_Sticker')),
-    new ToolItem('text', $r('app.string.home_tool7'), $r('app.media.home_Font')),
+    new ToolItem('text', $r('app.string.home_tool7'), $r('app.media.home_font')),
     new ToolItem('template', $r('app.string.home_tool8'), $r('app.media.home_Template')),
   ];
 
