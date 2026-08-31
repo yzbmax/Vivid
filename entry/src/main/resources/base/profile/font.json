@@ -2,15 +2,15 @@
   "font": [
     {
       "name": "NotoSerif",
-      "src": "NotoSerif-VariableFont_wdth,wght.ttf"
+      "src": "notoserif.ttf"
     },
     {
       "name": "NotoSerifSC",
-      "src": "NotoSerifSC-VariableFont_wght.ttf"
+      "src": "notoserifsc.ttf"
     },
     {
       "name": "Kai",
-      "src": "gkai00mp-2.ttf"
+      "src": "gkai.ttf"
     }
   ]
 }
