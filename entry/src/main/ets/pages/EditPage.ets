@@ -50,7 +50,6 @@ import {
 } from '../models/SegmentationModels';
 import { image } from '@kit.ImageKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { componentSnapshot } from '@kit.ArkUI';
 import { buildAdjustmentFilter } from '../utils/ColorMatrixUtils';
 import { PREVIEW_STACK_ID } from '../components/editor/PreviewArea';
 import { EditState, createDefaultEditState } from '../features/editor/filter/FilterState';
@@ -98,19 +97,14 @@ struct EditPage {
   @State activeRegion: RegionKey = 'subject';
   @State regionAdjustments: RegionAdjustments = createDefaultRegionAdjustments();
   // ── 架构迁移（2026-08-26）：双图 colorFilter 方案 ──
-  /** 底层原图 PixelMap（背景层）。 */
   @State baseImage: image.PixelMap | undefined = undefined;
-  /** 上层前景图 PixelMap（透明背景，主体层）。 */
   @State foregroundImage: image.PixelMap | undefined = undefined;
   // ── 贴纸状态 ──
   @State stickers: StickerItem[] = [];
   @State selectedStickerId: string = '';
-  /** 预览区实际显示尺寸（vp），由 PreviewArea.onDisplaySizeChange 回传，用于贴纸定位。 */
   @State previewDisplayW: number = 0;
   @State previewDisplayH: number = 0;
-  /** 贴纸数据版本计数器：每次修改贴纸数据时递增，触发 StickerLayer @Watch 同步。 */
   @State stickerVersion: number = 0;
-  // ── @Provide：选中贴纸的目标值（跨层级响应式，供 StickerLayer @Consume）──
   @Provide stickerTargetSize: number = -1;
   @Provide stickerTargetRotation: number = -999;
   @Provide stickerTargetOpacity: number = -1;
@@ -155,7 +149,6 @@ struct EditPage {
           saturation: work.adjustments.saturation,
           temperature: work.adjustments.temperature
         };
-        // V2: 恢复区域参数
         if (work.regionAdjustments !== undefined) {
           this.regionAdjustments = cloneRegionAdjustments(work.regionAdjustments);
         }
@@ -163,11 +156,9 @@ struct EditPage {
         this.errorText = '作品不存在';
       }
     }
-    // 快捷入口传入 initialTool 时直接选中对应工具；无值时保持默认 adjust。
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
     }
-    // V2：如果初始工具是 subject/background，延迟触发分割
     if (this.activeTool === 'subject' || this.activeTool === 'background') {
       this.activeRegion = this.activeTool;
       this.selectedType = REGION_ADJUST_TYPES[0].key;
@@ -187,7 +178,6 @@ struct EditPage {
     this.previewLoading = false;
     this.previewSourcePixelMap = undefined;
     this.previewPixelMap = undefined;
-    // 释放前景图（由 Core Vision Kit 创建）
     if (this.foregroundImage !== undefined) {
       try {
         this.foregroundImage.release();
@@ -195,7 +185,6 @@ struct EditPage {
       }
       this.foregroundImage = undefined;
     }
-    // 释放背景图（解码后的原图）
     if (this.decodedPixelMap !== undefined) {
       try {
         this.decodedPixelMap.release();
@@ -263,69 +252,72 @@ struct EditPage {
     await this.renderPreview();
   }
 
-  private handleToolSelection(key: EditorToolKey): void {
-    this.activeTool = key;
-    if (key === 'filter') {
-      this.loadFilterThumbnails();
-    }
-    // V2：切换到 subject/background 时触发分割
-    if (key === 'subject' || key === 'background') {
-      this.activeRegion = key;
-      this.selectedType = REGION_ADJUST_TYPES[0].key;
-      this.triggerSegmentation();
-    }
-  }
-
-  private async loadFilterThumbnails(): Promise<void> {
-    if (this.imageSrc === '' || this.thumbnailItems.length === FILTER_PRESETS.length ||
-        this.loadingThumbnails) {
-      return;
-    }
-    this.loadingThumbnails = true;
-    try {
-      const source = this.previewSourcePixelMap;
-      if (source === undefined) {
-        this.loadingThumbnails = false;
-        return;
-      }
-      const items = await this.thumbnailPipeline.buildThumbnails(source, FILTER_PRESETS);
-      if (this.disposed) {
-        this.loadingThumbnails = false;
-        return;
-      }
-      this.thumbnailItems = items;
-    } catch (err) {
-      console.error(`Failed to build filter thumbnails: ${JSON.stringify(err)}`);
-    } finally {
-      this.loadingThumbnails = false;
-    }
-  }
-
   private async renderPreview(): Promise<void> {
     const source = this.previewSourcePixelMap;
     if (source === undefined) {
       return;
     }
+    const filterId = this.editState.filter.filterId;
+    const strength = this.editState.filter.strength;
     try {
-      const result = await this.previewPipeline.render({
-        source: source,
-        adjustments: this.params,
-        filterState: this.editState
-      });
-      if (this.disposed) {
-        result.release();
-        return;
+      const result = await this.previewPipeline.render(
+        async (src: image.PixelMap): Promise<image.PixelMap> => {
+          if (filterId !== 'original' && strength > 0) {
+            const filtered = await FilterNativeBridge.render(src, filterId, strength);
+            return filtered;
+          }
+          return src;
+        }
+      );
+      if (result !== undefined) {
+        if (this.disposed) {
+          result.release();
+          return;
+        }
+        this.renderedPreviewOwner.replace(result);
+        this.previewPixelMap = result;
       }
-      this.renderedPreviewOwner.replace(result);
-      this.previewPixelMap = result.value;
     } catch (err) {
       console.error(`Failed to render preview: ${JSON.stringify(err)}`);
     }
   }
 
   private releaseRenderedPreview(): void {
-    this.renderedPreviewOwner.release();
+    this.renderedPreviewOwner.clear();
     this.previewPixelMap = undefined;
+  }
+
+  private async loadFilterThumbnails(): Promise<void> {
+    if (this.imageSrc === '' || this.loadingThumbnails) {
+      return;
+    }
+    if (this.thumbnailItems.length === FILTER_PRESETS.length) {
+      return;
+    }
+    this.loadingThumbnails = true;
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const sessionId = `session_${Date.now()}`;
+      await this.thumbnailPipeline.loadSource(this.imageSrc, sessionId, context);
+      const items: ThumbnailItem[] = [];
+      for (let i = 0; i < FILTER_PRESETS.length; i++) {
+        if (this.disposed) {
+          break;
+        }
+        const preset = FILTER_PRESETS[i];
+        const pm = await this.thumbnailPipeline.renderPreset(context, preset);
+        if (pm !== undefined) {
+          items.push({ filterId: preset.id, pixelMap: pm });
+        }
+      }
+      if (!this.disposed) {
+        this.thumbnailItems = items;
+      }
+    } catch (err) {
+      console.error(`Failed to build filter thumbnails: ${JSON.stringify(err)}`);
+    } finally {
+      this.loadingThumbnails = false;
+    }
   }
 
   build() {
@@ -377,158 +369,287 @@ struct EditPage {
 
         Text('调色复核')
           .fontFamily(Theme.FONT_SERIF)
-          .fontSize(Theme.FONT_SIZE_TITLE_LG)
-          .fontWeight(FontWeight.Bold)
+          .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
+          .fontWeight(600)
           .fontColor(Theme.ON_SURFACE)
+          .letterSpacing(2)
+          .maxLines(1)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .hitTestBehavior(HitTestMode.None)
       }
       .width('100%')
+      .height(Theme.HEADER_HEIGHT)
     }
     .width('100%')
+    .padding({ top: AppStorage.get<number>('statusBarHeight') ?? 0 })
+    .backgroundColor(Theme.PAPER_SURFACE_80)
+    .backdropBlur(20)
+    .border({ width: { bottom: 1 }, color: Theme.OUTLINE_VARIANT })
   }
 
   @Builder
   errorState() {
-    Column() {
-      Text(this.errorText)
+    Column({ space: 12 }) {
+      Text('无法进入编辑页')
         .fontFamily(Theme.FONT_SERIF)
+        .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
+        .fontWeight(600)
+        .fontColor(Theme.ON_SURFACE)
+      Text(this.errorText)
+        .fontFamily(Theme.FONT_SANS)
         .fontSize(Theme.FONT_SIZE_BODY_MD)
         .fontColor(Theme.ON_SURFACE_VARIANT)
+        .textAlign(TextAlign.Center)
+        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+      Row() {
+        Text('返回')
+          .fontFamily(Theme.FONT_SANS)
+          .fontSize(Theme.FONT_SIZE_BODY_MD)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Theme.ON_PRIMARY)
+      }
+      .width(160)
+      .height(48)
+      .margin({ top: 12 })
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor(Theme.PRIMARY)
+      .borderRadius(Theme.RADIUS_DEFAULT)
+      .onClick(() => this.getUIContext().getRouter().back())
     }
     .width('100%')
     .layoutWeight(1)
+    .padding({ top: 96, bottom: 96 })
+    .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
 
   @Builder
   editorBody() {
     Column() {
-      // 预览区
-      Column() {
-        PreviewArea({
-          imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
-          previewPixelMap: $previewPixelMap,
-          previewLoading: this.previewLoading,
+      // 中部预览区
+      PreviewArea({
+        imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
+        previewPixelMap: $previewPixelMap,
+        previewLoading: this.previewLoading,
+        params: this.params,
+        isComparing: this.isComparing,
+        baseImage: this.baseImage,
+        foregroundImage: this.foregroundImage,
+        subjectFilter: buildAdjustmentFilter(
+          this.regionAdjustments.subject.exposure,
+          this.regionAdjustments.subject.contrast,
+          this.regionAdjustments.subject.saturation,
+          this.regionAdjustments.subject.temperature
+        ),
+        baseFilter: buildAdjustmentFilter(
+          this.regionAdjustments.background.exposure,
+          this.regionAdjustments.background.contrast,
+          this.regionAdjustments.background.saturation,
+          this.regionAdjustments.background.temperature
+        ),
+        onCompareChange: (down: boolean) => {
+          this.isComparing = down;
+        },
+        onImageSizeChange: (w: number, h: number) => {
+          this.imageWidth = w;
+          this.imageHeight = h;
+        },
+        stickers: this.stickers,
+        stickerMode: this.activeTool === 'sticker',
+        selectedStickerId: this.selectedStickerId,
+        stickerVersion: this.stickerVersion,
+        onStickerSelect: (instanceId: string) => {
+          this.selectedStickerId = instanceId;
+          this.updateTargetValues();
+        },
+        onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
+          this.updateStickerPosition(instanceId, posX, posY, size, rotation);
+        },
+        onDisplaySizeChange: (displayW: number, displayH: number) => {
+          this.previewDisplayW = displayW;
+          this.previewDisplayH = displayH;
+        }
+      })
+        .layoutWeight(1)
+        .padding({ top: Theme.GUTTER, bottom: Theme.GUTTER })
+
+      // 区域切换 Tab（主体/背景）
+      if (this.isRegionMode()) {
+        RegionTabs({
+          selected: this.activeRegion,
+          onChange: (region: RegionKey) => {
+            this.activeRegion = region;
+            this.selectedType = REGION_ADJUST_TYPES[0].key;
+          }
+        })
+          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+      }
+
+      // 分割错误提示
+      if (this.segErrorMessage !== '' && !this.isRegionMode()) {
+        Text(this.segErrorMessage)
+          .fontFamily(Theme.FONT_SANS)
+          .fontSize(Theme.FONT_SIZE_BODY_MD)
+          .fontColor(Theme.ERROR)
+          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.SPACE_MD })
+      }
+
+      // 中下部参数面板
+      if (this.activeTool === 'adjust') {
+        AdjustPanel({
           params: this.params,
-          isComparing: this.isComparing,
-          baseImage: this.baseImage,
-          foregroundImage: this.foregroundImage,
-          subjectFilter: this.activeRegion === 'subject'
-            ? buildAdjustmentFilter(this.regionAdjustments.subject)
-            : [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
-          baseFilter: this.activeRegion === 'background'
-            ? buildAdjustmentFilter(this.regionAdjustments.background)
-            : [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
-          stickers: this.stickers,
-          stickerMode: this.activeTool === 'sticker',
-          selectedStickerId: this.selectedStickerId,
-          stickerVersion: this.stickerVersion,
+          selectedType: this.selectedType,
+          typeDefs: ADJUST_TYPES,
+          onChange: (key: string, value: number) => {
+            this.updateParam(key, value);
+          },
+          onSelectType: (key: string) => {
+            this.selectedType = key;
+          },
+          onReset: () => this.showResetOptions(),
           onCompareChange: (down: boolean) => {
             this.isComparing = down;
-          },
-          onImageSizeChange: (w: number, h: number) => {
-            this.imageWidth = w;
-            this.imageHeight = h;
-          },
-          onStickerSelect: (instanceId: string) => {
-            this.selectedStickerId = instanceId;
-          },
-          onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
-            const idx = this.stickers.findIndex((s: StickerItem) => s.instanceId === instanceId);
-            if (idx >= 0) {
-              const next = this.stickers.slice();
-              next[idx] = {
-                ...next[idx],
-                posX: posX,
-                posY: posY,
-                size: size,
-                rotation: rotation
-              };
-              this.stickers = next;
-              this.dirty = true;
-            }
-          },
-          onDisplaySizeChange: (displayW: number, displayH: number) => {
-            this.previewDisplayW = displayW;
-            this.previewDisplayH = displayH;
           }
         })
-      }
-      .layoutWeight(65)
-      .width('100%')
-
-      // 参数面板区
-      Column() {
-        if (this.activeTool === 'adjust') {
-          AdjustPanel({
-            params: this.params,
-            selectedType: this.selectedType,
-            onChange: (key: string, value: number) => {
-              this.updateParam(key, value);
-            },
-            onTypeChange: (key: string) => {
-              this.selectedType = key;
-            }
-          })
-        } else if (this.activeTool === 'filter') {
-          FilterPanel({
-            presets: FILTER_PRESETS,
-            thumbnails: this.thumbnailItems,
-            selectedId: this.editState.filterId,
-            onSelect: (id: string) => this.applyFilterSelection(id)
-          })
-        } else if (this.activeTool === 'sticker') {
-          StickerPanel({
-            templates: STICKER_TEMPLATES,
-            currentCount: this.stickers.length,
-            maxCount: STICKER_MAX_COUNT,
-            selectedSticker: this.getSelectedSticker(),
-            onAdd: (templateId: string) => this.addSticker(templateId),
-            onRemove: (instanceId: string) => this.removeSticker(instanceId),
-            onUpdate: (instanceId: string, key: string, value: number) =>
-              this.updateStickerParam(instanceId, key, value)
-          })
-        } else if (this.activeTool === 'subject' || this.activeTool === 'background') {
-          Column() {
-            RegionTabs({
-              activeRegion: this.activeRegion,
-              onChange: (key: RegionKey) => {
-                this.activeRegion = key;
-                this.selectedType = REGION_ADJUST_TYPES[0].key;
-              }
-            })
-            AdjustPanel({
-              params: this.activeRegion === 'subject'
-                ? this.regionAdjustments.subject
-                : this.regionAdjustments.background,
-              selectedType: this.selectedType,
-              onChange: (key: string, value: number) => {
-                this.updateRegionParam(key, value);
-              },
-              onTypeChange: (key: string) => {
-                this.selectedType = key;
-              }
-            })
+      } else if (this.isRegionMode() && this.segStatus === 'ready') {
+        AdjustPanel({
+          params: this.activeRegionParams(),
+          selectedType: this.selectedType,
+          typeDefs: REGION_ADJUST_TYPES,
+          onChange: (key: string, value: number) => {
+            this.updateRegionParam(key, value);
+          },
+          onSelectType: (key: string) => {
+            this.selectedType = key;
+          },
+          onReset: () => this.showRegionResetOptions(),
+          onCompareChange: (down: boolean) => {
+            this.isComparing = down;
           }
-          .width('100%')
+        })
+      } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
+        this.segStatus !== 'ready' && this.segStatus !== 'idle') {
+        Column({ space: 8 }) {
+          Text('主体识别中…')
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(Theme.FONT_SIZE_BODY_MD)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
         }
-      }
-      .layoutWeight(25)
-      .width('100%')
-
-      // 底部工具栏
-      Column() {
-        EditorToolBar({
-          tools: EDITOR_TOOLS,
-          activeTool: this.activeTool,
-          onSelect: (key: EditorToolKey) => this.handleToolSelection(key)
+        .width('100%')
+        .height(120)
+        .justifyContent(FlexAlign.Center)
+      } else if (this.activeTool === 'filter') {
+        FilterPanel({
+          editState: this.editState,
+          previewPixelMap: $previewPixelMap,
+          thumbnails: $thumbnailItems,
+          onSelectFilter: (filterId: string) => {
+            this.applyFilterSelection(filterId);
+          },
+          onStrengthChange: (value: number) => {
+            // strength change handled by FilterPanel internally via editState
+          }
         })
+      } else if (this.activeTool === 'sticker') {
+        StickerPanel({
+          stickers: this.stickers,
+          selectedId: this.selectedStickerId,
+          allTemplates: STICKER_TEMPLATES,
+          onAddSticker: (templateId: string) => {
+            this.addSticker(templateId);
+          },
+          onSelectSticker: (instanceId: string) => {
+            this.selectedStickerId = instanceId;
+            this.updateTargetValues();
+          },
+          onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => {
+            this.updateStickerParams(instanceId, size, rotation, opacity);
+          },
+          onRemoveSticker: (instanceId: string) => {
+            this.removeSticker(instanceId);
+          },
+          notifySizeChange: (value: number) => {
+            this.onSliderSizeChange(value);
+          },
+          notifyRotationChange: (value: number) => {
+            this.onSliderRotationChange(value);
+          },
+          notifyOpacityChange: (value: number) => {
+            this.onSliderOpacityChange(value);
+          }
+        })
+      } else {
+        this.toolPlaceholder()
       }
-      .layoutWeight(10)
-      .width('100%')
+
+      // 底部工具导航
+      EditorToolBar({
+        activeTool: this.activeTool,
+        onSelectTool: (key: EditorToolKey) => {
+          this.onToolSelect(key);
+        }
+      })
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
   }
+
+  @Builder
+  toolPlaceholder() {
+    Column({ space: 8 }) {
+      Text(this.activeToolLabel())
+        .fontFamily(Theme.FONT_SERIF)
+        .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
+        .fontWeight(600)
+        .fontColor(Theme.ON_SURFACE)
+      Text('功能待接入')
+        .fontFamily(Theme.FONT_SANS)
+        .fontSize(Theme.FONT_SIZE_BODY_MD)
+        .fontColor(Theme.ON_SURFACE_VARIANT)
+    }
+    .width('100%')
+    .height(120)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  // ── 工具选择 ──
+
+  private onToolSelect(key: EditorToolKey): void {
+    this.activeTool = key;
+    if (key === 'subject' || key === 'background') {
+      this.activeRegion = key;
+      this.selectedType = REGION_ADJUST_TYPES[0].key;
+      this.triggerSegmentation();
+    }
+    if (key === 'adjust') {
+      this.selectedType = ADJUST_TYPES[0].key;
+    }
+    if (key === 'filter') {
+      this.loadFilterThumbnails();
+    }
+  }
+
+  private isRegionMode(): boolean {
+    return this.activeTool === 'subject' || this.activeTool === 'background';
+  }
+
+  private activeRegionParams(): AdjustParams {
+    return this.activeRegion === 'subject'
+      ? this.regionAdjustments.subject
+      : this.regionAdjustments.background;
+  }
+
+  private activeToolLabel(): string {
+    for (let i = 0; i < EDITOR_TOOLS.length; i++) {
+      if (EDITOR_TOOLS[i].key === this.activeTool) {
+        return EDITOR_TOOLS[i].label;
+      }
+    }
+    return '';
+  }
+
+  // ── 参数更新 ──
 
   private updateParam(key: string, value: number): void {
     const next = cloneAdjustments(this.params);
@@ -545,7 +666,6 @@ struct EditPage {
     }
     this.params = next;
     this.dirty = true;
-    this.renderPreview();
   }
 
   private updateRegionParam(key: string, value: number): void {
@@ -564,55 +684,230 @@ struct EditPage {
     this.dirty = true;
   }
 
-  private getSelectedSticker(): StickerItem | null {
-    if (this.selectedStickerId === '') {
-      return null;
+  private resetCurrentSlider(): void {
+    const next = cloneAdjustments(this.params);
+    if (this.selectedType === 'exposure') {
+      next.exposure = 0;
+    } else if (this.selectedType === 'brightness') {
+      next.brightness = 0;
+    } else if (this.selectedType === 'contrast') {
+      next.contrast = 0;
+    } else if (this.selectedType === 'saturation') {
+      next.saturation = 0;
+    } else if (this.selectedType === 'temperature') {
+      next.temperature = 0;
     }
-    return this.stickers.find((s: StickerItem) => s.instanceId === this.selectedStickerId) ?? null;
+    this.params = next;
+    this.dirty = true;
   }
+
+  private resetAllSliders(): void {
+    this.params = createDefaultAdjustments();
+    this.isComparing = false;
+    this.dirty = false;
+  }
+
+  private showResetOptions(): void {
+    this.getUIContext().showActionSheet({
+      title: '重置',
+      message: '选择重置范围',
+      sheets: [
+        { title: '重置当前区域', action: () => this.resetCurrentSlider() },
+        { title: '全部重置', action: () => this.resetAllSliders() }
+      ],
+      cancel: () => {
+      }
+    });
+  }
+
+  private showRegionResetOptions(): void {
+    this.getUIContext().showActionSheet({
+      title: '重置',
+      message: '选择重置范围',
+      sheets: [
+        { title: '重置当前滑块', action: () => this.resetCurrentRegionSlider() },
+        { title: '重置双区域', action: () => this.resetAllRegionSliders() }
+      ],
+      cancel: () => {
+      }
+    });
+  }
+
+  private resetCurrentRegionSlider(): void {
+    const next = cloneRegionAdjustments(this.regionAdjustments);
+    const target = this.activeRegion === 'subject' ? next.subject : next.background;
+    if (this.selectedType === 'brightness') {
+      target.brightness = 0;
+    } else if (this.selectedType === 'contrast') {
+      target.contrast = 0;
+    } else if (this.selectedType === 'saturation') {
+      target.saturation = 0;
+    } else if (this.selectedType === 'temperature') {
+      target.temperature = 0;
+    }
+    this.regionAdjustments = next;
+    this.dirty = true;
+  }
+
+  private resetAllRegionSliders(): void {
+    this.regionAdjustments = createDefaultRegionAdjustments();
+    this.dirty = true;
+  }
+
+  // ── 贴纸操作 ──
 
   private addSticker(templateId: string): void {
     if (this.stickers.length >= STICKER_MAX_COUNT) {
-      this.toast(`最多只能添加 ${STICKER_MAX_COUNT} 个贴纸`);
       return;
     }
-    const instance = createStickerInstance(templateId, this.previewDisplayW, this.previewDisplayH);
-    this.stickers = [...this.stickers, instance];
-    this.selectedStickerId = instance.instanceId;
-    this.stickerVersion += 1;
+    const centerX = this.previewDisplayW > 0 ? this.previewDisplayW / 2 : 150;
+    const centerY = this.previewDisplayH > 0 ? this.previewDisplayH / 2 : 200;
+    const newItem = createStickerInstance(templateId, centerX, centerY);
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      next.push(this.stickers[i]);
+    }
+    next.push(newItem);
+    this.stickers = next;
+    this.stickerVersion++;
+    this.selectedStickerId = newItem.instanceId;
     this.dirty = true;
+    this.updateTargetValues();
   }
 
   private removeSticker(instanceId: string): void {
-    this.stickers = this.stickers.filter((s: StickerItem) => s.instanceId !== instanceId);
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId !== instanceId) {
+        next.push(this.stickers[i]);
+      }
+    }
+    this.stickers = next;
+    this.stickerVersion++;
     if (this.selectedStickerId === instanceId) {
       this.selectedStickerId = '';
     }
-    this.stickerVersion += 1;
     this.dirty = true;
   }
 
-  private updateStickerParam(instanceId: string, key: string, value: number): void {
-    const idx = this.stickers.findIndex((s: StickerItem) => s.instanceId === instanceId);
-    if (idx < 0) {
-      return;
-    }
-    const next = this.stickers.slice();
-    const current = next[idx];
-    if (key === 'size') {
-      next[idx] = { ...current, size: value };
-      this.stickerTargetSize = value;
-    } else if (key === 'rotation') {
-      next[idx] = { ...current, rotation: value };
-      this.stickerTargetRotation = value;
-    } else if (key === 'opacity') {
-      next[idx] = { ...current, opacity: value };
-      this.stickerTargetOpacity = value;
+  private updateStickerPosition(instanceId: string, posX: number, posY: number, size: number, rotation: number): void {
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === instanceId) {
+        const updated: StickerItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: posX,
+          posY: posY,
+          size: size,
+          rotation: rotation,
+          opacity: s.opacity,
+          zIndex: s.zIndex
+        };
+        next.push(updated);
+      } else {
+        next.push(s);
+      }
     }
     this.stickers = next;
-    this.stickerVersion += 1;
+    this.stickerVersion++;
     this.dirty = true;
   }
+
+  private updateStickerParams(instanceId: string, size: number, rotation: number, opacity: number): void {
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === instanceId) {
+        const updated: StickerItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: s.posX,
+          posY: s.posY,
+          size: size,
+          rotation: rotation,
+          opacity: opacity,
+          zIndex: s.zIndex
+        };
+        next.push(updated);
+      } else {
+        next.push(s);
+      }
+    }
+    this.stickers = next;
+    this.stickerVersion++;
+    this.dirty = true;
+    this.updateTargetValues();
+  }
+
+  private updateTargetValues(): void {
+    if (this.selectedStickerId === '') {
+      return;
+    }
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === this.selectedStickerId) {
+        this.stickerTargetSize = s.size;
+        this.stickerTargetRotation = s.rotation;
+        this.stickerTargetOpacity = s.opacity;
+        return;
+      }
+    }
+  }
+
+  private onSliderSizeChange(value: number): void {
+    this.stickerTargetSize = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId, value,
+        this.getSelectedRotation(), this.getSelectedOpacity());
+    }
+  }
+
+  private onSliderRotationChange(value: number): void {
+    this.stickerTargetRotation = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId,
+        this.getSelectedSize(), value, this.getSelectedOpacity());
+    }
+  }
+
+  private onSliderOpacityChange(value: number): void {
+    this.stickerTargetOpacity = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId,
+        this.getSelectedSize(), this.getSelectedRotation(), value);
+    }
+  }
+
+  private getSelectedSize(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].size;
+      }
+    }
+    return 48;
+  }
+
+  private getSelectedRotation(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].rotation;
+      }
+    }
+    return 0;
+  }
+
+  private getSelectedOpacity(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].opacity;
+      }
+    }
+    return 1.0;
+  }
+
+  // ── AI 分割 ──
 
   private async triggerSegmentation(): Promise<void> {
     if (this.segStatus !== 'idle' && this.segStatus !== 'error') {
@@ -665,20 +960,111 @@ struct EditPage {
     this.dirty = true;
   }
 
+  // ── 保存 ──
+
   private async save(): Promise<void> {
     if (this.saving) {
       return;
     }
     this.saving = true;
+
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const route = this.route;
+
     try {
-      const settings = AppSettingsStore.getSettings();
-      const profile = toExportProfile(settings);
-      const intent = buildDraftIntent(this.imageSrc, this.params, profile);
-      const title = generateWorkTitle(this.params, this.activeTool);
-      const description = generateWorkDescription(this.params, this.activeTool);
-      hilog.info(0x0000, 'EditPage', `Saving work: ${title}`);
-      hilog.debug(0x0000, 'EditPage', `Description: ${description}`);
-      this.toast('已保存（占位）');
+      const sourceUri = this.imageSrc;
+      if (!sourceUri) {
+        this.toast('源图不可用，请返回重试');
+        this.saving = false;
+        return;
+      }
+
+      const exportSettings = await AppSettingsStore.getExportSettings();
+      const exportProfile = toExportProfile(exportSettings);
+
+      // 确保滤镜资源已加载
+      const filterId = this.editState.filter.filterId;
+      const filterStrength = this.editState.filter.strength;
+      const preset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+      if (preset !== undefined && preset.lutPath !== undefined && !this.loadedFilterIds.includes(filterId)) {
+        const loaded = await FilterNativeBridge.loadPreset(context, preset);
+        if (!loaded) {
+          this.toast('滤镜资源加载失败');
+          this.saving = false;
+          return;
+        }
+        this.loadedFilterIds.push(filterId);
+      }
+
+      // 渲染调色后的图片
+      const pixelMap = await ImageRenderService.render(
+        sourceUri,
+        this.params,
+        exportProfile,
+        filterId,
+        filterStrength,
+        true,
+        context
+      );
+
+      // 编码到 cacheDir
+      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, pixelMap, exportProfile);
+      pixelMap.release();
+
+      if (!cacheFilePath) {
+        this.toast('图片编码失败');
+        this.saving = false;
+        return;
+      }
+
+      // 写入系统相册
+      const fileName = `Vivid_${Date.now()}`;
+      const ext = exportProfile.extension === '.png' ? 'png' : 'jpg';
+      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+
+      if (exportResult.success) {
+        this.toast('已保存到系统相册「图片」');
+      } else if (exportResult.errorCode === 'USER_CANCELLED') {
+        this.saving = false;
+        return;
+      } else {
+        this.toast(exportResult.errorMessage ?? '保存到相册失败');
+        this.saving = false;
+        return;
+      }
+
+      // 保存作品记录
+      const intent = buildSaveIntent(
+        route?.source ?? EditEntrySource.Picker,
+        route?.workId ?? '',
+        this.imageSrc,
+        this.params,
+        Date.now()
+      );
+      mockWorkStore.init();
+      const now = Date.now();
+      const record = new WorkRecord();
+      record.id = intent.draft.id;
+      record.title = generateWorkTitle(now, mockWorkStore.countToday());
+      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
+      record.sourceImageUri = intent.draft.sourceImageUri;
+      record.previewImageUri = intent.draft.sourceImageUri;
+      record.width = this.imageWidth;
+      record.height = this.imageHeight;
+      record.adjustments = intent.draft.adjustments;
+      record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
+      record.status = intent.draft.status;
+      record.createdAt = now;
+      record.updatedAt = now;
+      if (intent.mode === SaveMode.Update) {
+        mockWorkStore.update(intent.id ?? '', record);
+      } else {
+        mockWorkStore.create(record);
+      }
+      WorkUiState.bumpRevision();
+
+      this.dirty = false;
+      this.getUIContext().getRouter().back();
     } catch (_err) {
       this.toast('保存失败，请重试');
     } finally {
@@ -686,30 +1072,76 @@ struct EditPage {
     }
   }
 
-  private async tryBack(): Promise<void> {
-    if (this.dirty && !this.saving) {
+  private tryBack(): void {
+    if (this.dirty && this.errorText === '') {
       this.getUIContext().showAlertDialog({
-        title: '放弃修改？',
-        message: '当前编辑尚未保存，返回将丢失所有修改。',
+        title: '放弃未保存的调整？',
+        message: '当前调整尚未落印，返回将自动存为草稿。',
         primaryButton: {
           value: '继续编辑',
-          action: () => {}
+          action: () => {
+          }
         },
         secondaryButton: {
-          value: '放弃',
-          action: () => this.goBack()
+          value: '放弃返回',
+          action: () => this.saveDraft()
+        },
+        cancel: () => {
         }
       });
     } else {
-      this.goBack();
+      this.getUIContext().getRouter().back();
     }
   }
 
-  private goBack(): void {
+  private async saveDraft(): Promise<void> {
+    const route = this.route;
+    try {
+      const intent = buildDraftIntent(
+        route?.source ?? EditEntrySource.Picker,
+        route?.workId ?? '',
+        this.imageSrc,
+        this.params,
+        Date.now()
+      );
+      mockWorkStore.init();
+      const now = Date.now();
+      const record = new WorkRecord();
+      record.id = intent.draft.id;
+      record.title = generateWorkTitle(now, mockWorkStore.countToday());
+      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
+      record.sourceImageUri = intent.draft.sourceImageUri;
+      record.previewImageUri = intent.draft.sourceImageUri;
+      record.width = this.imageWidth;
+      record.height = this.imageHeight;
+      record.adjustments = intent.draft.adjustments;
+      record.status = intent.draft.status;
+      record.createdAt = now;
+      record.updatedAt = now;
+      if (intent.mode === SaveMode.Update) {
+        mockWorkStore.update(intent.id ?? '', record);
+      } else {
+        mockWorkStore.create(record);
+      }
+      WorkUiState.bumpRevision();
+      this.toast('已存为草稿');
+    } catch (_err) {
+      // 草稿保存失败不阻断返回
+    }
+
+    this.dirty = false;
     this.getUIContext().getRouter().back();
   }
 
+  onBackPress(): boolean {
+    this.tryBack();
+    return true;
+  }
+
   private toast(message: string): void {
-    this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    try {
+      this.getUIContext().getPromptAction().showToast({ message });
+    } catch (e) {
+    }
   }
 }

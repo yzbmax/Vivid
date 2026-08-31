@@ -156,9 +156,6 @@ export struct PreviewArea {
                 .height('100%')
                 .objectFit(ImageFit.Contain)
                 .colorFilter(this.effects())
-                .onComplete((_event: ImageEvent) => {
-                  // PixelMap 模式无需从 event 获取尺寸
-                })
                 .accessibilityDescription('预览图')
             } else {
               Image(this.imageSrc)
@@ -166,8 +163,10 @@ export struct PreviewArea {
                 .height('100%')
                 .objectFit(ImageFit.Contain)
                 .colorFilter(this.effects())
-                .onComplete((event: ImageEvent) => {
-                  this.updateNaturalSize(event.width, event.height);
+                .onComplete((event) => {
+                  const w = event?.width ?? 0;
+                  const h = event?.height ?? 0;
+                  this.updateNaturalSize(w, h);
                 })
                 .accessibilityDescription('预览图')
             }
