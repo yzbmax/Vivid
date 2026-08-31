@@ -94,18 +94,7 @@ export struct HomePage {
         return;
       }
 
-      if (MockAuthStore.getSession().status === 'authenticated') {
-        await this.openEditor(result.imageUri, initialTool);
-        return;
-      }
-
-      const intent: PendingEditIntent = {
-        imageUri: result.imageUri,
-        initialTool: initialTool,
-        createdAt: Date.now()
-      };
-      PendingEditIntentStore.set(intent);
-      this.showLoginGate();
+      await this.openEditor(result.imageUri, initialTool);
     } finally {
       this.isPickingImage = false;
     }

@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AuthUiState } from '../models/AuthUiState';
 import { MockAuthStore } from '../models/MockAuthStore';
 import { validateCode, validatePassword, validatePhone, validatePasswordConfirmation } from '../utils/AuthValidators';
@@ -349,7 +350,7 @@ struct AccountSecurityPage {
     Column({ space: 5 }) {
       Text(label)
         .fontSize(12)
-        .fontFamily('monospace')
+        .fontFamily(Theme.FONT_MONO)
         .fontColor(MASK_SEAL.primary)
         .width('100%');
       TextInput({ text: value, placeholder: placeholder })
@@ -383,11 +384,12 @@ struct AccountSecurityPage {
             if (!this.isAuthenticated()) {
               Column({ space: 14 }) {
                 Text('请先登录')
-                  .fontFamily('Noto Serif SC')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(24)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(MASK_SEAL.ink);
                 Text('登录后才能管理手机号与登录安全')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(14)
                   .fontColor(MASK_SEAL.inkMuted);
                 SealButton({ text: '前往登录', secondary: false, onTap: () => this.openLogin() });
@@ -400,12 +402,12 @@ struct AccountSecurityPage {
             } else {
               Column({ space: 14 }) {
                 Text('当前绑定手机号')
-                  .fontFamily('monospace')
+                  .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
                   .width('100%');
                 Text(this.boundPhone)
-                  .fontFamily('Noto Serif SC')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(22)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(MASK_SEAL.ink)
@@ -431,6 +433,7 @@ struct AccountSecurityPage {
                 .alignItems(VerticalAlign.Top);
                 if (this.phoneDemoCode.length > 0) {
                   Text(`演示数据：验证码 ${this.phoneDemoCode}`)
+                    .fontFamily(Theme.FONT_SERIF)
                     .fontSize(12)
                     .fontColor(MASK_SEAL.primary)
                     .width('100%');
@@ -444,7 +447,7 @@ struct AccountSecurityPage {
 
               Column({ space: 14 }) {
                 Text(this.hasPassword ? '修改密码' : '首次设置密码')
-                  .fontFamily('monospace')
+                  .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
                   .width('100%');
@@ -471,6 +474,7 @@ struct AccountSecurityPage {
                   .alignItems(VerticalAlign.Top);
                   if (this.passwordDemoCode.length > 0) {
                     Text(`演示数据：验证码 ${this.passwordDemoCode}`)
+                      .fontFamily(Theme.FONT_SERIF)
                       .fontSize(12)
                       .fontColor(MASK_SEAL.primary)
                       .width('100%');
@@ -490,11 +494,12 @@ struct AccountSecurityPage {
 
               Column({ space: 14 }) {
                 Text('注销账号')
-                  .fontFamily('monospace')
+                  .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
                   .width('100%');
                 Text(this.hasPassword ? '输入当前密码后再确认注销' : '向当前手机号发送验证码后再确认注销')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(13)
                   .fontColor(MASK_SEAL.inkMuted)
                   .width('100%');
@@ -518,6 +523,7 @@ struct AccountSecurityPage {
                   .alignItems(VerticalAlign.Top);
                   if (this.closureDemoCode.length > 0) {
                     Text(`演示数据：验证码 ${this.closureDemoCode}`)
+                      .fontFamily(Theme.FONT_SERIF)
                       .fontSize(12)
                       .fontColor(MASK_SEAL.primary)
                       .width('100%');

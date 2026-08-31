@@ -15,8 +15,10 @@ import { Theme } from '../common/Theme';
  */
 @Component
 export struct AdjustPanel {
-  @Prop params: AdjustParams = { exposure: 0, brightness: 0, contrast: 0, saturation: 0 };
+  @Prop params: AdjustParams = { exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0 };
   @Prop selectedType: string = 'exposure';
+  /** V2 新增：允许外部传入调整类型定义（默认 ADJUST_TYPES = 5 项）。区域模式传入 REGION_ADJUST_TYPES = 4 项。 */
+  @Prop typeDefs: AdjustTypeDef[] = ADJUST_TYPES;
   onChange: (key: string, value: number) => void = () => {};
   onSelectType: (key: string) => void = () => {};
   onReset: () => void = () => {};
@@ -117,7 +119,7 @@ export struct AdjustPanel {
 
       // ── 下：调整类型选择 ──
       Row() {
-        ForEach(ADJUST_TYPES, (t: AdjustTypeDef) => {
+        ForEach(this.typeDefs, (t: AdjustTypeDef) => {
           this.typeChip(t)
         }, (t: AdjustTypeDef) => t.key)
       }
@@ -153,8 +155,8 @@ export struct AdjustPanel {
   }
 
   private selectedDef(): AdjustTypeDef {
-    const hit = ADJUST_TYPES.find((t: AdjustTypeDef) => t.key === this.selectedType);
-    return hit != null ? hit : ADJUST_TYPES[0];
+    const hit = this.typeDefs.find((t: AdjustTypeDef) => t.key === this.selectedType);
+    return hit != null ? hit : this.typeDefs[0];
   }
 
   private selectedLabel(): string {
@@ -177,6 +179,9 @@ export struct AdjustPanel {
     }
     if (this.selectedType === 'saturation') {
       return this.params.saturation;
+    }
+    if (this.selectedType === 'temperature') {
+      return this.params.temperature;
     }
     return 0;
   }

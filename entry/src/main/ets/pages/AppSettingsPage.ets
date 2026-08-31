@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { ExportFormat, ExportQuality } from '../models/AppSettingsModels';
 
@@ -76,12 +77,13 @@ struct AppSettingsPage {
         Column({ space: 20 }) {
           Column({ space: 10 }) {
             Text('照片设置')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
               .width('100%');
             Text('导出质量')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(13)
               .fontColor(MASK_SEAL.inkMuted)
               .width('100%');
@@ -90,7 +92,7 @@ struct AppSettingsPage {
                 Radio({ value: ExportQuality.Standard, group: 'exportQuality' })
                   .checked(this.exportQuality === ExportQuality.Standard)
                   .onChange((checked: boolean) => { if (checked) this.selectQuality(ExportQuality.Standard); });
-                Text('标准').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('标准').fontFamily(Theme.FONT_SERIF).fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
@@ -100,7 +102,7 @@ struct AppSettingsPage {
                 Radio({ value: ExportQuality.High, group: 'exportQuality' })
                   .checked(this.exportQuality === ExportQuality.High)
                   .onChange((checked: boolean) => { if (checked) this.selectQuality(ExportQuality.High); });
-                Text('高清').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('高清').fontFamily(Theme.FONT_SERIF).fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
@@ -111,7 +113,7 @@ struct AppSettingsPage {
                 Radio({ value: ExportQuality.Ultra, group: 'exportQuality' })
                   .checked(this.exportQuality === ExportQuality.Ultra)
                   .onChange((checked: boolean) => { if (checked) this.selectQuality(ExportQuality.Ultra); });
-                Text('超清').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('超清').fontFamily(Theme.FONT_SERIF).fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
@@ -122,6 +124,7 @@ struct AppSettingsPage {
             .border({ width: 1, color: '#d9c4c0' });
 
             Text('导出格式')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(13)
               .fontColor(MASK_SEAL.inkMuted)
               .width('100%')
@@ -131,7 +134,7 @@ struct AppSettingsPage {
                 Radio({ value: ExportFormat.JPEG, group: 'exportFormat' })
                   .checked(this.exportFormat === ExportFormat.JPEG)
                   .onChange((checked: boolean) => { if (checked) this.selectFormat(ExportFormat.JPEG); });
-                Text('JPEG（默认）').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('JPEG（默认）').fontFamily(Theme.FONT_SERIF).fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
@@ -141,7 +144,7 @@ struct AppSettingsPage {
                 Radio({ value: ExportFormat.PNG, group: 'exportFormat' })
                   .checked(this.exportFormat === ExportFormat.PNG)
                   .onChange((checked: boolean) => { if (checked) this.selectFormat(ExportFormat.PNG); });
-                Text('PNG').fontSize(16).fontColor(MASK_SEAL.ink);
+                Text('PNG').fontFamily(Theme.FONT_SERIF).fontSize(16).fontColor(MASK_SEAL.ink);
               }
               .width('100%')
               .padding(18)
@@ -154,7 +157,7 @@ struct AppSettingsPage {
 
           Column() {
             Text('通用')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)

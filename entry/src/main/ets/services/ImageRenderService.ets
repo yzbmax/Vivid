@@ -70,12 +70,13 @@ export class ImageRenderService {
       params.exposure === 0 &&
       params.brightness === 0 &&
       params.contrast === 0 &&
-      params.saturation === 0
+      params.saturation === 0 &&
+      params.temperature === 0
     ) {
       return pixelMap;
     }
 
-    // 构建组合颜色矩阵：先饱和度，再对比度，再亮度/曝光
+    // 构建组合颜色矩阵：先饱和度，再对比度，再亮度/曝光，最后色温
     const saturation = 1 + (params.saturation / 100) * 0.8; // [0.2, 1.8]
     const contrast = 1 + (params.contrast / 100) * 0.9; // [0.1, 1.9]
 
@@ -83,9 +84,12 @@ export class ImageRenderService {
     const lumOffset =
       (params.exposure * 0.30 + params.brightness * 0.25) / 100;
 
+    // 色温 → R/B 通道乘性偏移 [-0.12, 0.12]
+    const warmth = (params.temperature / 100) * 0.12;
+
     // 构建 4x5 颜色矩阵（行优先，每行5个元素）
     const matrix = ImageRenderService.buildCombinedMatrix(
-      saturation, contrast, lumOffset
+      saturation, contrast, lumOffset, warmth
     );
 
     // 使用 effectKit 应用颜色矩阵
@@ -102,12 +106,13 @@ export class ImageRenderService {
   }
 
   /**
-   * 构建组合颜色矩阵：饱和度 × 对比度 + 亮度偏移
+   * 构建组合颜色矩阵：饱和度 × 对比度 + 亮度偏移 + 色温
    */
   private static buildCombinedMatrix(
     saturation: number,
     contrast: number,
-    lumOffset: number
+    lumOffset: number,
+    warmth: number
   ): number[] {
     // 亮度矩阵（对角线 + 偏移）
     // contrast × saturation 矩阵
@@ -129,12 +134,12 @@ export class ImageRenderService {
     // 对比度矩阵（对角线缩放）
     const ct = (1 - contrast) / 2;
 
-    // 组合：对比度 × 饱和度，然后加亮度偏移
-    // 对比度作用于 RGB 通道
+    // 组合：对比度 × 饱和度，然后加亮度偏移 + 色温
+    // 色温：正值暖调（+R, -B），负值冷调（-R, +B）
     const r0 = contrast * s00;
     const r1 = contrast * s01;
     const r2 = contrast * s02;
-    const rOffset = ct + lumOffset;
+    const rOffset = ct + lumOffset + warmth;
 
     const g0 = contrast * s10;
     const g1 = contrast * s11;
@@ -144,7 +149,7 @@ export class ImageRenderService {
     const b0 = contrast * s20;
     const b1 = contrast * s21;
     const b2 = contrast * s22;
-    const bOffset = ct + lumOffset;
+    const bOffset = ct + lumOffset - warmth;
 
     // 4x5 矩阵（行优先）
     return [

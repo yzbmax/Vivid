@@ -1,3 +1,5 @@
+import { Theme } from './common/Theme';
+
 export class MaskSealPalette {
   static readonly paperBase: string = '#deddd7';
   static readonly paperSurface: string = '#f2f1ed';
@@ -99,7 +101,7 @@ export function SealButton($$: SealButtonParams) {
   Button($$.text)
     .width('100%')
     .height(52)
-    .fontFamily('Noto Serif SC')
+    .fontFamily(Theme.FONT_SERIF)
     .fontWeight(FontWeight.Bold)
     .fontSize(18)
     .fontColor($$.secondary ? MaskSealPalette.primary : Color.White)
@@ -123,7 +125,7 @@ export function FloatingInput($$: FloatingInputParams) {
     Stack({ alignContent: Alignment.TopStart }) {
       Text($$.label)
         .fontSize(12)
-        .fontFamily('monospace')
+        .fontFamily(Theme.FONT_MONO)
         .fontColor(MaskSealPalette.primary)
         .padding({ left: 5, right: 5 })
         .backgroundColor(MaskSealPalette.paperSurface)
@@ -143,6 +145,7 @@ export function FloatingInput($$: FloatingInputParams) {
     }
     if ($$.error.length > 0) {
       Text($$.error)
+        .fontFamily(Theme.FONT_SERIF)
         .fontSize(12)
         .fontColor(MaskSealPalette.error)
         .padding({ left: 4 });
@@ -164,11 +167,12 @@ export function SettingRow($$: SettingRowParams) {
   Row() {
     Column({ space: 3 }) {
       Text($$.title)
+        .fontFamily(Theme.FONT_SERIF)
         .fontSize(16)
         .fontColor(MaskSealPalette.ink);
       if ($$.detail.length > 0) {
         Text($$.detail)
-          .fontFamily('monospace')
+          .fontFamily(Theme.FONT_MONO)
           .fontSize(11)
           .fontColor(MaskSealPalette.inkMuted);
       }
@@ -176,6 +180,7 @@ export function SettingRow($$: SettingRowParams) {
     .layoutWeight(1)
     .alignItems(HorizontalAlign.Start);
     Text($$.interactive ? '›' : '')
+      .fontFamily(Theme.FONT_SERIF)
       .fontSize(24)
       .fontColor(MaskSealPalette.primary);
   }

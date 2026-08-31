@@ -1,4 +1,4 @@
-import { AdjustParams } from './EditModels';
+import { AdjustParams, RegionAdjustments, createDefaultRegionAdjustments } from './EditModels';
 
 /**
  * 作品状态：已封缄（已保存）/ 草稿 / 数据损坏。
@@ -48,6 +48,9 @@ export class WorkRecord {
     exposure: 0,
     brightness: 0,
     contrast: 0,
-    saturation: 0
+    saturation: 0,
+    temperature: 0
   };
+  /** V2 新增：双区域调色参数（主体/背景各自独立） */
+  regionAdjustments: RegionAdjustments = createDefaultRegionAdjustments();
 }

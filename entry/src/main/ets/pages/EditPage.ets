@@ -1,13 +1,24 @@
 import {
   EDITOR_TOOLS,
+  ADJUST_TYPES,
+  REGION_ADJUST_TYPES,
+  STICKER_TEMPLATES,
+  STICKER_MAX_COUNT,
   AdjustParams,
   EditEntrySource,
   EditRouteParams,
   EditorToolKey,
+  RegionKey,
+  RegionAdjustments,
+  StickerItem,
   SaveMode,
   buildDraftIntent,
   buildSaveIntent,
   createDefaultAdjustments,
+  createDefaultRegionAdjustments,
+  createStickerInstance,
+  cloneAdjustments,
+  cloneRegionAdjustments,
   editRouteError,
   parseEditRouteParams
 } from '../models/EditModels';
@@ -15,17 +26,29 @@ import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
 import { AdjustPanel } from '../components/editor/AdjustPanel';
+import { StickerPanel } from '../components/editor/StickerPanel';
 import { EditorToolBar } from '../components/editor/EditorToolBar';
+import { RegionTabs } from '../components/editor/RegionTabs';
 import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { toExportProfile } from '../models/AppSettingsModels';
-import { ImageRenderService } from '../services/ImageRenderService';
 import { PhotoExportService } from '../services/PhotoExportService';
+import { getSubjectSegmentationService } from '../services/SubjectSegmentationService';
 import { WorkRecord } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
 import { WorkUiState } from '../models/WorkUiState';
 import { generateWorkTitle } from '../models/WorkTitleGenerator';
 import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
+import { decodeImageFromUri } from '../utils/ImageDecodeUtils';
+import {
+  AI_WORK_MAX_EDGE, SegmentationOutput,
+  SegmentationStatus, segErrorToMessage
+} from '../models/SegmentationModels';
+import { image } from '@kit.ImageKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { componentSnapshot } from '@kit.ArkUI';
+import { buildAdjustmentFilter } from '../utils/ColorMatrixUtils';
+import { PREVIEW_STACK_ID } from '../components/editor/PreviewArea';
 
 /**
  * 独立调色编辑页。
@@ -56,6 +79,30 @@ struct EditPage {
   @State dirty: boolean = false;
   @State imageWidth: number = 0;
   @State imageHeight: number = 0;
+  // ── V2 区域调色状态 ──
+  @State segStatus: SegmentationStatus = 'idle';
+  @State segErrorMessage: string = '';
+  @State activeRegion: RegionKey = 'subject';
+  @State regionAdjustments: RegionAdjustments = createDefaultRegionAdjustments();
+  // ── 架构迁移（2026-08-26）：双图 colorFilter 方案 ──
+  /** 底层原图 PixelMap（背景层）。 */
+  @State baseImage: image.PixelMap | undefined = undefined;
+  /** 上层前景图 PixelMap（透明背景，主体层）。 */
+  @State foregroundImage: image.PixelMap | undefined = undefined;
+  // ── 贴纸状态 ──
+  @State stickers: StickerItem[] = [];
+  @State selectedStickerId: string = '';
+  /** 预览区实际显示尺寸（vp），由 PreviewArea.onDisplaySizeChange 回传，用于贴纸定位。 */
+  @State previewDisplayW: number = 0;
+  @State previewDisplayH: number = 0;
+  /** 贴纸数据版本计数器：每次修改贴纸数据时递增，触发 StickerLayer @Watch 同步。 */
+  @State stickerVersion: number = 0;
+  // ── @Provide：选中贴纸的目标值（跨层级响应式，供 StickerLayer @Consume）──
+  @Provide stickerTargetSize: number = -1;
+  @Provide stickerTargetRotation: number = -999;
+  @Provide stickerTargetOpacity: number = -1;
+  // ── 私有字段（非 @State）──
+  private decodedPixelMap: image.PixelMap | undefined = undefined;
 
   aboutToAppear(): void {
     const raw = this.getUIContext().getRouter().getParams() as Record<string, string>;
@@ -74,8 +121,13 @@ struct EditPage {
           exposure: work.adjustments.exposure,
           brightness: work.adjustments.brightness,
           contrast: work.adjustments.contrast,
-          saturation: work.adjustments.saturation
+          saturation: work.adjustments.saturation,
+          temperature: work.adjustments.temperature
         };
+        // V2: 恢复区域参数
+        if (work.regionAdjustments !== undefined) {
+          this.regionAdjustments = cloneRegionAdjustments(work.regionAdjustments);
+        }
       } else {
         this.errorText = '作品不存在';
       }
@@ -83,6 +135,14 @@ struct EditPage {
     // 快捷入口传入 initialTool 时直接选中对应工具；无值时保持默认 adjust。
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
+    }
+    // V2：如果初始工具是 subject/background，延迟触发分割
+    if (this.activeTool === 'subject' || this.activeTool === 'background') {
+      this.activeRegion = this.activeTool;
+      this.selectedType = REGION_ADJUST_TYPES[0].key;
+      setTimeout(() => {
+        this.triggerSegmentation();
+      }, 100);
     }
   }
 
@@ -121,7 +181,7 @@ struct EditPage {
 
           Blank().layoutWeight(1)
 
-          Text('保存')
+          Text('导出')
             .fontFamily(Theme.FONT_SANS)
             .fontSize(Theme.FONT_SIZE_BODY_MD)
             .fontWeight(FontWeight.Medium)
@@ -196,27 +256,79 @@ struct EditPage {
   @Builder
   editorBody() {
     Column() {
-      // 中部预览区：原比例不裁切，占满导航与面板之间
+      // 中部预览区：双图 colorFilter 模式（分割完成后） / CSS 效果模式（未分割）
       PreviewArea({
         imageSrc: this.imageSrc,
         params: this.params,
         isComparing: this.isComparing,
+        baseImage: this.baseImage,
+        foregroundImage: this.foregroundImage,
+        subjectFilter: buildAdjustmentFilter(
+          this.regionAdjustments.subject.exposure,
+          this.regionAdjustments.subject.contrast,
+          this.regionAdjustments.subject.saturation,
+          this.regionAdjustments.subject.temperature
+        ),
+        baseFilter: buildAdjustmentFilter(
+          this.regionAdjustments.background.exposure,
+          this.regionAdjustments.background.contrast,
+          this.regionAdjustments.background.saturation,
+          this.regionAdjustments.background.temperature
+        ),
         onCompareChange: (down: boolean) => {
           this.isComparing = down;
         },
         onImageSizeChange: (w: number, h: number) => {
           this.imageWidth = w;
           this.imageHeight = h;
+        },
+        stickers: this.stickers,
+        stickerMode: this.activeTool === 'sticker',
+        selectedStickerId: this.selectedStickerId,
+        stickerVersion: this.stickerVersion,
+        onStickerSelect: (instanceId: string) => {
+          this.selectedStickerId = instanceId;
+          this.updateTargetValues();
+        },
+        onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
+          this.updateStickerPosition(instanceId, posX, posY, size, rotation);
+        },
+        onDisplaySizeChange: (displayW: number, displayH: number) => {
+          this.previewDisplayW = displayW;
+          this.previewDisplayH = displayH;
         }
       })
         .layoutWeight(1)
-        .padding({ top: Theme.GUTTER ,bottom: Theme.GUTTER })
+        .padding({ top: Theme.GUTTER, bottom: Theme.GUTTER })
 
-      // 中下部参数面板：仅「调节」工具有内容，其余占位
+      // V2 新增：区域切换 Tab（主体/背景）
+      if (this.isRegionMode()) {
+        RegionTabs({
+          selected: this.activeRegion,
+          onChange: (region: RegionKey) => {
+            this.activeRegion = region;
+            this.selectedType = REGION_ADJUST_TYPES[0].key;
+          }
+        })
+          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+      }
+
+      // V2 新增：分割错误提示（非区域模式时显示）
+      if (this.segErrorMessage !== '' && !this.isRegionMode()) {
+        Text(this.segErrorMessage)
+          .fontFamily(Theme.FONT_SANS)
+          .fontSize(Theme.FONT_SIZE_BODY_MD)
+          .fontColor(Theme.ERROR)
+          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.SPACE_MD })
+      }
+
+      // 中下部参数面板：三路分支
       if (this.activeTool === 'adjust') {
+        // 全局调节工具（5 项，含色温）
         AdjustPanel({
           params: this.params,
           selectedType: this.selectedType,
+          typeDefs: ADJUST_TYPES,
           onChange: (key: string, value: number) => {
             this.updateParam(key, value);
           },
@@ -228,6 +340,64 @@ struct EditPage {
             this.isComparing = down;
           }
         })
+      } else if (this.isRegionMode() && this.segStatus === 'ready') {
+        // V2 区域调色面板（4 项，不含 exposure）
+        AdjustPanel({
+          params: this.activeRegionParams(),
+          selectedType: this.selectedType,
+          typeDefs: REGION_ADJUST_TYPES,
+          onChange: (key: string, value: number) => {
+            this.updateRegionParam(key, value);
+          },
+          onSelectType: (key: string) => {
+            this.selectedType = key;
+          },
+          onReset: () => this.showRegionResetOptions(),
+          onCompareChange: (down: boolean) => {
+            this.isComparing = down;
+          }
+        })
+      } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
+        this.segStatus !== 'ready' && this.segStatus !== 'idle') {
+        // 分割进行中提示
+        Column({ space: 8 }) {
+          Text('主体识别中…')
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(Theme.FONT_SIZE_BODY_MD)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
+        }
+        .width('100%')
+        .height(120)
+        .justifyContent(FlexAlign.Center)
+      } else if (this.activeTool === 'sticker') {
+        // 贴纸面板
+        StickerPanel({
+          stickers: this.stickers,
+          selectedId: this.selectedStickerId,
+          allTemplates: STICKER_TEMPLATES,
+          onAddSticker: (templateId: string) => {
+            this.addSticker(templateId);
+          },
+          onSelectSticker: (instanceId: string) => {
+            this.selectedStickerId = instanceId;
+            this.updateTargetValues();
+          },
+          onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => {
+            this.updateStickerParams(instanceId, size, rotation, opacity);
+          },
+          onRemoveSticker: (instanceId: string) => {
+            this.removeSticker(instanceId);
+          },
+          notifySizeChange: (value: number) => {
+            this.onSliderSizeChange(value);
+          },
+          notifyRotationChange: (value: number) => {
+            this.onSliderRotationChange(value);
+          },
+          notifyOpacityChange: (value: number) => {
+            this.onSliderOpacityChange(value);
+          }
+        })
       } else {
         this.toolPlaceholder()
       }
@@ -236,7 +406,7 @@ struct EditPage {
       EditorToolBar({
         activeTool: this.activeTool,
         onSelectTool: (key: EditorToolKey) => {
-          this.activeTool = key;
+          this.onToolSelect(key);
         }
       })
     }
@@ -263,12 +433,7 @@ struct EditPage {
   }
 
   private updateParam(key: string, value: number): void {
-    const next: AdjustParams = {
-      exposure: this.params.exposure,
-      brightness: this.params.brightness,
-      contrast: this.params.contrast,
-      saturation: this.params.saturation
-    };
+    const next = cloneAdjustments(this.params);
     if (key === 'exposure') {
       next.exposure = value;
     } else if (key === 'brightness') {
@@ -277,18 +442,15 @@ struct EditPage {
       next.contrast = value;
     } else if (key === 'saturation') {
       next.saturation = value;
+    } else if (key === 'temperature') {
+      next.temperature = value;
     }
     this.params = next;
     this.dirty = true;
   }
 
   private resetCurrentSlider(): void {
-    const next: AdjustParams = {
-      exposure: this.params.exposure,
-      brightness: this.params.brightness,
-      contrast: this.params.contrast,
-      saturation: this.params.saturation
-    };
+    const next = cloneAdjustments(this.params);
     if (this.selectedType === 'exposure') {
       next.exposure = 0;
     } else if (this.selectedType === 'brightness') {
@@ -297,6 +459,8 @@ struct EditPage {
       next.contrast = 0;
     } else if (this.selectedType === 'saturation') {
       next.saturation = 0;
+    } else if (this.selectedType === 'temperature') {
+      next.temperature = 0;
     }
     this.params = next;
     this.dirty = true;
@@ -306,6 +470,165 @@ struct EditPage {
     this.params = createDefaultAdjustments();
     this.isComparing = false;
     this.dirty = false;
+  }
+
+  // ── 贴纸操作方法 ──
+
+  private addSticker(templateId: string): void {
+    if (this.stickers.length >= STICKER_MAX_COUNT) {
+      return;
+    }
+    // 计算预览区中心（使用显示尺寸 vp，而非像素尺寸）
+    const centerX = this.previewDisplayW > 0 ? this.previewDisplayW / 2 : 150;
+    const centerY = this.previewDisplayH > 0 ? this.previewDisplayH / 2 : 200;
+    const newItem = createStickerInstance(templateId, centerX, centerY);
+    // ArkTS 无 spread，手动构建新数组
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      next.push(this.stickers[i]);
+    }
+    next.push(newItem);
+    this.stickers = next;
+    this.stickerVersion++;
+    this.selectedStickerId = newItem.instanceId;
+    this.dirty = true;
+    this.updateTargetValues();
+  }
+
+  private removeSticker(instanceId: string): void {
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId !== instanceId) {
+        next.push(this.stickers[i]);
+      }
+    }
+    this.stickers = next;
+    this.stickerVersion++;
+    if (this.selectedStickerId === instanceId) {
+      this.selectedStickerId = '';
+    }
+    this.dirty = true;
+  }
+
+  private updateStickerPosition(instanceId: string, posX: number, posY: number, size: number, rotation: number): void {
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === instanceId) {
+        const updated: StickerItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: posX,
+          posY: posY,
+          size: size,
+          rotation: rotation,
+          opacity: s.opacity,
+          zIndex: s.zIndex
+        };
+        next.push(updated);
+      } else {
+        next.push(s);
+      }
+    }
+    this.stickers = next;
+    this.stickerVersion++;
+    this.dirty = true;
+  }
+
+  private updateStickerParams(instanceId: string, size: number, rotation: number, opacity: number): void {
+    const next: StickerItem[] = [];
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === instanceId) {
+        const updated: StickerItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: s.posX,
+          posY: s.posY,
+          size: size,
+          rotation: rotation,
+          opacity: opacity,
+          zIndex: s.zIndex
+        };
+        next.push(updated);
+      } else {
+        next.push(s);
+      }
+    }
+    this.stickers = next;
+    this.stickerVersion++;
+    this.dirty = true;
+    this.updateTargetValues();
+  }
+
+  /** 将选中贴纸的当前参数同步到 @Provide 值，供 StickerLayer @Consume。 */
+  private updateTargetValues(): void {
+    if (this.selectedStickerId === '') {
+      return;
+    }
+    for (let i = 0; i < this.stickers.length; i++) {
+      const s = this.stickers[i];
+      if (s.instanceId === this.selectedStickerId) {
+        this.stickerTargetSize = s.size;
+        this.stickerTargetRotation = s.rotation;
+        this.stickerTargetOpacity = s.opacity;
+        return;
+      }
+    }
+  }
+
+  /** 滑块直接回调：大小。 */
+  private onSliderSizeChange(value: number): void {
+    this.stickerTargetSize = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId, value,
+        this.getSelectedRotation(), this.getSelectedOpacity());
+    }
+  }
+
+  /** 滑块直接回调：旋转。 */
+  private onSliderRotationChange(value: number): void {
+    this.stickerTargetRotation = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId,
+        this.getSelectedSize(), value, this.getSelectedOpacity());
+    }
+  }
+
+  /** 滑块直接回调：透明度。 */
+  private onSliderOpacityChange(value: number): void {
+    this.stickerTargetOpacity = value;
+    if (this.selectedStickerId !== '') {
+      this.updateStickerParams(this.selectedStickerId,
+        this.getSelectedSize(), this.getSelectedRotation(), value);
+    }
+  }
+
+  private getSelectedSize(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].size;
+      }
+    }
+    return 48;
+  }
+
+  private getSelectedRotation(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].rotation;
+      }
+    }
+    return 0;
+  }
+
+  private getSelectedOpacity(): number {
+    for (let i = 0; i < this.stickers.length; i++) {
+      if (this.stickers[i].instanceId === this.selectedStickerId) {
+        return this.stickers[i].opacity;
+      }
+    }
+    return 1.0;
   }
 
   private showResetOptions(): void {
@@ -352,12 +675,16 @@ struct EditPage {
       const exportSettings = await AppSettingsStore.getExportSettings();
       const exportProfile = toExportProfile(exportSettings);
 
-      // 3. 渲染调色后的图片
-      const pixelMap = await ImageRenderService.render(sourceUri, this.params, exportProfile);
+      // 3. 使用 componentSnapshot 捕获预览区视觉结果（含双图 colorFilter 调色效果 + 贴纸）
+      //    导出前清空选中态，隐藏四角括号选中框
+      this.selectedStickerId = '';
+      const uiContext = this.getUIContext();
+      const snapshotPixelMap = await uiContext.getComponentSnapshot()
+        .get(PREVIEW_STACK_ID, { scale: 2, waitUntilRenderFinished: true });
 
       // 4. 编码到 cacheDir
-      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, pixelMap, exportProfile);
-      pixelMap.release();
+      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, snapshotPixelMap, exportProfile);
+      snapshotPixelMap.release();
 
       if (!cacheFilePath) {
         this.toast('图片编码失败');
@@ -400,6 +727,7 @@ struct EditPage {
       record.width = this.imageWidth;
       record.height = this.imageHeight;
       record.adjustments = intent.draft.adjustments;
+      record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
       record.status = intent.draft.status;
       record.createdAt = now;
       record.updatedAt = now;
@@ -463,6 +791,7 @@ struct EditPage {
       record.width = this.imageWidth;
       record.height = this.imageHeight;
       record.adjustments = intent.draft.adjustments;
+      record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
       record.status = intent.draft.status;
       record.createdAt = now;
       record.updatedAt = now;
@@ -492,5 +821,178 @@ struct EditPage {
     } catch (e) {
       // 提示失败不影响页面
     }
+  }
+
+  // ───────────────────────── V2 区域调色方法 ─────────────────────────
+
+  /** 工具切换处理：subject/background 触发分割，adjust 切回全局。 */
+  private onToolSelect(key: EditorToolKey): void {
+    this.activeTool = key;
+    if (key === 'subject' || key === 'background') {
+      this.activeRegion = key;
+      this.selectedType = REGION_ADJUST_TYPES[0].key;
+      this.triggerSegmentation();
+    }
+    if (key === 'adjust') {
+      this.selectedType = ADJUST_TYPES[0].key;
+    }
+  }
+
+  /** 是否处于区域调色模式（主体或背景工具被选中）。 */
+  private isRegionMode(): boolean {
+    return this.activeTool === 'subject' || this.activeTool === 'background';
+  }
+
+  /** 获取当前活动区域的 AdjustParams 引用。 */
+  private activeRegionParams(): AdjustParams {
+    return this.activeRegion === 'subject'
+      ? this.regionAdjustments.subject
+      : this.regionAdjustments.background;
+  }
+
+  /** 触发 AI 主体分割（由 segStatus 守卫防止重复触发）。 */
+  private async triggerSegmentation(): Promise<void> {
+    if (this.segStatus !== 'idle' && this.segStatus !== 'error') {
+      return; // 已在进行中或已成功
+    }
+    if (this.imageSrc === '') {
+      this.segErrorMessage = '无可用图片';
+      return;
+    }
+    this.segStatus = 'preparing';
+    this.segErrorMessage = '';
+    try {
+      // 1. 解码图片为 PixelMap
+      const decoded = await decodeImageFromUri(this.imageSrc, AI_WORK_MAX_EDGE);
+      this.decodedPixelMap = decoded.pixelMap;
+      this.segStatus = 'segmenting';
+
+      // 2. 调用 AI 分割服务
+      const outcome = await getSubjectSegmentationService().segment(decoded.pixelMap);
+
+      // 3. 处理结果
+      if (outcome.status === 'ready') {
+        await this.onSegmentationSuccess(outcome.output!);
+      } else if (outcome.status === 'noSubject') {
+        this.toast('没有识别到明显主体');
+        this.segStatus = 'idle';
+      } else {
+        const errMsg = segErrorToMessage(outcome.code!);
+        this.toast(errMsg);
+        this.segErrorMessage = errMsg;
+        this.segStatus = 'error';
+      }
+    } catch (_err) {
+      this.toast('图片加载失败，请重试');
+      this.segStatus = 'error';
+      this.segErrorMessage = '图片加载失败';
+    }
+  }
+
+  /**
+   * 分割成功后的处理（架构迁移：双图 colorFilter 方案）。
+   *
+   * 只需存储前景图（透明背景）和背景图（原图），PreviewArea 用两个 Image 叠放显示，
+   * 各自通过 .colorFilter() 独立调色。无需 Worker、无需 PixelMap 像素操作。
+   */
+  private async onSegmentationSuccess(output: SegmentationOutput): Promise<void> {
+    this.segStatus = 'ready';
+
+    // 存储背景图（解码后的原图）
+    this.baseImage = this.decodedPixelMap;
+
+    // 存储前景图（透明背景，由 Core Vision Kit 抠出）
+    const fg = output.foregroundImage;
+    if (fg !== undefined && fg !== null) {
+      this.foregroundImage = fg;
+      hilog.info(0x0000, 'EditPage', 'foreground image stored');
+    } else {
+      hilog.warn(0x0000, 'EditPage', 'foreground image not available from segmentation');
+      this.foregroundImage = undefined;
+    }
+
+    this.dirty = true;
+  }
+
+  /**
+   * 更新区域调色参数（主体或背景各自独立）。
+   *
+   * 架构迁移后：@State 变化自动触发 PreviewArea 重新计算 colorFilter，
+   * 无需调用 Worker，实时生效。
+   */
+  private updateRegionParam(key: string, value: number): void {
+    const next = cloneRegionAdjustments(this.regionAdjustments);
+    const target = this.activeRegion === 'subject' ? next.subject : next.background;
+    if (key === 'brightness') {
+      target.brightness = value;
+    } else if (key === 'contrast') {
+      target.contrast = value;
+    } else if (key === 'saturation') {
+      target.saturation = value;
+    } else if (key === 'temperature') {
+      target.temperature = value;
+    }
+    this.regionAdjustments = next;
+    this.dirty = true;
+    // @State 变化自动触发 PreviewArea 重新计算 colorFilter，无需 Worker
+  }
+
+  /** 区域模式重置选项。 */
+  private showRegionResetOptions(): void {
+    this.getUIContext().showActionSheet({
+      title: '重置',
+      message: '选择重置范围',
+      sheets: [
+        { title: '重置当前滑块', action: () => this.resetCurrentRegionSlider() },
+        { title: '重置双区域', action: () => this.resetAllRegionSliders() }
+      ],
+      cancel: () => {
+      }
+    });
+  }
+
+  private resetCurrentRegionSlider(): void {
+    const next = cloneRegionAdjustments(this.regionAdjustments);
+    const target = this.activeRegion === 'subject' ? next.subject : next.background;
+    if (this.selectedType === 'brightness') {
+      target.brightness = 0;
+    } else if (this.selectedType === 'contrast') {
+      target.contrast = 0;
+    } else if (this.selectedType === 'saturation') {
+      target.saturation = 0;
+    } else if (this.selectedType === 'temperature') {
+      target.temperature = 0;
+    }
+    this.regionAdjustments = next;
+    this.dirty = true;
+    // @State 变化自动触发 PreviewArea 重新计算 colorFilter
+  }
+
+  private resetAllRegionSliders(): void {
+    this.regionAdjustments = createDefaultRegionAdjustments();
+    this.dirty = true;
+    // @State 变化自动触发 PreviewArea 重新计算 colorFilter
+  }
+
+  /** 离开页面释放所有资源。 */
+  aboutToDisappear(): void {
+    // 释放前景图（由 Core Vision Kit 创建）
+    if (this.foregroundImage !== undefined) {
+      try {
+        this.foregroundImage.release();
+      } catch (_e) {
+      }
+      this.foregroundImage = undefined;
+    }
+    // 释放背景图（解码后的原图）
+    if (this.decodedPixelMap !== undefined) {
+      try {
+        this.decodedPixelMap.release();
+      } catch (_e) {
+      }
+      this.decodedPixelMap = undefined;
+    }
+    this.baseImage = undefined;
+    getSubjectSegmentationService().invalidate();
   }
 }

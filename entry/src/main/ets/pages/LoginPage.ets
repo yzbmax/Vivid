@@ -2,6 +2,7 @@ import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../co
 import { validateCode, validatePassword, validatePhone } from '../utils/AuthValidators';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
 import { EditEntrySource } from '../models/EditModels';
@@ -212,7 +213,7 @@ struct LoginPage {
       Stack({ alignContent: Alignment.TopStart }) {
         Text('密函')
           .fontSize(12)
-          .fontFamily('monospace')
+          .fontFamily(Theme.FONT_MONO)
           .fontColor(MASK_SEAL.primary)
           .padding({ left: 5, right: 5 })
           .backgroundColor(MASK_SEAL.paperSurface)
@@ -268,11 +269,12 @@ struct LoginPage {
               .objectFit(ImageFit.Contain)
               .borderRadius(34);
             Text('档册查验')
-              .fontFamily('Noto Serif SC')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(MASK_SEAL.ink);
             Text('验证身份以开启个人设置')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(15)
               .fontColor(MASK_SEAL.inkMuted);
           }
@@ -283,7 +285,7 @@ struct LoginPage {
           Column({ space: 20 }) {
             Row() {
               Text('验证码登录')
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(17)
                 .fontColor(this.mode === LoginMode.CODE ? MASK_SEAL.ink : '#987f7b')
                 .fontWeight(this.mode === LoginMode.CODE ? FontWeight.Bold : FontWeight.Normal)
@@ -293,7 +295,7 @@ struct LoginPage {
                 .border({ width: { bottom: this.mode === LoginMode.CODE ? 3 : 1 }, color: this.mode === LoginMode.CODE ? MASK_SEAL.sealRed : '#dfcbc7' })
                 .onClick(() => this.selectMode(LoginMode.CODE));
               Text('密码登录')
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(17)
                 .fontColor(this.mode === LoginMode.PASSWORD ? MASK_SEAL.ink : '#987f7b')
                 .fontWeight(this.mode === LoginMode.PASSWORD ? FontWeight.Bold : FontWeight.Normal)
@@ -324,6 +326,7 @@ struct LoginPage {
                 }
                 if (this.demoCode.length > 0) {
                   Text(`演示数据：验证码 ${this.demoCode}`)
+                    .fontFamily(Theme.FONT_SERIF)
                     .fontSize(12)
                     .fontColor(MASK_SEAL.primary)
                     .padding({ left: 4 });
@@ -336,7 +339,7 @@ struct LoginPage {
             Row({ space: 6 }) {
               Text('尚未登记在册？').fontSize(14).fontColor(MASK_SEAL.inkMuted);
               Text('前往注册')
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(16)
                 .fontColor(MASK_SEAL.primary)
                 .fontWeight(FontWeight.Bold)

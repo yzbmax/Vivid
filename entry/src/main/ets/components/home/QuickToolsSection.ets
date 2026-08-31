@@ -4,6 +4,7 @@
 
 import { ToolItem } from './HomeModels';
 import { EditorToolKey } from '../../models/EditModels';
+import { Theme } from '../common/Theme';
 
 @Component
 export struct QuickToolsSection {
@@ -20,11 +21,13 @@ export struct QuickToolsSection {
       // 区块标题：中文"快捷功能" + 英文"QUICK TOOLS"
       Row() {
         Text($r('app.string.home_tools_cn'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.ink_dark'))
 
         Text($r('app.string.home_tools_en'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(11)
           .letterSpacing(2)
           .margin({ left: 8 })
@@ -76,6 +79,7 @@ export struct QuickToolsSection {
 
       // 功能名称
       Text(item.name)
+        .fontFamily(Theme.FONT_SERIF)
         .fontSize(11)
         .fontColor($r('app.color.ink_dark'))
         .margin({ top: 6 })

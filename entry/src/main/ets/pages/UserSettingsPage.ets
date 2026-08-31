@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../components/MaskSeal';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AuthUiState } from '../models/AuthUiState';
 import { AuthSession, MockUser } from '../models/AuthModels';
 import { MockAuthStore } from '../models/MockAuthStore';
@@ -86,7 +87,7 @@ struct UserSettingsPage {
         Column({ space: 20 }) {
           Column({ space: 12 }) {
             Text('个人册页')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
@@ -101,7 +102,7 @@ struct UserSettingsPage {
                   .borderRadius(29);
               } else {
                 Text(this.currentUser()?.avatarGlyph ?? '未')
-                  .fontFamily('Noto Serif SC')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(22)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(MASK_SEAL.primary)
@@ -122,6 +123,7 @@ struct UserSettingsPage {
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start);
               Text('›')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(24).fontColor(MASK_SEAL.primary);
             }
             .width('100%')
@@ -137,6 +139,7 @@ struct UserSettingsPage {
             });
             if (this.isAuthenticated()) {
               Text('演示数据 · 当前进程会话')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary)
                 .padding({ left: 18, right: 18 });
@@ -146,7 +149,7 @@ struct UserSettingsPage {
 
           Column() {
             Text('账号说明')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
@@ -163,6 +166,7 @@ struct UserSettingsPage {
           }
 
           Text('本页资料为演示数据，仅在当前应用进程内保留。')
+            .fontFamily(Theme.FONT_SERIF)
             .fontSize(12)
             .fontColor(MASK_SEAL.inkMuted)
             .padding({ top: 8 });

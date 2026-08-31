@@ -48,7 +48,8 @@ export class Theme {
   static readonly GRID_LINE: string = 'rgba(209, 191, 187, 0.34)'; // 宣纸网格线（PaperBackground Canvas 绘制）
 
   // ───────────────────────── 字体 ─────────────────────────
-  static readonly FONT_SERIF: string = 'Noto Serif SC';       // 标题衬线（设备缺失时回退系统字）
+  // 中文 → NotoSerifSC，英文/数字 → NotoSerif（系统按字符自动 fallback）
+  static readonly FONT_SERIF: string = 'NotoSerifSC, NotoSerif';
   static readonly FONT_SANS: string = 'HarmonyOS Sans SC';    // 正文无衬线
   static readonly FONT_MONO: string = 'monospace';            // 数据/标签等宽
 
@@ -61,6 +62,10 @@ export class Theme {
   static readonly FONT_SIZE_LABEL_MONO_SM: number = 10;       // label-mono 小号（卡片日期/状态）
 
   // ───────────────────────── 间距 / 尺寸（vp）─────────────────────────
+  static readonly SPACE_SM: number = 4;                       // 0.25rem 小间距
+  static readonly SPACE_MD: number = 8;                       // 0.5rem 中间距
+  static readonly SPACE_LG: number = 12;                      // 0.75rem 大间距
+  static readonly SPACE_XL: number = 16;                      // 1rem 特大间距
   static readonly GRID_UNIT: number = 86;                     // 5.4rem ≈ 86.4vp 背景竖线网格间距
   static readonly MARGIN_MOBILE: number = 20;                 // 1.25rem 移动端页边距
   static readonly GUTTER: number = 16;                        // 1rem 卡片间距

@@ -1,5 +1,6 @@
 import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../MaskSeal';
 import { PageHeader } from '../common/PageHeader';
+import { Theme } from '../common/Theme';
 import { AuthUiState } from '../../models/AuthUiState';
 import { AuthSession, MockUser } from '../../models/AuthModels';
 import { MockAuthStore } from '../../models/MockAuthStore';
@@ -79,7 +80,7 @@ export struct MinePage {
                   .borderRadius(39);
               } else {
                 Text(this.currentUser()?.avatarGlyph ?? '印')
-                  .fontFamily('Noto Serif SC')
+                  .fontFamily(Theme.FONT_SERIF)
                   .fontSize(34)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(MASK_SEAL.primary);
@@ -92,25 +93,27 @@ export struct MinePage {
             .rotate({ angle: -4 });
             if (this.isAuthenticated()) {
               Text(this.currentUser()?.nickname ?? '个人称谓')
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(22)
                 .fontWeight(FontWeight.Bold)
                 .fontColor(MASK_SEAL.ink);
               Text(this.currentUser()?.maskedPhone ?? '暂未登记在册')
-                .fontFamily('monospace')
+                .fontFamily(Theme.FONT_MONO)
                 .fontSize(14)
                 .fontColor(MASK_SEAL.inkMuted);
               Text('演示数据 · 当前进程会话')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary);
               SealButton({ text: '退出登录', secondary: true, onTap: () => this.confirmLogout() });
             } else {
               Text('未登录')
-                .fontFamily('Noto Serif SC')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(22)
                 .fontWeight(FontWeight.Bold)
                 .fontColor(MASK_SEAL.ink);
               Text('登录后可管理您的个人档册与设置')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(14)
                 .fontColor(MASK_SEAL.inkMuted);
               Row({ space: 12 }) {
@@ -139,7 +142,7 @@ export struct MinePage {
 
           Column() {
             Text('个人与应用')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
@@ -153,7 +156,7 @@ export struct MinePage {
 
           Column() {
             Text('呈报依据')
-              .fontFamily('monospace')
+              .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
@@ -166,7 +169,7 @@ export struct MinePage {
           }
 
           Text(this.isAuthenticated() ? '演示档册 · 仅当前进程有效' : '未注册档册')
-            .fontFamily('monospace')
+            .fontFamily(Theme.FONT_MONO)
             .fontSize(10)
             .fontColor('#8a5c57')
             .letterSpacing(1)

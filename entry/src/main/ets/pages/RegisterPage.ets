@@ -1,6 +1,7 @@
 import { FloatingInput, MASK_SEAL, SealButton, SealPaperBackground } from '../components/MaskSeal';
 import { validateCode, validatePassword, validatePasswordConfirmation, validatePhone } from '../utils/AuthValidators';
 import { PageHeader } from '../components/common/PageHeader';
+import { Theme } from '../components/common/Theme';
 import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
 import { EditEntrySource } from '../models/EditModels';
@@ -155,7 +156,7 @@ struct RegisterPage {
       Stack({ alignContent: Alignment.TopStart }) {
         Text(label)
           .fontSize(12)
-          .fontFamily('monospace')
+          .fontFamily(Theme.FONT_MONO)
           .fontColor(MASK_SEAL.primary)
           .padding({ left: 5, right: 5 })
           .backgroundColor(MASK_SEAL.paperSurface)
@@ -196,11 +197,12 @@ struct RegisterPage {
               .objectFit(ImageFit.Contain)
               .borderRadius(34);
             Text('注册档册')
-              .fontFamily('Noto Serif SC')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(MASK_SEAL.ink);
             Text('提交凭据后建立您的个人册页')
+              .fontFamily(Theme.FONT_SERIF)
               .fontSize(15)
               .fontColor(MASK_SEAL.inkMuted);
           }
@@ -228,6 +230,7 @@ struct RegisterPage {
             }
             if (this.demoCode.length > 0) {
               Text(`演示数据：验证码 ${this.demoCode}`)
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary)
                 .padding({ left: 4 });

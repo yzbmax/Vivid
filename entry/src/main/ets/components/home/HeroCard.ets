@@ -1,5 +1,7 @@
 // 主视觉卡只负责展示并上报点击；选图、认证和路由由 HomePage 集中编排。
 
+import { Theme } from '../common/Theme';
+
 @Component
 export struct HeroCard {
   onImportClick: () => void = () => {};
@@ -28,6 +30,7 @@ export struct HeroCard {
         Blank()
 
         Text($r('app.string.home_hero_kicker'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(11)
           .letterSpacing(2)
           .fontColor($r('app.color.ink_red'))
@@ -37,11 +40,13 @@ export struct HeroCard {
       // 主体区：标题 + 副标题
       Column() {
         Text($r('app.string.home_hero_title'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.ink_dark'))
 
         Text($r('app.string.home_hero_subtitle'))
+          .fontFamily(Theme.FONT_SERIF)
           .fontSize(13)
           .margin({ top: 8 })
           .lineHeight(20)
@@ -53,8 +58,9 @@ export struct HeroCard {
     }
     .margin({ left: 16, right: 16 })
     .padding({ left: 24, right: 24, top: 24, bottom: 28 })
-    .backgroundColor($r('app.color.paper_pink'))
-    .borderRadius(16)
+    .backgroundColor($r('app.color.surface_container'))
+    .borderRadius(0)
+    .shadow({ radius: 1,fill:false,offsetX:20,offsetY: 20, color: $r('app.color.outline_variant') })
     .onClick(() => {
       this.onImportClick();
     })

@@ -79,7 +79,7 @@ export default function mockWorkStoreTest() {
       const patch = new WorkRecord();
       patch.title = '更新后标题';
       patch.status = WorkStatus.Sealed;
-      patch.adjustments = { exposure: 15, brightness: -10, contrast: 5, saturation: 0 };
+      patch.adjustments = { exposure: 15, brightness: -10, contrast: 5, saturation: 0, temperature: 0 };
       const updated = store.update(created.id, patch);
 
       expect(updated !== null).assertTrue();
