@@ -11,6 +11,8 @@ import { Theme } from '../components/common/Theme';
  * 「作品」复用独立组件 WorksPage（其自身带宣纸背景与落款条）；
  * 「我的」复用组件 components/mine/MinePage（CentralOfUser 迁入）。
  * 编辑页（EditPage）为独立路由，不在此导航。
+ *
+ * 字体注册：通过 resources/base/profile/font.json 声明，系统自动加载。
  */
 @Entry
 @Component
@@ -41,19 +43,6 @@ struct Index {
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .padding({ bottom: this.navBarHeightVp })
-  }
-
-  aboutToAppear(): void {
-    // 注册双字体：中文用 NotoSerifSC，英文/数字用 NotoSerif
-    const fontApi = this.getUIContext().getFont();
-    fontApi.registerFont({
-      familyName: 'NotoSerifSC',
-      familySrc: $rawfile('font/NotoSerifSC-VariableFont_wght.ttf')
-    });
-    fontApi.registerFont({
-      familyName: 'NotoSerif',
-      familySrc: $rawfile('font/NotoSerif-VariableFont_wdth,wght.ttf')
-    });
   }
 
   build() {
