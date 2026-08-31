@@ -1,0 +1,99 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer InputPixels {
+    uint values[];
+} inputPixels;
+
+layout(std430, binding = 1) writeonly buffer OutputPixels {
+    uint values[];
+} outputPixels;
+
+layout(std430, binding = 2) readonly buffer LutValues {
+    vec4 values[];
+} lutValues;
+
+layout(push_constant) uniform RenderParams {
+    uint width;
+    uint height;
+    uint rowPixels;
+    uint lutSize;
+    float strength;
+    float domainMinR;
+    float domainMinG;
+    float domainMinB;
+    float domainMaxR;
+    float domainMaxG;
+    float domainMaxB;
+} params;
+
+uint lutIndex(uvec3 point) {
+    return point.z * params.lutSize * params.lutSize +
+           point.y * params.lutSize + point.x;
+}
+
+vec3 sampleLut(uvec3 point) {
+    return lutValues.values[lutIndex(point)].rgb;
+}
+
+uint toByte(float value) {
+    return uint(floor(clamp(value, 0.0, 1.0) * 255.0 + 0.5));
+}
+
+void main() {
+    const uvec2 pixelPosition = gl_GlobalInvocationID.xy;
+    if (pixelPosition.x >= params.width || pixelPosition.y >= params.height) {
+        return;
+    }
+
+    const uint pixelIndex = pixelPosition.y * params.rowPixels + pixelPosition.x;
+    const uint packed = inputPixels.values[pixelIndex];
+    const vec3 source = vec3(
+        float(packed & 0xffu),
+        float((packed >> 8u) & 0xffu),
+        float((packed >> 16u) & 0xffu)
+    ) / 255.0;
+    const uint alpha = (packed >> 24u) & 0xffu;
+
+    const vec3 domainMin = vec3(
+        params.domainMinR,
+        params.domainMinG,
+        params.domainMinB
+    );
+    const vec3 domainMax = vec3(
+        params.domainMaxR,
+        params.domainMaxG,
+        params.domainMaxB
+    );
+    const vec3 domainRange = max(domainMax - domainMin, vec3(0.000001));
+    const vec3 coordinate = clamp((source - domainMin) / domainRange, 0.0, 1.0) *
+                            float(params.lutSize - 1u);
+    const uvec3 lower = uvec3(floor(coordinate));
+    const uvec3 upper = min(lower + uvec3(1u), uvec3(params.lutSize - 1u));
+    const vec3 fraction = fract(coordinate);
+
+    const vec3 c000 = sampleLut(uvec3(lower.x, lower.y, lower.z));
+    const vec3 c100 = sampleLut(uvec3(upper.x, lower.y, lower.z));
+    const vec3 c010 = sampleLut(uvec3(lower.x, upper.y, lower.z));
+    const vec3 c110 = sampleLut(uvec3(upper.x, upper.y, lower.z));
+    const vec3 c001 = sampleLut(uvec3(lower.x, lower.y, upper.z));
+    const vec3 c101 = sampleLut(uvec3(upper.x, lower.y, upper.z));
+    const vec3 c011 = sampleLut(uvec3(lower.x, upper.y, upper.z));
+    const vec3 c111 = sampleLut(uvec3(upper.x, upper.y, upper.z));
+
+    const vec3 x00 = mix(c000, c100, fraction.x);
+    const vec3 x10 = mix(c010, c110, fraction.x);
+    const vec3 x01 = mix(c001, c101, fraction.x);
+    const vec3 x11 = mix(c011, c111, fraction.x);
+    const vec3 y0 = mix(x00, x10, fraction.y);
+    const vec3 y1 = mix(x01, x11, fraction.y);
+    const vec3 filtered = mix(y0, y1, fraction.z);
+    const vec3 result = mix(source, filtered, clamp(params.strength, 0.0, 1.0));
+
+    outputPixels.values[pixelIndex] =
+        toByte(result.r) |
+        (toByte(result.g) << 8u) |
+        (toByte(result.b) << 16u) |
+        (alpha << 24u);
+}

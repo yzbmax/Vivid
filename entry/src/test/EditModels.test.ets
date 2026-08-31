@@ -16,7 +16,9 @@ import {
   formatAdjustValue,
   isValidEditorToolKey,
   mapParamsToEffects,
-  parseEditRouteParams
+  parseEditRouteParams,
+  resolveDisplayImageSource,
+  RawEditRouteParams
 } from '../main/ets/models/EditModels';
 import { WorkStatus } from '../main/ets/models/WorkRecord';
 import { EditWorkStore } from '../main/ets/models/EditWorkStore';
@@ -24,22 +26,31 @@ import { EditWorkStore } from '../main/ets/models/EditWorkStore';
 export default function editModelsTest() {
   describe('editModelsTest', () => {
     it('parses a picker route with image uri', 0, () => {
-      const route = parseEditRouteParams({ source: 'picker', imageUri: 'file:///tmp/a.jpg' });
+      const raw: RawEditRouteParams = {
+        source: 'picker',
+        imageUri: '/data/cache/a.image',
+        displayUri: 'file://media/Photo/1'
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.source).assertEqual(EditEntrySource.Picker);
-      expect(route?.imageUri).assertEqual('file:///tmp/a.jpg');
+      expect(route?.imageUri).assertEqual('/data/cache/a.image');
+      expect(route?.displayUri).assertEqual('file://media/Photo/1');
     });
 
     it('parses a work route with workId', 0, () => {
-      const route = parseEditRouteParams({ source: 'work', workId: '0409-A' });
+      const raw: RawEditRouteParams = { source: 'work', workId: '0409-A' };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.source).assertEqual(EditEntrySource.Work);
       expect(route?.workId).assertEqual('0409-A');
     });
 
     it('returns null for missing or unknown source', 0, () => {
-      expect(parseEditRouteParams({}) === null).assertEqual(true);
-      expect(parseEditRouteParams({ source: 'other' }) === null).assertEqual(true);
+      const empty: RawEditRouteParams = {};
+      const unknown: RawEditRouteParams = { source: 'other' };
+      expect(parseEditRouteParams(empty) === null).assertEqual(true);
+      expect(parseEditRouteParams(unknown) === null).assertEqual(true);
     });
 
     it('reports a message when a route is null', 0, () => {
@@ -47,16 +58,25 @@ export default function editModelsTest() {
     });
 
     it('reports a message when picker lacks an image uri', 0, () => {
-      expect(editRouteError(parseEditRouteParams({ source: 'picker' }))).assertEqual('未获取到所选图片，请返回重试');
+      const raw: RawEditRouteParams = { source: 'picker' };
+      expect(editRouteError(parseEditRouteParams(raw))).assertEqual('未获取到所选图片，请返回重试');
     });
 
     it('reports a message when work lacks a work id', 0, () => {
-      expect(editRouteError(parseEditRouteParams({ source: 'work' }))).assertEqual('未获取到作品编号，请返回重试');
+      const raw: RawEditRouteParams = { source: 'work' };
+      expect(editRouteError(parseEditRouteParams(raw))).assertEqual('未获取到作品编号，请返回重试');
     });
 
     it('returns empty message for a valid route', 0, () => {
-      const route = parseEditRouteParams({ source: 'picker', imageUri: 'file:///tmp/a.jpg' });
+      const raw: RawEditRouteParams = { source: 'picker', imageUri: 'file:///tmp/a.jpg' };
+      const route = parseEditRouteParams(raw);
       expect(editRouteError(route)).assertEqual('');
+    });
+
+    it('falls back to the stable processing path when display uri is absent', 0, () => {
+      expect(resolveDisplayImageSource('/data/cache/a.image', '')).assertEqual('/data/cache/a.image');
+      expect(resolveDisplayImageSource('/data/cache/a.image', 'file://media/Photo/1'))
+        .assertEqual('file://media/Photo/1');
     });
 
     it('creates an all-zero default adjustment set', 0, () => {
@@ -309,40 +329,44 @@ export default function editModelsTest() {
     });
 
     it('parses initialTool when present and valid', 0, () => {
-      const route = parseEditRouteParams({
+      const raw: RawEditRouteParams = {
         source: 'picker',
         imageUri: 'file:///tmp/a.jpg',
         initialTool: 'filter'
-      });
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.initialTool).assertEqual('filter');
     });
 
     it('falls back to adjust when initialTool is invalid', 0, () => {
-      const route = parseEditRouteParams({
+      const raw: RawEditRouteParams = {
         source: 'picker',
         imageUri: 'file:///tmp/a.jpg',
         initialTool: 'unknown_tool'
-      });
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.initialTool).assertEqual('adjust');
     });
 
     it('leaves initialTool undefined when not provided', 0, () => {
-      const route = parseEditRouteParams({
+      const raw: RawEditRouteParams = {
         source: 'picker',
         imageUri: 'file:///tmp/a.jpg'
-      });
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.initialTool).assertEqual(undefined);
     });
 
     it('parses initialTool for work source routes', 0, () => {
-      const route = parseEditRouteParams({
+      const raw: RawEditRouteParams = {
         source: 'work',
         workId: '0409-A',
         initialTool: 'subject'
-      });
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.source).assertEqual(EditEntrySource.Work);
       expect(route?.workId).assertEqual('0409-A');
@@ -350,11 +374,12 @@ export default function editModelsTest() {
     });
 
     it('falls back to adjust for invalid initialTool on work route', 0, () => {
-      const route = parseEditRouteParams({
+      const raw: RawEditRouteParams = {
         source: 'work',
         workId: '0409-A',
         initialTool: ''
-      });
+      };
+      const route = parseEditRouteParams(raw);
       expect(route === null).assertEqual(false);
       expect(route?.initialTool).assertEqual(undefined);
     });

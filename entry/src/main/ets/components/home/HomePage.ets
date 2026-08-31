@@ -6,6 +6,7 @@
 //   背景仍由 PaperBackground 的 Canvas 延展到屏幕顶端。
 
 import { PaperBackground } from '../common/PaperBackground';
+import { common } from '@kit.AbilityKit';
 import { PageHeader } from '../common/PageHeader';
 import { HeroCard } from './HeroCard';
 import { CtaBlock } from './CtaBlock';
@@ -85,7 +86,8 @@ export struct HomePage {
     }
     this.isPickingImage = true;
     try {
-      const result: PhotoPickResult = await PhotoPickerService.pickSingleImage();
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const result: PhotoPickResult = await PhotoPickerService.pickSingleImage(context);
       if (result.status === 'cancelled') {
         return;
       }
@@ -94,19 +96,36 @@ export struct HomePage {
         return;
       }
 
-      await this.openEditor(result.imageUri, initialTool);
+      if (MockAuthStore.getSession().status === 'authenticated') {
+        await this.openEditor(result.sourcePath, result.imageUri, initialTool);
+        return;
+      }
+
+      const intent: PendingEditIntent = {
+        imageUri: result.sourcePath,
+        displayUri: result.imageUri,
+        initialTool: initialTool,
+        createdAt: Date.now()
+      };
+      PendingEditIntentStore.set(intent);
+      this.showLoginGate();
     } finally {
       this.isPickingImage = false;
     }
   }
 
-  private async openEditor(imageUri: string, initialTool: EditorToolKey): Promise<void> {
+  private async openEditor(
+    imageUri: string,
+    displayUri: string,
+    initialTool: EditorToolKey
+  ): Promise<void> {
     try {
       await this.getUIContext().getRouter().pushUrl({
         url: 'pages/EditPage',
         params: {
           source: EditEntrySource.Picker,
           imageUri: imageUri,
+          displayUri: displayUri,
           initialTool: initialTool
         }
       });

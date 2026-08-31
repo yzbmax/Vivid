@@ -8,11 +8,13 @@ export default function pendingEditIntentStoreTest() {
       PendingEditIntentStore.clear();
       const first: PendingEditIntent = {
         imageUri: 'file:///first.jpg',
+        displayUri: 'file://media/first',
         initialTool: 'filter',
         createdAt: 100
       };
       const second: PendingEditIntent = {
         imageUri: 'file:///second.jpg',
+        displayUri: 'file://media/second',
         initialTool: 'text',
         createdAt: 200
       };
@@ -31,6 +33,7 @@ export default function pendingEditIntentStoreTest() {
       PendingEditIntentStore.clear();
       const intent: PendingEditIntent = {
         imageUri: 'file:///once.jpg',
+        displayUri: 'file://media/once',
         initialTool: 'adjust',
         createdAt: 300
       };
@@ -44,6 +47,7 @@ export default function pendingEditIntentStoreTest() {
       PendingEditIntentStore.clear();
       const intent: PendingEditIntent = {
         imageUri: 'file:///safe.jpg',
+        displayUri: 'file://media/safe',
         initialTool: 'subject',
         createdAt: 400
       };

@@ -46,9 +46,26 @@ export function isValidEditorToolKey(value: string): boolean {
 /** EditPage 路由参数契约：B 经 pushUrl params 传入，C 在 aboutToAppear 解析。 */
 export interface EditRouteParams {
   source: EditEntrySource;
+  /** Stable app-sandbox source used for decoding/rendering. */
   imageUri?: string;
+  /** Temporary picker URI used only as an immediate ArkUI display fallback. */
+  displayUri?: string;
   workId?: string;
   initialTool?: EditorToolKey;
+}
+
+/** Router parameters before validation. */
+export interface RawEditRouteParams {
+  source?: string;
+  imageUri?: string;
+  displayUri?: string;
+  workId?: string;
+  initialTool?: string;
+}
+
+/** Prefer the picker URI when present, otherwise keep the stable sandbox source visible. */
+export function resolveDisplayImageSource(imageUri: string, displayUri?: string): string {
+  return displayUri !== undefined && displayUri !== '' ? displayUri : imageUri;
 }
 
 /**
@@ -58,6 +75,7 @@ export interface EditRouteParams {
  */
 export interface PendingEditIntent {
   imageUri: string;
+  displayUri: string;
   initialTool: EditorToolKey;
   createdAt: number;
 }
@@ -106,24 +124,25 @@ export function clampAdjustments(p: AdjustParams): AdjustParams {
  * 由路由 getParams() 原始对象解析编辑页入参；source 缺失或非法时返回 null。
  * initialTool 缺失时为 undefined（由调用方决定默认值）；非法值回退 'adjust'。
  */
-export function parseEditRouteParams(raw: Record<string, string>): EditRouteParams | null {
-  if (raw['source'] === EditEntrySource.Picker) {
+export function parseEditRouteParams(raw: RawEditRouteParams): EditRouteParams | null {
+  if (raw.source === EditEntrySource.Picker) {
     const result: EditRouteParams = {
       source: EditEntrySource.Picker,
-      imageUri: raw['imageUri'] ?? ''
+      imageUri: raw.imageUri ?? '',
+      displayUri: raw.displayUri ?? ''
     };
-    const tool = raw['initialTool'];
+    const tool = raw.initialTool;
     if (tool !== undefined && tool !== '') {
       result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
     }
     return result;
   }
-  if (raw['source'] === EditEntrySource.Work) {
+  if (raw.source === EditEntrySource.Work) {
     const result: EditRouteParams = {
       source: EditEntrySource.Work,
-      workId: raw['workId'] ?? ''
+      workId: raw.workId ?? ''
     };
-    const tool = raw['initialTool'];
+    const tool = raw.initialTool;
     if (tool !== undefined && tool !== '') {
       result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
     }

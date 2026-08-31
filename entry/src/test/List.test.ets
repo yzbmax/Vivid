@@ -7,6 +7,10 @@ import appSettingsStoreTest from './AppSettingsStore.test';
 import editPageFixesTest from './EditPageFixes.test';
 import maskProcessorTest from './MaskProcessor.test';
 import maskDataUtilsTest from './MaskDataUtils.test';
+import filterStateTest from './FilterState.test';
+import previewPipelineTest from './PreviewPipeline.test';
+import thumbnailPipelineTest from './ThumbnailPipeline.test';
+import photoPickerServiceTest from './PhotoPickerService.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -18,4 +22,8 @@ export default function testsuite() {
   editPageFixesTest();
   maskProcessorTest();
   maskDataUtilsTest();
+  filterStateTest();
+  previewPipelineTest();
+  thumbnailPipelineTest();
+  photoPickerServiceTest();
 }

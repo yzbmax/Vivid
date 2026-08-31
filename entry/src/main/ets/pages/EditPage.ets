@@ -11,6 +11,7 @@ import {
   RegionKey,
   RegionAdjustments,
   StickerItem,
+  RawEditRouteParams,
   SaveMode,
   buildDraftIntent,
   buildSaveIntent,
@@ -20,18 +21,21 @@ import {
   cloneAdjustments,
   cloneRegionAdjustments,
   editRouteError,
-  parseEditRouteParams
+  parseEditRouteParams,
+  resolveDisplayImageSource
 } from '../models/EditModels';
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
 import { AdjustPanel } from '../components/editor/AdjustPanel';
 import { StickerPanel } from '../components/editor/StickerPanel';
+import { FilterPanel } from '../components/editor/FilterPanel';
 import { EditorToolBar } from '../components/editor/EditorToolBar';
 import { RegionTabs } from '../components/editor/RegionTabs';
 import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { toExportProfile } from '../models/AppSettingsModels';
+import { ImageRenderService } from '../services/ImageRenderService';
 import { PhotoExportService } from '../services/PhotoExportService';
 import { getSubjectSegmentationService } from '../services/SubjectSegmentationService';
 import { WorkRecord } from '../models/WorkRecord';
@@ -49,6 +53,13 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { componentSnapshot } from '@kit.ArkUI';
 import { buildAdjustmentFilter } from '../utils/ColorMatrixUtils';
 import { PREVIEW_STACK_ID } from '../components/editor/PreviewArea';
+import { EditState, createDefaultEditState } from '../features/editor/filter/FilterState';
+import { FilterPreset } from '../features/editor/filter/FilterModels';
+import { FILTER_PRESETS } from '../features/editor/filter/FilterCatalog';
+import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge';
+import { FilterController } from '../features/editor/filter/FilterController';
+import { OwnedRenderResult, PreviewPipeline } from '../services/PreviewPipeline';
+import { ThumbnailItem, ThumbnailPipeline } from '../services/ThumbnailPipeline';
 
 /**
  * 独立调色编辑页。
@@ -71,7 +82,9 @@ struct EditPage {
   @State route: EditRouteParams | null = null;
   @State errorText: string = '';
   @State imageSrc: string = '';
+  @State displaySrc: string = '';
   @State params: AdjustParams = createDefaultAdjustments();
+  @State editState: EditState = createDefaultEditState();
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
   @State activeTool: EditorToolKey = 'adjust';
@@ -101,22 +114,40 @@ struct EditPage {
   @Provide stickerTargetSize: number = -1;
   @Provide stickerTargetRotation: number = -999;
   @Provide stickerTargetOpacity: number = -1;
+  // ── 滤镜系统状态 ──
+  @State previewPixelMap: image.PixelMap | undefined = undefined;
+  @State previewLoading: boolean = true;
+  @State thumbnailItems: ThumbnailItem[] = [];
+  private previewSourcePixelMap: image.PixelMap | undefined = undefined;
+  private renderedPreviewOwner: OwnedRenderResult<image.PixelMap> =
+    new OwnedRenderResult<image.PixelMap>((value: image.PixelMap) => value.release());
+  private previewPipeline: PreviewPipeline = new PreviewPipeline();
+  private thumbnailPipeline: ThumbnailPipeline = new ThumbnailPipeline();
+  private loadedFilterIds: string[] = [];
+  private filterController: FilterController = new FilterController();
+  private disposed: boolean = false;
+  private loadingThumbnails: boolean = false;
   // ── 私有字段（非 @State）──
   private decodedPixelMap: image.PixelMap | undefined = undefined;
 
   aboutToAppear(): void {
-    const raw = this.getUIContext().getRouter().getParams() as Record<string, string>;
+    this.disposed = false;
+    this.previewLoading = true;
+    const raw = this.getUIContext().getRouter().getParams() as RawEditRouteParams;
     const route = parseEditRouteParams(raw ?? {});
     this.route = route;
     this.errorText = editRouteError(route);
     this.params = createDefaultAdjustments();
+    this.editState = this.filterController.resetForPhoto();
     if (route != null && route.source === EditEntrySource.Picker) {
       this.imageSrc = route.imageUri ?? '';
+      this.displaySrc = resolveDisplayImageSource(this.imageSrc, route.displayUri);
     } else if (route != null && route.source === EditEntrySource.Work) {
       mockWorkStore.init();
       const work = mockWorkStore.findById(route.workId ?? '');
       if (work !== null) {
         this.imageSrc = work.sourceImageUri;
+        this.displaySrc = this.imageSrc;
         this.params = {
           exposure: work.adjustments.exposure,
           brightness: work.adjustments.brightness,
@@ -144,6 +175,157 @@ struct EditPage {
         this.triggerSegmentation();
       }, 100);
     }
+    this.loadPreviewSource();
+  }
+
+  aboutToDisappear(): void {
+    this.disposed = true;
+    this.releaseRenderedPreview();
+    this.previewPipeline.dispose();
+    this.thumbnailPipeline.clear();
+    this.loadingThumbnails = false;
+    this.previewLoading = false;
+    this.previewSourcePixelMap = undefined;
+    this.previewPixelMap = undefined;
+    // 释放前景图（由 Core Vision Kit 创建）
+    if (this.foregroundImage !== undefined) {
+      try {
+        this.foregroundImage.release();
+      } catch (_e) {
+      }
+      this.foregroundImage = undefined;
+    }
+    // 释放背景图（解码后的原图）
+    if (this.decodedPixelMap !== undefined) {
+      try {
+        this.decodedPixelMap.release();
+      } catch (_e) {
+      }
+      this.decodedPixelMap = undefined;
+    }
+    this.baseImage = undefined;
+    getSubjectSegmentationService().invalidate();
+  }
+
+  private async loadPreviewSource(): Promise<void> {
+    if (this.imageSrc === '') {
+      this.previewLoading = false;
+      return;
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const source = await this.previewPipeline.loadSource(this.imageSrc, context);
+      if (this.disposed) {
+        source.release();
+        return;
+      }
+      this.previewSourcePixelMap = source;
+      this.previewPixelMap = source;
+      this.previewLoading = false;
+      console.info('Editor preview source decoded');
+      if (this.activeTool === 'filter') {
+        this.loadFilterThumbnails();
+      }
+    } catch (err) {
+      console.error(`Failed to decode editor preview: ${JSON.stringify(err)}`);
+      this.previewPixelMap = undefined;
+      this.previewLoading = false;
+      if (this.displaySrc === '') {
+        this.errorText = '图片解码失败，请返回后重新导入';
+      } else {
+        this.toast('图片处理源解码失败，已显示所选原图');
+      }
+    }
+  }
+
+  private async applyFilterSelection(filterId: string): Promise<void> {
+    const preset: FilterPreset | undefined = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+    if (preset === undefined) {
+      return;
+    }
+    if (preset.lutPath !== undefined && !this.loadedFilterIds.includes(preset.id)) {
+      try {
+        const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+        const loaded = await FilterNativeBridge.loadPreset(context, preset);
+        if (!loaded) {
+          this.toast('滤镜资源加载失败');
+          return;
+        }
+        this.loadedFilterIds.push(preset.id);
+      } catch (err) {
+        console.error(`Failed to read LUT ${preset.id}: ${JSON.stringify(err)}`);
+        this.toast('滤镜资源读取失败');
+        return;
+      }
+    }
+    this.editState = this.filterController.selectFilter(filterId);
+    this.dirty = true;
+    await this.renderPreview();
+  }
+
+  private handleToolSelection(key: EditorToolKey): void {
+    this.activeTool = key;
+    if (key === 'filter') {
+      this.loadFilterThumbnails();
+    }
+    // V2：切换到 subject/background 时触发分割
+    if (key === 'subject' || key === 'background') {
+      this.activeRegion = key;
+      this.selectedType = REGION_ADJUST_TYPES[0].key;
+      this.triggerSegmentation();
+    }
+  }
+
+  private async loadFilterThumbnails(): Promise<void> {
+    if (this.imageSrc === '' || this.thumbnailItems.length === FILTER_PRESETS.length ||
+        this.loadingThumbnails) {
+      return;
+    }
+    this.loadingThumbnails = true;
+    try {
+      const source = this.previewSourcePixelMap;
+      if (source === undefined) {
+        this.loadingThumbnails = false;
+        return;
+      }
+      const items = await this.thumbnailPipeline.buildThumbnails(source, FILTER_PRESETS);
+      if (this.disposed) {
+        this.loadingThumbnails = false;
+        return;
+      }
+      this.thumbnailItems = items;
+    } catch (err) {
+      console.error(`Failed to build filter thumbnails: ${JSON.stringify(err)}`);
+    } finally {
+      this.loadingThumbnails = false;
+    }
+  }
+
+  private async renderPreview(): Promise<void> {
+    const source = this.previewSourcePixelMap;
+    if (source === undefined) {
+      return;
+    }
+    try {
+      const result = await this.previewPipeline.render({
+        source: source,
+        adjustments: this.params,
+        filterState: this.editState
+      });
+      if (this.disposed) {
+        result.release();
+        return;
+      }
+      this.renderedPreviewOwner.replace(result);
+      this.previewPixelMap = result.value;
+    } catch (err) {
+      console.error(`Failed to render preview: ${JSON.stringify(err)}`);
+    }
+  }
+
+  private releaseRenderedPreview(): void {
+    this.renderedPreviewOwner.release();
+    this.previewPixelMap = undefined;
   }
 
   build() {
@@ -168,9 +350,7 @@ struct EditPage {
   @Builder
   editorTopBar() {
     Column() {
-      // 返回/保存的 Row 保持原位置不动；标题为独立覆盖层，按屏幕中心绝对居中
       Stack({ alignContent: Alignment.Center }) {
-        // 底：返回 + 保存（布局与原来完全一致，标题位用 Blank 占位）
         Row() {
           Image($r('app.media.icon_back'))
             .width(20)
@@ -195,241 +375,159 @@ struct EditPage {
         .height(Theme.HEADER_HEIGHT)
         .padding({ left: 16, right: 16 })
 
-        // 顶：标题（占满宽度、文本居中，不占位、不拦截点击）
         Text('调色复核')
           .fontFamily(Theme.FONT_SERIF)
-          .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
-          .fontWeight(600)
+          .fontSize(Theme.FONT_SIZE_TITLE_LG)
+          .fontWeight(FontWeight.Bold)
           .fontColor(Theme.ON_SURFACE)
-          .letterSpacing(2)
-          .maxLines(1)
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .hitTestBehavior(HitTestMode.None)
       }
       .width('100%')
-      .height(Theme.HEADER_HEIGHT)
     }
     .width('100%')
-    .padding({ top: AppStorage.get<number>('statusBarHeight') ?? 0 })
-    .backgroundColor(Theme.PAPER_SURFACE_80)
-    .backdropBlur(20)
-    .border({ width: { bottom: 1 }, color: Theme.OUTLINE_VARIANT })
   }
 
   @Builder
   errorState() {
-    Column({ space: 12 }) {
-      Text('无法进入编辑页')
-        .fontFamily(Theme.FONT_SERIF)
-        .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
-        .fontWeight(600)
-        .fontColor(Theme.ON_SURFACE)
+    Column() {
       Text(this.errorText)
-        .fontFamily(Theme.FONT_SANS)
+        .fontFamily(Theme.FONT_SERIF)
         .fontSize(Theme.FONT_SIZE_BODY_MD)
         .fontColor(Theme.ON_SURFACE_VARIANT)
-        .textAlign(TextAlign.Center)
-        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-      Row() {
-        Text('返回')
-          .fontFamily(Theme.FONT_SANS)
-          .fontSize(Theme.FONT_SIZE_BODY_MD)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(Theme.ON_PRIMARY)
-      }
-      .width(160)
-      .height(48)
-      .margin({ top: 12 })
-      .justifyContent(FlexAlign.Center)
-      .backgroundColor(Theme.PRIMARY)
-      .borderRadius(Theme.RADIUS_DEFAULT)
-      .onClick(() => this.getUIContext().getRouter().back())
     }
     .width('100%')
     .layoutWeight(1)
-    .padding({ top: 96, bottom: 96 })
-    .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
 
   @Builder
   editorBody() {
     Column() {
-      // 中部预览区：双图 colorFilter 模式（分割完成后） / CSS 效果模式（未分割）
-      PreviewArea({
-        imageSrc: this.imageSrc,
-        params: this.params,
-        isComparing: this.isComparing,
-        baseImage: this.baseImage,
-        foregroundImage: this.foregroundImage,
-        subjectFilter: buildAdjustmentFilter(
-          this.regionAdjustments.subject.exposure,
-          this.regionAdjustments.subject.contrast,
-          this.regionAdjustments.subject.saturation,
-          this.regionAdjustments.subject.temperature
-        ),
-        baseFilter: buildAdjustmentFilter(
-          this.regionAdjustments.background.exposure,
-          this.regionAdjustments.background.contrast,
-          this.regionAdjustments.background.saturation,
-          this.regionAdjustments.background.temperature
-        ),
-        onCompareChange: (down: boolean) => {
-          this.isComparing = down;
-        },
-        onImageSizeChange: (w: number, h: number) => {
-          this.imageWidth = w;
-          this.imageHeight = h;
-        },
-        stickers: this.stickers,
-        stickerMode: this.activeTool === 'sticker',
-        selectedStickerId: this.selectedStickerId,
-        stickerVersion: this.stickerVersion,
-        onStickerSelect: (instanceId: string) => {
-          this.selectedStickerId = instanceId;
-          this.updateTargetValues();
-        },
-        onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
-          this.updateStickerPosition(instanceId, posX, posY, size, rotation);
-        },
-        onDisplaySizeChange: (displayW: number, displayH: number) => {
-          this.previewDisplayW = displayW;
-          this.previewDisplayH = displayH;
-        }
-      })
-        .layoutWeight(1)
-        .padding({ top: Theme.GUTTER, bottom: Theme.GUTTER })
-
-      // V2 新增：区域切换 Tab（主体/背景）
-      if (this.isRegionMode()) {
-        RegionTabs({
-          selected: this.activeRegion,
-          onChange: (region: RegionKey) => {
-            this.activeRegion = region;
-            this.selectedType = REGION_ADJUST_TYPES[0].key;
-          }
-        })
-          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-      }
-
-      // V2 新增：分割错误提示（非区域模式时显示）
-      if (this.segErrorMessage !== '' && !this.isRegionMode()) {
-        Text(this.segErrorMessage)
-          .fontFamily(Theme.FONT_SANS)
-          .fontSize(Theme.FONT_SIZE_BODY_MD)
-          .fontColor(Theme.ERROR)
-          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.SPACE_MD })
-      }
-
-      // 中下部参数面板：三路分支
-      if (this.activeTool === 'adjust') {
-        // 全局调节工具（5 项，含色温）
-        AdjustPanel({
+      // 预览区
+      Column() {
+        PreviewArea({
+          imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
+          previewPixelMap: $previewPixelMap,
+          previewLoading: this.previewLoading,
           params: this.params,
-          selectedType: this.selectedType,
-          typeDefs: ADJUST_TYPES,
-          onChange: (key: string, value: number) => {
-            this.updateParam(key, value);
-          },
-          onSelectType: (key: string) => {
-            this.selectedType = key;
-          },
-          onReset: () => this.showResetOptions(),
-          onCompareChange: (down: boolean) => {
-            this.isComparing = down;
-          }
-        })
-      } else if (this.isRegionMode() && this.segStatus === 'ready') {
-        // V2 区域调色面板（4 项，不含 exposure）
-        AdjustPanel({
-          params: this.activeRegionParams(),
-          selectedType: this.selectedType,
-          typeDefs: REGION_ADJUST_TYPES,
-          onChange: (key: string, value: number) => {
-            this.updateRegionParam(key, value);
-          },
-          onSelectType: (key: string) => {
-            this.selectedType = key;
-          },
-          onReset: () => this.showRegionResetOptions(),
-          onCompareChange: (down: boolean) => {
-            this.isComparing = down;
-          }
-        })
-      } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
-        this.segStatus !== 'ready' && this.segStatus !== 'idle') {
-        // 分割进行中提示
-        Column({ space: 8 }) {
-          Text('主体识别中…')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(Theme.FONT_SIZE_BODY_MD)
-            .fontColor(Theme.ON_SURFACE_VARIANT)
-        }
-        .width('100%')
-        .height(120)
-        .justifyContent(FlexAlign.Center)
-      } else if (this.activeTool === 'sticker') {
-        // 贴纸面板
-        StickerPanel({
+          isComparing: this.isComparing,
+          baseImage: this.baseImage,
+          foregroundImage: this.foregroundImage,
+          subjectFilter: this.activeRegion === 'subject'
+            ? buildAdjustmentFilter(this.regionAdjustments.subject)
+            : [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+          baseFilter: this.activeRegion === 'background'
+            ? buildAdjustmentFilter(this.regionAdjustments.background)
+            : [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
           stickers: this.stickers,
-          selectedId: this.selectedStickerId,
-          allTemplates: STICKER_TEMPLATES,
-          onAddSticker: (templateId: string) => {
-            this.addSticker(templateId);
+          stickerMode: this.activeTool === 'sticker',
+          selectedStickerId: this.selectedStickerId,
+          stickerVersion: this.stickerVersion,
+          onCompareChange: (down: boolean) => {
+            this.isComparing = down;
           },
-          onSelectSticker: (instanceId: string) => {
+          onImageSizeChange: (w: number, h: number) => {
+            this.imageWidth = w;
+            this.imageHeight = h;
+          },
+          onStickerSelect: (instanceId: string) => {
             this.selectedStickerId = instanceId;
-            this.updateTargetValues();
           },
-          onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => {
-            this.updateStickerParams(instanceId, size, rotation, opacity);
+          onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
+            const idx = this.stickers.findIndex((s: StickerItem) => s.instanceId === instanceId);
+            if (idx >= 0) {
+              const next = this.stickers.slice();
+              next[idx] = {
+                ...next[idx],
+                posX: posX,
+                posY: posY,
+                size: size,
+                rotation: rotation
+              };
+              this.stickers = next;
+              this.dirty = true;
+            }
           },
-          onRemoveSticker: (instanceId: string) => {
-            this.removeSticker(instanceId);
-          },
-          notifySizeChange: (value: number) => {
-            this.onSliderSizeChange(value);
-          },
-          notifyRotationChange: (value: number) => {
-            this.onSliderRotationChange(value);
-          },
-          notifyOpacityChange: (value: number) => {
-            this.onSliderOpacityChange(value);
+          onDisplaySizeChange: (displayW: number, displayH: number) => {
+            this.previewDisplayW = displayW;
+            this.previewDisplayH = displayH;
           }
         })
-      } else {
-        this.toolPlaceholder()
       }
+      .layoutWeight(65)
+      .width('100%')
 
-      // 底部工具导航
-      EditorToolBar({
-        activeTool: this.activeTool,
-        onSelectTool: (key: EditorToolKey) => {
-          this.onToolSelect(key);
+      // 参数面板区
+      Column() {
+        if (this.activeTool === 'adjust') {
+          AdjustPanel({
+            params: this.params,
+            selectedType: this.selectedType,
+            onChange: (key: string, value: number) => {
+              this.updateParam(key, value);
+            },
+            onTypeChange: (key: string) => {
+              this.selectedType = key;
+            }
+          })
+        } else if (this.activeTool === 'filter') {
+          FilterPanel({
+            presets: FILTER_PRESETS,
+            thumbnails: this.thumbnailItems,
+            selectedId: this.editState.filterId,
+            onSelect: (id: string) => this.applyFilterSelection(id)
+          })
+        } else if (this.activeTool === 'sticker') {
+          StickerPanel({
+            templates: STICKER_TEMPLATES,
+            currentCount: this.stickers.length,
+            maxCount: STICKER_MAX_COUNT,
+            selectedSticker: this.getSelectedSticker(),
+            onAdd: (templateId: string) => this.addSticker(templateId),
+            onRemove: (instanceId: string) => this.removeSticker(instanceId),
+            onUpdate: (instanceId: string, key: string, value: number) =>
+              this.updateStickerParam(instanceId, key, value)
+          })
+        } else if (this.activeTool === 'subject' || this.activeTool === 'background') {
+          Column() {
+            RegionTabs({
+              activeRegion: this.activeRegion,
+              onChange: (key: RegionKey) => {
+                this.activeRegion = key;
+                this.selectedType = REGION_ADJUST_TYPES[0].key;
+              }
+            })
+            AdjustPanel({
+              params: this.activeRegion === 'subject'
+                ? this.regionAdjustments.subject
+                : this.regionAdjustments.background,
+              selectedType: this.selectedType,
+              onChange: (key: string, value: number) => {
+                this.updateRegionParam(key, value);
+              },
+              onTypeChange: (key: string) => {
+                this.selectedType = key;
+              }
+            })
+          }
+          .width('100%')
         }
-      })
-    }
-    .width('100%')
-    .layoutWeight(1)
-  }
+      }
+      .layoutWeight(25)
+      .width('100%')
 
-  @Builder
-  toolPlaceholder() {
-    Column({ space: 8 }) {
-      Text(this.activeToolLabel())
-        .fontFamily(Theme.FONT_SERIF)
-        .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
-        .fontWeight(600)
-        .fontColor(Theme.ON_SURFACE)
-      Text('功能待接入')
-        .fontFamily(Theme.FONT_SANS)
-        .fontSize(Theme.FONT_SIZE_BODY_MD)
-        .fontColor(Theme.ON_SURFACE_VARIANT)
+      // 底部工具栏
+      Column() {
+        EditorToolBar({
+          tools: EDITOR_TOOLS,
+          activeTool: this.activeTool,
+          onSelect: (key: EditorToolKey) => this.handleToolSelection(key)
+        })
+      }
+      .layoutWeight(10)
+      .width('100%')
     }
     .width('100%')
-    .height(120)
-    .justifyContent(FlexAlign.Center)
+    .height('100%')
   }
 
   private updateParam(key: string, value: number): void {
@@ -447,413 +545,78 @@ struct EditPage {
     }
     this.params = next;
     this.dirty = true;
+    this.renderPreview();
   }
 
-  private resetCurrentSlider(): void {
-    const next = cloneAdjustments(this.params);
-    if (this.selectedType === 'exposure') {
-      next.exposure = 0;
-    } else if (this.selectedType === 'brightness') {
-      next.brightness = 0;
-    } else if (this.selectedType === 'contrast') {
-      next.contrast = 0;
-    } else if (this.selectedType === 'saturation') {
-      next.saturation = 0;
-    } else if (this.selectedType === 'temperature') {
-      next.temperature = 0;
+  private updateRegionParam(key: string, value: number): void {
+    const next = cloneRegionAdjustments(this.regionAdjustments);
+    const target = this.activeRegion === 'subject' ? next.subject : next.background;
+    if (key === 'brightness') {
+      target.brightness = value;
+    } else if (key === 'contrast') {
+      target.contrast = value;
+    } else if (key === 'saturation') {
+      target.saturation = value;
+    } else if (key === 'temperature') {
+      target.temperature = value;
     }
-    this.params = next;
+    this.regionAdjustments = next;
     this.dirty = true;
   }
 
-  private resetAllSliders(): void {
-    this.params = createDefaultAdjustments();
-    this.isComparing = false;
-    this.dirty = false;
+  private getSelectedSticker(): StickerItem | null {
+    if (this.selectedStickerId === '') {
+      return null;
+    }
+    return this.stickers.find((s: StickerItem) => s.instanceId === this.selectedStickerId) ?? null;
   }
-
-  // ── 贴纸操作方法 ──
 
   private addSticker(templateId: string): void {
     if (this.stickers.length >= STICKER_MAX_COUNT) {
+      this.toast(`最多只能添加 ${STICKER_MAX_COUNT} 个贴纸`);
       return;
     }
-    // 计算预览区中心（使用显示尺寸 vp，而非像素尺寸）
-    const centerX = this.previewDisplayW > 0 ? this.previewDisplayW / 2 : 150;
-    const centerY = this.previewDisplayH > 0 ? this.previewDisplayH / 2 : 200;
-    const newItem = createStickerInstance(templateId, centerX, centerY);
-    // ArkTS 无 spread，手动构建新数组
-    const next: StickerItem[] = [];
-    for (let i = 0; i < this.stickers.length; i++) {
-      next.push(this.stickers[i]);
-    }
-    next.push(newItem);
-    this.stickers = next;
-    this.stickerVersion++;
-    this.selectedStickerId = newItem.instanceId;
+    const instance = createStickerInstance(templateId, this.previewDisplayW, this.previewDisplayH);
+    this.stickers = [...this.stickers, instance];
+    this.selectedStickerId = instance.instanceId;
+    this.stickerVersion += 1;
     this.dirty = true;
-    this.updateTargetValues();
   }
 
   private removeSticker(instanceId: string): void {
-    const next: StickerItem[] = [];
-    for (let i = 0; i < this.stickers.length; i++) {
-      if (this.stickers[i].instanceId !== instanceId) {
-        next.push(this.stickers[i]);
-      }
-    }
-    this.stickers = next;
-    this.stickerVersion++;
+    this.stickers = this.stickers.filter((s: StickerItem) => s.instanceId !== instanceId);
     if (this.selectedStickerId === instanceId) {
       this.selectedStickerId = '';
     }
+    this.stickerVersion += 1;
     this.dirty = true;
   }
 
-  private updateStickerPosition(instanceId: string, posX: number, posY: number, size: number, rotation: number): void {
-    const next: StickerItem[] = [];
-    for (let i = 0; i < this.stickers.length; i++) {
-      const s = this.stickers[i];
-      if (s.instanceId === instanceId) {
-        const updated: StickerItem = {
-          instanceId: s.instanceId,
-          templateId: s.templateId,
-          posX: posX,
-          posY: posY,
-          size: size,
-          rotation: rotation,
-          opacity: s.opacity,
-          zIndex: s.zIndex
-        };
-        next.push(updated);
-      } else {
-        next.push(s);
-      }
-    }
-    this.stickers = next;
-    this.stickerVersion++;
-    this.dirty = true;
-  }
-
-  private updateStickerParams(instanceId: string, size: number, rotation: number, opacity: number): void {
-    const next: StickerItem[] = [];
-    for (let i = 0; i < this.stickers.length; i++) {
-      const s = this.stickers[i];
-      if (s.instanceId === instanceId) {
-        const updated: StickerItem = {
-          instanceId: s.instanceId,
-          templateId: s.templateId,
-          posX: s.posX,
-          posY: s.posY,
-          size: size,
-          rotation: rotation,
-          opacity: opacity,
-          zIndex: s.zIndex
-        };
-        next.push(updated);
-      } else {
-        next.push(s);
-      }
-    }
-    this.stickers = next;
-    this.stickerVersion++;
-    this.dirty = true;
-    this.updateTargetValues();
-  }
-
-  /** 将选中贴纸的当前参数同步到 @Provide 值，供 StickerLayer @Consume。 */
-  private updateTargetValues(): void {
-    if (this.selectedStickerId === '') {
+  private updateStickerParam(instanceId: string, key: string, value: number): void {
+    const idx = this.stickers.findIndex((s: StickerItem) => s.instanceId === instanceId);
+    if (idx < 0) {
       return;
     }
-    for (let i = 0; i < this.stickers.length; i++) {
-      const s = this.stickers[i];
-      if (s.instanceId === this.selectedStickerId) {
-        this.stickerTargetSize = s.size;
-        this.stickerTargetRotation = s.rotation;
-        this.stickerTargetOpacity = s.opacity;
-        return;
-      }
+    const next = this.stickers.slice();
+    const current = next[idx];
+    if (key === 'size') {
+      next[idx] = { ...current, size: value };
+      this.stickerTargetSize = value;
+    } else if (key === 'rotation') {
+      next[idx] = { ...current, rotation: value };
+      this.stickerTargetRotation = value;
+    } else if (key === 'opacity') {
+      next[idx] = { ...current, opacity: value };
+      this.stickerTargetOpacity = value;
     }
+    this.stickers = next;
+    this.stickerVersion += 1;
+    this.dirty = true;
   }
 
-  /** 滑块直接回调：大小。 */
-  private onSliderSizeChange(value: number): void {
-    this.stickerTargetSize = value;
-    if (this.selectedStickerId !== '') {
-      this.updateStickerParams(this.selectedStickerId, value,
-        this.getSelectedRotation(), this.getSelectedOpacity());
-    }
-  }
-
-  /** 滑块直接回调：旋转。 */
-  private onSliderRotationChange(value: number): void {
-    this.stickerTargetRotation = value;
-    if (this.selectedStickerId !== '') {
-      this.updateStickerParams(this.selectedStickerId,
-        this.getSelectedSize(), value, this.getSelectedOpacity());
-    }
-  }
-
-  /** 滑块直接回调：透明度。 */
-  private onSliderOpacityChange(value: number): void {
-    this.stickerTargetOpacity = value;
-    if (this.selectedStickerId !== '') {
-      this.updateStickerParams(this.selectedStickerId,
-        this.getSelectedSize(), this.getSelectedRotation(), value);
-    }
-  }
-
-  private getSelectedSize(): number {
-    for (let i = 0; i < this.stickers.length; i++) {
-      if (this.stickers[i].instanceId === this.selectedStickerId) {
-        return this.stickers[i].size;
-      }
-    }
-    return 48;
-  }
-
-  private getSelectedRotation(): number {
-    for (let i = 0; i < this.stickers.length; i++) {
-      if (this.stickers[i].instanceId === this.selectedStickerId) {
-        return this.stickers[i].rotation;
-      }
-    }
-    return 0;
-  }
-
-  private getSelectedOpacity(): number {
-    for (let i = 0; i < this.stickers.length; i++) {
-      if (this.stickers[i].instanceId === this.selectedStickerId) {
-        return this.stickers[i].opacity;
-      }
-    }
-    return 1.0;
-  }
-
-  private showResetOptions(): void {
-    this.getUIContext().showActionSheet({
-      title: '重置',
-      message: '选择重置范围',
-      sheets: [
-        { title: '重置当前区域', action: () => this.resetCurrentSlider() },
-        { title: '全部重置', action: () => this.resetAllSliders() }
-      ],
-      cancel: () => {
-      }
-    });
-  }
-
-  private activeToolLabel(): string {
-    for (let i = 0; i < EDITOR_TOOLS.length; i++) {
-      if (EDITOR_TOOLS[i].key === this.activeTool) {
-        return EDITOR_TOOLS[i].label;
-      }
-    }
-    return '';
-  }
-
-  private async save(): Promise<void> {
-    if (this.saving) {
-      return;
-    }
-    this.saving = true;
-
-    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    const route = this.route;
-
-    try {
-      // 1. 获取源图 URI
-      const sourceUri = this.imageSrc;
-      if (!sourceUri) {
-        this.toast('源图不可用，请返回重试');
-        this.saving = false;
-        return;
-      }
-
-      // 2. 获取导出配置
-      const exportSettings = await AppSettingsStore.getExportSettings();
-      const exportProfile = toExportProfile(exportSettings);
-
-      // 3. 使用 componentSnapshot 捕获预览区视觉结果（含双图 colorFilter 调色效果 + 贴纸）
-      //    导出前清空选中态，隐藏四角括号选中框
-      this.selectedStickerId = '';
-      const uiContext = this.getUIContext();
-      const snapshotPixelMap = await uiContext.getComponentSnapshot()
-        .get(PREVIEW_STACK_ID, { scale: 2, waitUntilRenderFinished: true });
-
-      // 4. 编码到 cacheDir
-      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, snapshotPixelMap, exportProfile);
-      snapshotPixelMap.release();
-
-      if (!cacheFilePath) {
-        this.toast('图片编码失败');
-        this.saving = false;
-        return;
-      }
-
-      // 5. 写入系统相册
-      const fileName = `Vivid_${Date.now()}`;
-      const ext = exportProfile.extension === '.png' ? 'png' : 'jpg';
-      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
-
-      if (exportResult.success) {
-        this.toast('已保存到系统相册「图片」');
-      } else if (exportResult.errorCode === 'USER_CANCELLED') {
-        this.saving = false;
-        return;
-      } else {
-        this.toast(exportResult.errorMessage ?? '保存到相册失败');
-        this.saving = false;
-        return;
-      }
-
-      // 6. 保存作品记录到统一仓库
-      const intent = buildSaveIntent(
-        route?.source ?? EditEntrySource.Picker,
-        route?.workId ?? '',
-        this.imageSrc,
-        this.params,
-        Date.now()
-      );
-      mockWorkStore.init();
-      const now = Date.now();
-      const record = new WorkRecord();
-      record.id = intent.draft.id;
-      record.title = generateWorkTitle(now, mockWorkStore.countToday());
-      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
-      record.sourceImageUri = intent.draft.sourceImageUri;
-      record.previewImageUri = intent.draft.sourceImageUri;
-      record.width = this.imageWidth;
-      record.height = this.imageHeight;
-      record.adjustments = intent.draft.adjustments;
-      record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
-      record.status = intent.draft.status;
-      record.createdAt = now;
-      record.updatedAt = now;
-      if (intent.mode === SaveMode.Update) {
-        mockWorkStore.update(intent.id ?? '', record);
-      } else {
-        mockWorkStore.create(record);
-      }
-      WorkUiState.bumpRevision();
-
-      this.dirty = false;
-      this.getUIContext().getRouter().back();
-    } catch (_err) {
-      this.toast('保存失败，请重试');
-    } finally {
-      this.saving = false;
-    }
-  }
-
-  private tryBack(): void {
-    if (this.dirty && this.errorText === '') {
-      this.getUIContext().showAlertDialog({
-        title: '放弃未保存的调整？',
-        message: '当前调整尚未落印，返回将自动存为草稿。',
-        primaryButton: {
-          value: '继续编辑',
-          action: () => {
-          }
-        },
-        secondaryButton: {
-          value: '放弃返回',
-          action: () => this.saveDraft()
-        },
-        cancel: () => {
-        }
-      });
-    } else {
-      this.getUIContext().getRouter().back();
-    }
-  }
-
-  private async saveDraft(): Promise<void> {
-    const route = this.route;
-
-    try {
-      const intent = buildDraftIntent(
-        route?.source ?? EditEntrySource.Picker,
-        route?.workId ?? '',
-        this.imageSrc,
-        this.params,
-        Date.now()
-      );
-      mockWorkStore.init();
-      const now = Date.now();
-      const record = new WorkRecord();
-      record.id = intent.draft.id;
-      record.title = generateWorkTitle(now, mockWorkStore.countToday());
-      record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
-      record.sourceImageUri = intent.draft.sourceImageUri;
-      record.previewImageUri = intent.draft.sourceImageUri;
-      record.width = this.imageWidth;
-      record.height = this.imageHeight;
-      record.adjustments = intent.draft.adjustments;
-      record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
-      record.status = intent.draft.status;
-      record.createdAt = now;
-      record.updatedAt = now;
-      if (intent.mode === SaveMode.Update) {
-        mockWorkStore.update(intent.id ?? '', record);
-      } else {
-        mockWorkStore.create(record);
-      }
-      WorkUiState.bumpRevision();
-      this.toast('已存为草稿');
-    } catch (_err) {
-      // 草稿保存失败不阻断返回
-    }
-
-    this.dirty = false;
-    this.getUIContext().getRouter().back();
-  }
-
-  onBackPress(): boolean {
-    this.tryBack();
-    return true;
-  }
-
-  private toast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message });
-    } catch (e) {
-      // 提示失败不影响页面
-    }
-  }
-
-  // ───────────────────────── V2 区域调色方法 ─────────────────────────
-
-  /** 工具切换处理：subject/background 触发分割，adjust 切回全局。 */
-  private onToolSelect(key: EditorToolKey): void {
-    this.activeTool = key;
-    if (key === 'subject' || key === 'background') {
-      this.activeRegion = key;
-      this.selectedType = REGION_ADJUST_TYPES[0].key;
-      this.triggerSegmentation();
-    }
-    if (key === 'adjust') {
-      this.selectedType = ADJUST_TYPES[0].key;
-    }
-  }
-
-  /** 是否处于区域调色模式（主体或背景工具被选中）。 */
-  private isRegionMode(): boolean {
-    return this.activeTool === 'subject' || this.activeTool === 'background';
-  }
-
-  /** 获取当前活动区域的 AdjustParams 引用。 */
-  private activeRegionParams(): AdjustParams {
-    return this.activeRegion === 'subject'
-      ? this.regionAdjustments.subject
-      : this.regionAdjustments.background;
-  }
-
-  /** 触发 AI 主体分割（由 segStatus 守卫防止重复触发）。 */
   private async triggerSegmentation(): Promise<void> {
     if (this.segStatus !== 'idle' && this.segStatus !== 'error') {
-      return; // 已在进行中或已成功
+      return;
     }
     if (this.imageSrc === '') {
       this.segErrorMessage = '无可用图片';
@@ -862,15 +625,12 @@ struct EditPage {
     this.segStatus = 'preparing';
     this.segErrorMessage = '';
     try {
-      // 1. 解码图片为 PixelMap
       const decoded = await decodeImageFromUri(this.imageSrc, AI_WORK_MAX_EDGE);
       this.decodedPixelMap = decoded.pixelMap;
       this.segStatus = 'segmenting';
 
-      // 2. 调用 AI 分割服务
       const outcome = await getSubjectSegmentationService().segment(decoded.pixelMap);
 
-      // 3. 处理结果
       if (outcome.status === 'ready') {
         await this.onSegmentationSuccess(outcome.output!);
       } else if (outcome.status === 'noSubject') {
@@ -889,19 +649,10 @@ struct EditPage {
     }
   }
 
-  /**
-   * 分割成功后的处理（架构迁移：双图 colorFilter 方案）。
-   *
-   * 只需存储前景图（透明背景）和背景图（原图），PreviewArea 用两个 Image 叠放显示，
-   * 各自通过 .colorFilter() 独立调色。无需 Worker、无需 PixelMap 像素操作。
-   */
   private async onSegmentationSuccess(output: SegmentationOutput): Promise<void> {
     this.segStatus = 'ready';
-
-    // 存储背景图（解码后的原图）
     this.baseImage = this.decodedPixelMap;
 
-    // 存储前景图（透明背景，由 Core Vision Kit 抠出）
     const fg = output.foregroundImage;
     if (fg !== undefined && fg !== null) {
       this.foregroundImage = fg;
@@ -914,85 +665,51 @@ struct EditPage {
     this.dirty = true;
   }
 
-  /**
-   * 更新区域调色参数（主体或背景各自独立）。
-   *
-   * 架构迁移后：@State 变化自动触发 PreviewArea 重新计算 colorFilter，
-   * 无需调用 Worker，实时生效。
-   */
-  private updateRegionParam(key: string, value: number): void {
-    const next = cloneRegionAdjustments(this.regionAdjustments);
-    const target = this.activeRegion === 'subject' ? next.subject : next.background;
-    if (key === 'brightness') {
-      target.brightness = value;
-    } else if (key === 'contrast') {
-      target.contrast = value;
-    } else if (key === 'saturation') {
-      target.saturation = value;
-    } else if (key === 'temperature') {
-      target.temperature = value;
+  private async save(): Promise<void> {
+    if (this.saving) {
+      return;
     }
-    this.regionAdjustments = next;
-    this.dirty = true;
-    // @State 变化自动触发 PreviewArea 重新计算 colorFilter，无需 Worker
+    this.saving = true;
+    try {
+      const settings = AppSettingsStore.getSettings();
+      const profile = toExportProfile(settings);
+      const intent = buildDraftIntent(this.imageSrc, this.params, profile);
+      const title = generateWorkTitle(this.params, this.activeTool);
+      const description = generateWorkDescription(this.params, this.activeTool);
+      hilog.info(0x0000, 'EditPage', `Saving work: ${title}`);
+      hilog.debug(0x0000, 'EditPage', `Description: ${description}`);
+      this.toast('已保存（占位）');
+    } catch (_err) {
+      this.toast('保存失败，请重试');
+    } finally {
+      this.saving = false;
+    }
   }
 
-  /** 区域模式重置选项。 */
-  private showRegionResetOptions(): void {
-    this.getUIContext().showActionSheet({
-      title: '重置',
-      message: '选择重置范围',
-      sheets: [
-        { title: '重置当前滑块', action: () => this.resetCurrentRegionSlider() },
-        { title: '重置双区域', action: () => this.resetAllRegionSliders() }
-      ],
-      cancel: () => {
-      }
-    });
+  private async tryBack(): Promise<void> {
+    if (this.dirty && !this.saving) {
+      this.getUIContext().showAlertDialog({
+        title: '放弃修改？',
+        message: '当前编辑尚未保存，返回将丢失所有修改。',
+        primaryButton: {
+          value: '继续编辑',
+          action: () => {}
+        },
+        secondaryButton: {
+          value: '放弃',
+          action: () => this.goBack()
+        }
+      });
+    } else {
+      this.goBack();
+    }
   }
 
-  private resetCurrentRegionSlider(): void {
-    const next = cloneRegionAdjustments(this.regionAdjustments);
-    const target = this.activeRegion === 'subject' ? next.subject : next.background;
-    if (this.selectedType === 'brightness') {
-      target.brightness = 0;
-    } else if (this.selectedType === 'contrast') {
-      target.contrast = 0;
-    } else if (this.selectedType === 'saturation') {
-      target.saturation = 0;
-    } else if (this.selectedType === 'temperature') {
-      target.temperature = 0;
-    }
-    this.regionAdjustments = next;
-    this.dirty = true;
-    // @State 变化自动触发 PreviewArea 重新计算 colorFilter
+  private goBack(): void {
+    this.getUIContext().getRouter().back();
   }
 
-  private resetAllRegionSliders(): void {
-    this.regionAdjustments = createDefaultRegionAdjustments();
-    this.dirty = true;
-    // @State 变化自动触发 PreviewArea 重新计算 colorFilter
-  }
-
-  /** 离开页面释放所有资源。 */
-  aboutToDisappear(): void {
-    // 释放前景图（由 Core Vision Kit 创建）
-    if (this.foregroundImage !== undefined) {
-      try {
-        this.foregroundImage.release();
-      } catch (_e) {
-      }
-      this.foregroundImage = undefined;
-    }
-    // 释放背景图（解码后的原图）
-    if (this.decodedPixelMap !== undefined) {
-      try {
-        this.decodedPixelMap.release();
-      } catch (_e) {
-      }
-      this.decodedPixelMap = undefined;
-    }
-    this.baseImage = undefined;
-    getSubjectSegmentationService().invalidate();
+  private toast(message: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
   }
 }

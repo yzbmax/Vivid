@@ -155,6 +155,7 @@ struct LoginPage {
         params: {
           source: EditEntrySource.Picker,
           imageUri: intent.imageUri,
+          displayUri: intent.displayUri,
           initialTool: intent.initialTool
         }
       });
