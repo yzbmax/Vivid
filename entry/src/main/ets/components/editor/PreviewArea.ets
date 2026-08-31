@@ -1,5 +1,11 @@
 import { AdjustEffects, AdjustParams, mapParamsToEffects } from '../../models/EditModels';
 import { Theme } from '../common/Theme';
+import { image } from '@kit.ImageKit';
+import {
+  fitPreviewCard,
+  hasRenderablePreview,
+  shouldRenderUriFallback
+} from '../../services/PreviewPipeline';
 
 /**
  * 预览区：照片 + 装裱边框 + 原图对比按压层。
@@ -14,6 +20,8 @@ import { Theme } from '../common/Theme';
 @Component
 export struct PreviewArea {
   @Prop imageSrc: string = '';
+  @Link previewPixelMap: image.PixelMap | undefined;
+  @Prop previewLoading: boolean = false;
   @Prop params: AdjustParams = { exposure: 0, brightness: 0, contrast: 0, saturation: 0 };
   @Prop isComparing: boolean = false;
   onCompareChange: (down: boolean) => void = () => {};
@@ -30,26 +38,39 @@ export struct PreviewArea {
   build() {
     // 外层 Column：负责上下居中 + 裁剪溢出
     Column() {
-      if (this.imageSrc !== '') {
+      if (this.previewPixelMap !== undefined ||
+          shouldRenderUriFallback(this.imageSrc, false, this.previewLoading)) {
         // 内层 Column：按内容自适应尺寸，由外层 justifyContent 居中
         Column() {
           Stack({ alignContent: Alignment.Center }) {
-            // 照片（Cover 填满卡片；卡片宽度撑满，高度按图片比例）
-            Image(this.imageSrc)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover)
-              .contrast(this.isComparing ? 1 : this.effects().contrast)
-              .saturate(this.isComparing ? 1 : this.effects().saturate)
-              .onComplete((event) => {
-                const w = event?.width ?? 0;
-                const h = event?.height ?? 0;
-                if (w > 0 && h > 0 && (w !== this.imageNaturalW || h !== this.imageNaturalH)) {
-                  this.imageNaturalW = w;
-                  this.imageNaturalH = h;
-                  this.onImageSizeChange(w, h);
-                }
-              })
+            // 照片（优先使用最长边 <= 1440 的 PreviewSourcePixelMap）
+            if (this.previewPixelMap !== undefined) {
+              Image(this.previewPixelMap)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover)
+                .contrast(this.isComparing ? 1 : this.effects().contrast)
+                .saturate(this.isComparing ? 1 : this.effects().saturate)
+                .onAppear(() => console.info('Editor preview PixelMap node mounted'))
+                .onAreaChange((_oldValue: Area, newValue: Area) => {
+                  console.info(`Editor preview PixelMap area: ${newValue.width}x${newValue.height}`);
+                })
+                .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+                .onError(() => console.error('Editor preview PixelMap image failed'))
+            } else if (shouldRenderUriFallback(this.imageSrc, false, this.previewLoading)) {
+              Image(this.imageSrc)
+                .width('100%')
+                .height('100%')
+                .objectFit(ImageFit.Cover)
+                .contrast(this.isComparing ? 1 : this.effects().contrast)
+                .saturate(this.isComparing ? 1 : this.effects().saturate)
+                .onAppear(() => console.info('Editor preview URI node mounted'))
+                .onAreaChange((_oldValue: Area, newValue: Area) => {
+                  console.info(`Editor preview URI area: ${newValue.width}x${newValue.height}`);
+                })
+                .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+                .onError(() => console.error('Editor preview URI image failed'))
+            }
 
             // 明暗覆盖层（曝光/亮度）
             if (!this.isComparing && this.effects().luminanceAlpha > 0) {
@@ -85,11 +106,21 @@ export struct PreviewArea {
                 .borderRadius(Theme.RADIUS_FULL)
             }
           }
-          .width('100%')
+          .width(this.displayW())
           .height(this.displayH())
           .clip(true)
           .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
         }
+      } else if (this.previewLoading) {
+        Column({ space: 8 }) {
+          Text('正在显影…')
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(Theme.FONT_SIZE_BODY_MD)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
       } else {
         // 无图片：占位（如 source=work 待 WorkRecord 源图字段接入）
         Column({ space: 8 }) {
@@ -120,10 +151,12 @@ export struct PreviewArea {
       if (w > 0 && h > 0 && (w !== this.containerW || h !== this.containerH)) {
         this.containerW = w;
         this.containerH = h;
+        console.info(`Editor preview area ready: ${w}x${h}`);
       }
     })
     .onTouch((event: TouchEvent) => {
-      if (this.imageSrc === '') {
+      if (!hasRenderablePreview('', this.previewPixelMap !== undefined) &&
+          !shouldRenderUriFallback(this.imageSrc, false, this.previewLoading)) {
         return;
       }
       if (event.type === TouchType.Down) {
@@ -134,25 +167,35 @@ export struct PreviewArea {
     })
   }
 
-  /**
-   * 卡片显示高度：宽度撑满（100%），高度按图片原始比例计算。
-   * 图片原始尺寸未就绪时回退到容器高度。
-   */
+  /** 图片尺寸未知时先使用容器尺寸，避免自适应父子形成百分比循环。 */
+  private displayW(): number {
+    return fitPreviewCard(
+      this.containerW,
+      this.containerH,
+      this.imageNaturalW,
+      this.imageNaturalH
+    ).width;
+  }
+
   private displayH(): number {
-    if (this.containerW <= 0 || this.containerH <= 0) {
-      return 0;
-    }
-    const nw = this.imageNaturalW;
-    const nh = this.imageNaturalH;
-    if (nw <= 0 || nh <= 0) {
-      return this.containerH;
-    }
-    // 宽度撑满，按图片比例算高度
-    const ratio = nh / nw;
-    return Math.floor(this.containerW * ratio);
+    return fitPreviewCard(
+      this.containerW,
+      this.containerH,
+      this.imageNaturalW,
+      this.imageNaturalH
+    ).height;
   }
 
   private effects(): AdjustEffects {
     return mapParamsToEffects(this.params);
+  }
+
+  private updateNaturalSize(width: number, height: number): void {
+    if (width > 0 && height > 0 && (width !== this.imageNaturalW || height !== this.imageNaturalH)) {
+      this.imageNaturalW = width;
+      this.imageNaturalH = height;
+      console.info(`Editor preview image ready: ${width}x${height}`);
+      this.onImageSizeChange(width, height);
+    }
   }
 }

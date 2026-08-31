@@ -10,6 +10,17 @@
 - 作品页支持全部 / 已封印 / 草稿筛选、时间排序、作品卡片网格和详情路由。
 - 作品与详情目前使用 MockWorks，尚未接入真实图片编辑、导出或云端保存。
 
+### 图片导入与 LUT 滤镜
+
+- 首页通过系统 PhotoViewPicker 选择单张图片，并将稳定的应用沙箱 URI 传入编辑页。
+- 编辑页使用独立的预览 PixelMap，切换滤镜和生成缩略图不会释放或覆盖原图。
+- 滤镜目录由 `FilterCatalog.ets` 统一注册，资源位于 `entry/src/main/resources/rawfile/filters/`。
+- Native C++ 解析 16³ 与 33³ `.cube`；16³ LUT 会以三线性插值重采样到 33³。
+- LUT 输出允许有限的扩展范围值，NaN 与 Infinity 仍会被拒绝；最终像素写回时统一截断到有效通道范围。
+- 渲染优先使用 Vulkan Compute；GPU 输出异常或无变化时回退到 CPU LUT 渲染，保证滤镜效果可见。
+- 预览与缩略图均使用异步代次控制，过期结果会被丢弃并释放；滤镜强度范围为 0–100%。
+- “原图”和滤镜状态保留相同的控制区高度，切换滤镜不会改变预览画布布局。
+
 ### 登录与注册 Mock 闭环
 
 - 登录支持验证码登录和密码登录。
@@ -50,6 +61,7 @@
 | 页面 | 路由 | 说明 |
 | --- | --- | --- |
 | 主框架 | pages/Index | 首页 / 作品 / 我的三 Tab |
+| 调色复核 | pages/EditPage | 图片预览、LUT 滤镜、强度调节与编辑工具 |
 | 作品详情 | pages/WorkDetailPage | Mock 作品详情 |
 | 登录 | pages/LoginPage | 验证码 / 密码登录 |
 | 注册 | pages/RegisterPage | 注册验证码 + 密码注册 |
@@ -95,6 +107,11 @@ entry/src/test/MockAuthStore.test.ets 覆盖：
 其他测试入口：
 
 - entry/src/test/AuthValidators.test.ets：手机号、验证码、密码和确认密码校验。
+- entry/src/test/FilterState.test.ets：滤镜目录、选择状态与强度边界。
+- entry/src/test/PreviewPipeline.test.ets：预览尺寸、渲染代次与 PixelMap 所有权。
+- entry/src/test/ThumbnailPipeline.test.ets：滤镜缩略图生成与原图回退。
+- entry/src/test/PhotoPickerService.test.ets：选图结果、URI 解析与沙箱导入。
+- entry/src/main/cpp/filter/tests/：Cube 解析、LUT 插值、FilterEngine 与 Vulkan 契约测试源码。
 - entry/src/test/LocalUnit.test.ets：本地 Hypium 示例测试。
 - entry/src/test/List.test.ets：本地测试套件入口。
 - entry/src/ohosTest/ets/test/Ability.test.ets：设备侧示例测试。
@@ -150,7 +167,9 @@ entry/src/test/MockAuthStore.test.ets 覆盖：
     │   ├── mine/                     # 我的 Tab
     │   ├── works/                    # 作品列表与卡片
     │   ├── common/                   # Theme、PaperFrame、公共组件
+    │   ├── editor/                   # 预览区、滤镜面板与编辑控件
     │   └── MaskSeal.ets              # Mask & Seal 共享组件
+    ├── features/editor/filter/       # 滤镜目录、状态、控制器与 Native 桥接
     ├── models/
     │   ├── AuthModels.ets            # 冻结公开认证契约
     │   ├── AccountSettingsModels.ets # 账号设置契约
@@ -159,6 +178,10 @@ entry/src/test/MockAuthStore.test.ets 覆盖：
     │   └── AuthUiState.ets            # authRevision / AppStorage 刷新边界
     ├── utils/AuthValidators.ets      # 表单校验
     └── entryability/                 # 沉浸式窗口与启动页
+
+    entry/src/main/cpp/
+    ├── filter/                       # Cube 解析、CPU/Vulkan LUT 渲染与测试
+    └── napi/                         # ArkTS Native 接口与 PixelMap 边界
 
 ## 原型限制
 

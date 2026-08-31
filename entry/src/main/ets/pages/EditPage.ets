@@ -4,17 +4,20 @@ import {
   EditEntrySource,
   EditRouteParams,
   EditorToolKey,
+  RawEditRouteParams,
   SaveMode,
   buildDraftIntent,
   buildSaveIntent,
   createDefaultAdjustments,
   editRouteError,
-  parseEditRouteParams
+  parseEditRouteParams,
+  resolveDisplayImageSource
 } from '../models/EditModels';
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
 import { AdjustPanel } from '../components/editor/AdjustPanel';
+import { FilterPanel } from '../components/editor/FilterPanel';
 import { EditorToolBar } from '../components/editor/EditorToolBar';
 import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
@@ -26,6 +29,14 @@ import { mockWorkStore } from '../models/MockWorkStore';
 import { WorkUiState } from '../models/WorkUiState';
 import { generateWorkTitle } from '../models/WorkTitleGenerator';
 import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
+import { EditState, createDefaultEditState } from '../features/editor/filter/FilterState';
+import { FilterPreset } from '../features/editor/filter/FilterModels';
+import { FILTER_PRESETS } from '../features/editor/filter/FilterCatalog';
+import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge';
+import { FilterController } from '../features/editor/filter/FilterController';
+import { image } from '@kit.ImageKit';
+import { OwnedRenderResult, PreviewPipeline } from '../services/PreviewPipeline';
+import { ThumbnailItem, ThumbnailPipeline } from '../services/ThumbnailPipeline';
 
 /**
  * 独立调色编辑页。
@@ -48,7 +59,9 @@ struct EditPage {
   @State route: EditRouteParams | null = null;
   @State errorText: string = '';
   @State imageSrc: string = '';
+  @State displaySrc: string = '';
   @State params: AdjustParams = createDefaultAdjustments();
+  @State editState: EditState = createDefaultEditState();
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
   @State activeTool: EditorToolKey = 'adjust';
@@ -56,20 +69,37 @@ struct EditPage {
   @State dirty: boolean = false;
   @State imageWidth: number = 0;
   @State imageHeight: number = 0;
+  @State previewPixelMap: image.PixelMap | undefined = undefined;
+  @State previewLoading: boolean = true;
+  @State thumbnailItems: ThumbnailItem[] = [];
+  private previewSourcePixelMap: image.PixelMap | undefined = undefined;
+  private renderedPreviewOwner: OwnedRenderResult<image.PixelMap> =
+    new OwnedRenderResult<image.PixelMap>((value: image.PixelMap) => value.release());
+  private previewPipeline: PreviewPipeline = new PreviewPipeline();
+  private thumbnailPipeline: ThumbnailPipeline = new ThumbnailPipeline();
+  private loadedFilterIds: string[] = [];
+  private filterController: FilterController = new FilterController();
+  private disposed: boolean = false;
+  private loadingThumbnails: boolean = false;
 
   aboutToAppear(): void {
-    const raw = this.getUIContext().getRouter().getParams() as Record<string, string>;
+    this.disposed = false;
+    this.previewLoading = true;
+    const raw = this.getUIContext().getRouter().getParams() as RawEditRouteParams;
     const route = parseEditRouteParams(raw ?? {});
     this.route = route;
     this.errorText = editRouteError(route);
     this.params = createDefaultAdjustments();
+    this.editState = this.filterController.resetForPhoto();
     if (route != null && route.source === EditEntrySource.Picker) {
       this.imageSrc = route.imageUri ?? '';
+      this.displaySrc = resolveDisplayImageSource(this.imageSrc, route.displayUri);
     } else if (route != null && route.source === EditEntrySource.Work) {
       mockWorkStore.init();
       const work = mockWorkStore.findById(route.workId ?? '');
       if (work !== null) {
         this.imageSrc = work.sourceImageUri;
+        this.displaySrc = this.imageSrc;
         this.params = {
           exposure: work.adjustments.exposure,
           brightness: work.adjustments.brightness,
@@ -84,6 +114,167 @@ struct EditPage {
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
     }
+    this.loadPreviewSource();
+  }
+
+  aboutToDisappear(): void {
+    this.disposed = true;
+    this.releaseRenderedPreview();
+    this.previewPipeline.dispose();
+    this.thumbnailPipeline.clear();
+    this.loadingThumbnails = false;
+    this.previewLoading = false;
+    this.previewSourcePixelMap = undefined;
+    this.previewPixelMap = undefined;
+  }
+
+  private async loadPreviewSource(): Promise<void> {
+    if (this.imageSrc === '') {
+      this.previewLoading = false;
+      return;
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const source = await this.previewPipeline.loadSource(this.imageSrc, context);
+      if (this.disposed) {
+        source.release();
+        return;
+      }
+      this.previewSourcePixelMap = source;
+      this.previewPixelMap = source;
+      this.previewLoading = false;
+      console.info('Editor preview source decoded');
+      if (this.activeTool === 'filter') {
+        this.loadFilterThumbnails();
+      }
+    } catch (err) {
+      console.error(`Failed to decode editor preview: ${JSON.stringify(err)}`);
+      // Keep the picker URI fallback visible when local decoding is unavailable.
+      this.previewPixelMap = undefined;
+      this.previewLoading = false;
+      if (this.displaySrc === '') {
+        this.errorText = '图片解码失败，请返回后重新导入';
+      } else {
+        this.toast('图片处理源解码失败，已显示所选原图');
+      }
+    }
+  }
+
+  private async applyFilterSelection(filterId: string): Promise<void> {
+    const preset: FilterPreset | undefined = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+    if (preset === undefined) {
+      return;
+    }
+    if (preset.lutPath !== undefined && !this.loadedFilterIds.includes(preset.id)) {
+      try {
+        const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+        const loaded = await FilterNativeBridge.loadPreset(context, preset);
+        if (!loaded) {
+          this.toast('滤镜资源加载失败');
+          return;
+        }
+        this.loadedFilterIds.push(preset.id);
+      } catch (err) {
+        console.error(`Failed to read LUT ${preset.id}: ${JSON.stringify(err)}`);
+        this.toast('滤镜资源读取失败');
+        return;
+      }
+    }
+    this.editState = this.filterController.selectFilter(filterId);
+    this.dirty = true;
+    await this.renderPreview();
+  }
+
+  private handleToolSelection(key: EditorToolKey): void {
+    this.activeTool = key;
+    if (key === 'filter') {
+      this.loadFilterThumbnails();
+    }
+  }
+
+  private async loadFilterThumbnails(): Promise<void> {
+    if (this.imageSrc === '' || this.thumbnailItems.length === FILTER_PRESETS.length ||
+        this.loadingThumbnails) {
+      return;
+    }
+    this.loadingThumbnails = true;
+    this.thumbnailItems = [];
+    let failedCount = 0;
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const sessionId = this.imageSrc;
+      await this.thumbnailPipeline.loadSource(this.imageSrc, sessionId, context);
+      const items: ThumbnailItem[] = [];
+      for (let i = 0; i < FILTER_PRESETS.length; i++) {
+        let pixelMap: image.PixelMap | undefined = undefined;
+        try {
+          pixelMap = await this.thumbnailPipeline.renderPreset(context, FILTER_PRESETS[i]);
+        } catch (err) {
+          failedCount += 1;
+          console.error(
+            `Failed to render thumbnail ${FILTER_PRESETS[i].id}: ${JSON.stringify(err)}`
+          );
+        }
+        if (this.disposed) {
+          this.thumbnailPipeline.clear();
+          return;
+        }
+        if (pixelMap !== undefined) {
+          items.push({ filterId: FILTER_PRESETS[i].id, pixelMap });
+          this.thumbnailItems = items.slice();
+        }
+      }
+      if (failedCount > 0) {
+        this.toast(`${failedCount} 个滤镜缩略图生成失败`);
+      }
+    } catch (err) {
+      console.error(`Failed to initialize filter thumbnails: ${JSON.stringify(err)}`);
+      this.thumbnailItems = [];
+      this.toast('滤镜缩略图初始化失败');
+    } finally {
+      this.loadingThumbnails = false;
+    }
+  }
+
+  private async renderPreview(): Promise<void> {
+    const source = this.previewSourcePixelMap;
+    if (source === undefined) {
+      return;
+    }
+    if (this.editState.filter.filterId === 'original' || this.editState.filter.strength <= 0) {
+      this.filterController.cancelPendingRender();
+      this.previewPipeline.cancelPendingRenders();
+      this.releaseRenderedPreview();
+      this.previewPixelMap = source;
+      return;
+    }
+    const filterId = this.editState.filter.filterId;
+    const strength = this.editState.filter.strength;
+    const generation = this.filterController.beginRender();
+    try {
+      const rendered = await this.previewPipeline.render(
+        (input: image.PixelMap) => FilterNativeBridge.render(
+          input,
+          filterId,
+          strength
+        )
+      );
+      if (rendered !== undefined && this.filterController.isCurrent(generation)) {
+        this.previewPixelMap = this.renderedPreviewOwner.replace(rendered);
+      } else if (rendered !== undefined) {
+        rendered.release();
+      }
+    } catch (err) {
+      console.error(
+        `Failed to render filter ${filterId} at ${strength}: ${JSON.stringify(err)}`
+      );
+      this.toast('滤镜预览失败');
+    }
+  }
+
+  private releaseRenderedPreview(): void {
+    this.renderedPreviewOwner.clear();
+    this.previewPixelMap = this.previewSourcePixelMap;
   }
 
   build() {
@@ -198,7 +389,9 @@ struct EditPage {
     Column() {
       // 中部预览区：原比例不裁切，占满导航与面板之间
       PreviewArea({
-        imageSrc: this.imageSrc,
+        imageSrc: this.displaySrc,
+        previewPixelMap: $previewPixelMap,
+        previewLoading: this.previewLoading,
         params: this.params,
         isComparing: this.isComparing,
         onCompareChange: (down: boolean) => {
@@ -212,8 +405,22 @@ struct EditPage {
         .layoutWeight(1)
         .padding({ top: Theme.GUTTER ,bottom: Theme.GUTTER })
 
-      // 中下部参数面板：仅「调节」工具有内容，其余占位
-      if (this.activeTool === 'adjust') {
+      // 中下部参数面板：滤镜与调节工具使用真实状态，其余占位
+      if (this.activeTool === 'filter') {
+        FilterPanel({
+          editState: this.editState,
+          previewPixelMap: $previewPixelMap,
+          thumbnails: $thumbnailItems,
+          onSelectFilter: (filterId: string) => {
+            this.applyFilterSelection(filterId);
+          },
+          onStrengthChange: (value: number) => {
+            this.editState = this.filterController.setStrength(value);
+            this.dirty = true;
+            this.renderPreview();
+          }
+        })
+      } else if (this.activeTool === 'adjust') {
         AdjustPanel({
           params: this.params,
           selectedType: this.selectedType,
@@ -236,7 +443,7 @@ struct EditPage {
       EditorToolBar({
         activeTool: this.activeTool,
         onSelectTool: (key: EditorToolKey) => {
-          this.activeTool = key;
+          this.handleToolSelection(key);
         }
       })
     }
@@ -352,10 +559,32 @@ struct EditPage {
       const exportSettings = await AppSettingsStore.getExportSettings();
       const exportProfile = toExportProfile(exportSettings);
 
-      // 3. 渲染调色后的图片
-      const pixelMap = await ImageRenderService.render(sourceUri, this.params, exportProfile);
+      // 3. 确保导出使用同一份 LUT 资源；导出从原图重新解码。
+      const filterId = this.editState.filter.filterId;
+      const filterStrength = this.editState.filter.strength;
+      const preset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+      if (preset !== undefined && preset.lutPath !== undefined && !this.loadedFilterIds.includes(filterId)) {
+        const loaded = await FilterNativeBridge.loadPreset(context, preset);
+        if (!loaded) {
+          this.toast('滤镜资源加载失败');
+          this.saving = false;
+          return;
+        }
+        this.loadedFilterIds.push(filterId);
+      }
 
-      // 4. 编码到 cacheDir
+      // 4. 渲染调色后的图片
+      const pixelMap = await ImageRenderService.render(
+        sourceUri,
+        this.params,
+        exportProfile,
+        filterId,
+        filterStrength,
+        true,
+        context
+      );
+
+      // 5. 编码到 cacheDir
       const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, pixelMap, exportProfile);
       pixelMap.release();
 
@@ -365,7 +594,7 @@ struct EditPage {
         return;
       }
 
-      // 5. 写入系统相册
+      // 6. 写入系统相册
       const fileName = `Vivid_${Date.now()}`;
       const ext = exportProfile.extension === '.png' ? 'png' : 'jpg';
       const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
@@ -381,7 +610,7 @@ struct EditPage {
         return;
       }
 
-      // 6. 保存作品记录到统一仓库
+      // 7. 保存作品记录到统一仓库
       const intent = buildSaveIntent(
         route?.source ?? EditEntrySource.Picker,
         route?.workId ?? '',

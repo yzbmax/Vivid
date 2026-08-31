@@ -30,6 +30,7 @@ export class PendingEditIntentStore {
   private static copy(intent: PendingEditIntent): PendingEditIntent {
     return {
       imageUri: intent.imageUri,
+      displayUri: intent.displayUri,
       initialTool: intent.initialTool,
       createdAt: intent.createdAt
     };

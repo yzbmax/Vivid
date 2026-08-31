@@ -1,8 +1,11 @@
 import { image } from '@kit.ImageKit';
 import { effectKit } from '@kit.ArkGraphics2D';
+import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { AdjustParams } from '../models/EditModels';
 import { ExportProfile } from '../models/AppSettingsModels';
+import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge';
+import { isPhotoPickerUri } from './PhotoPickerService';
 
 /**
  * 图片渲染服务：根据源图和调色参数生成可编码的 PixelMap。
@@ -14,6 +17,15 @@ import { ExportProfile } from '../models/AppSettingsModels';
  * 4. 返回可编码的 PixelMap
  */
 export class ImageRenderService {
+  /** Decode a bounded-size source PixelMap for the interactive preview. */
+  static async createPreviewSource(
+    sourceUri: string,
+    maxLongEdge: number = 1440,
+    context?: common.UIAbilityContext
+  ): Promise<image.PixelMap> {
+    return ImageRenderService.loadPixelMap(sourceUri, maxLongEdge, context);
+  }
+
   /**
    * 从源图 + 调色参数生成可编码的 PixelMap
    * @param sourceUri 源图 URI（从 PhotoPicker 获取）
@@ -24,35 +36,70 @@ export class ImageRenderService {
   static async render(
     sourceUri: string,
     params: AdjustParams,
-    profile: ExportProfile
+    profile: ExportProfile,
+    filterId: string = 'original',
+    strength: number = 0,
+    preserveSourceSize: boolean = false,
+    context?: common.UIAbilityContext
   ): Promise<image.PixelMap> {
-    // 1. 从 URI 加载图片
-    const file = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
-    const imageSource = image.createImageSource(file.fd);
+    const maxLongEdge = preserveSourceSize ? 0 : profile.maxLongEdge;
+    let pixelMap = await ImageRenderService.loadPixelMap(sourceUri, maxLongEdge, context);
 
-    // 2. 获取图片信息并计算缩放
-    const imageInfo = await imageSource.getImageInfo();
-    const longEdge = Math.max(imageInfo.size.width, imageInfo.size.height);
-
-    const decodingOptions: image.DecodingOptions = {
-      editable: true,
-      desiredPixelFormat: 3 // RGBA_8888
-    };
-
-    // 3. 按 maxLongEdge 缩放（如果需要）
-    if (profile.maxLongEdge > 0 && longEdge > profile.maxLongEdge) {
-      const scale = profile.maxLongEdge / longEdge;
-      decodingOptions.desiredSize = {
-        width: Math.round(imageInfo.size.width * scale),
-        height: Math.round(imageInfo.size.height * scale)
-      };
+    // Export starts from a fresh source PixelMap; the preview PixelMap is never reused.
+    if (filterId !== 'original' && strength > 0) {
+      try {
+        const filtered = await FilterNativeBridge.render(pixelMap, filterId, strength);
+        pixelMap.release();
+        pixelMap = filtered;
+      } catch (_err) {
+        pixelMap.release();
+        throw new Error('Native filter render failed');
+      }
     }
 
-    const pixelMap = await imageSource.createPixelMap(decodingOptions);
-    fs.closeSync(file.fd);
-
     // 4. 应用调色参数
-    return ImageRenderService.applyAdjustments(pixelMap, params);
+    const adjusted = await ImageRenderService.applyAdjustments(pixelMap, params);
+    if (adjusted !== pixelMap) {
+      pixelMap.release();
+    }
+    return adjusted;
+  }
+
+  private static async loadPixelMap(
+    sourceUri: string,
+    maxLongEdge: number,
+    context?: common.UIAbilityContext
+  ): Promise<image.PixelMap> {
+    // Picker URIs are materialized by PhotoPickerService before navigation.
+    // Never pass a provider URI into ImageKit or MediaAssetManager from the
+    // editor lifecycle; a stale temporary grant must fail safely instead.
+    if (isPhotoPickerUri(sourceUri)) {
+      throw new Error('Photo picker URI was not materialized');
+    }
+
+    const sourceFile = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
+    const imageSource = image.createImageSource(sourceFile.fd);
+    try {
+      const imageInfo = await imageSource.getImageInfo();
+      const longEdge = Math.max(imageInfo.size.width, imageInfo.size.height);
+
+      const decodingOptions: image.DecodingOptions = {
+        editable: true,
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888
+      };
+      if (maxLongEdge > 0 && longEdge > maxLongEdge) {
+        const scale = maxLongEdge / longEdge;
+        decodingOptions.desiredSize = {
+          width: Math.max(1, Math.round(imageInfo.size.width * scale)),
+          height: Math.max(1, Math.round(imageInfo.size.height * scale))
+        };
+      }
+
+      return await imageSource.createPixelMap(decodingOptions);
+    } finally {
+      await imageSource.release();
+      fs.closeSync(sourceFile.fd);
+    }
   }
 
   /**
