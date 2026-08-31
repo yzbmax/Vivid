@@ -1,0 +1,16 @@
+{
+  "font": [
+    {
+      "name": "NotoSerif",
+      "src": "NotoSerif-VariableFont_wdth,wght.ttf"
+    },
+    {
+      "name": "NotoSerifSC",
+      "src": "NotoSerifSC-VariableFont_wght.ttf"
+    },
+    {
+      "name": "Kai",
+      "src": "gkai00mp-2.ttf"
+    }
+  ]
+}
