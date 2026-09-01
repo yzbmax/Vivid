@@ -161,5 +161,64 @@ ArkUI状态管理V1提供了多种装饰器，通过使用这些装饰器，状�
 |系统预置UI组件库|系统预置UI组件库|系统预置UI组件库 。支持V1的系统预置UI组件，例如：[Dialog](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-dialog)、[ProgressButton](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-progressbutton)、[SegmentButton](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-segmentbutton)。 从API version 18开始，系统预置UI组件支持在状态管理V2组件中使用，例如：[DialogV2](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-dialogv2)、[ProgressButtonV2](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-progressbuttonv2)、[SegmentButtonV2](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ohos-arkui-advanced-segmentbuttonv2)。|
 |animateTo|部分场景不支持|当前某些场景下，在状态管理V2中使用animateTo动画，会产生异常效果，详见：[在状态管理V2中使用animateTo动画效果异常](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-new-local#在状态管理v2中使用animateto动画效果异常)。|
 
-有关V1向V2的迁移可参考[迁移指导](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-v1-v2-migration)，有关V1与V2的混用可参考[状态管理V1和V2混用场景](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/v1v2-mixing)。  
+有关V1向V2的迁移可参考[迁移指导](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-v1-v2-migration)，有关V1与V2的混用可参考[状态管理V1和V2混用场景](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/v1v2-mixing)。
+
+## 选型决策树
+
+```
+开始
+ ├─ 新应用？ ──YES──→ 直接用 V2（@ComponentV2 + @Local/@Param/@Event）
+ │                     └─ 需要深度观察/属性级精准更新？ → 必须 V2
+ │
+ ├─ 已有 V1 应用？
+ │   ├─ 功能/性能已满足？ → 保留 V1，不必迁移
+ │   └─ 需要 V2 特性？ → 按模块逐步迁移（允许 V1/V2 混用，但同一组件内不能混）
+ │
+ ├─ 数据作用域？
+ │   ├─ 仅组件内 → @Local (V2) / @State (V1)
+ │   ├─ 父→子单向 → @Param (V2) / @Prop (V1)
+ │   ├─ 父⇄子双向 → @Param + @Event (V2) / @Link (V1)
+ │   ├─ 跨层级（同页面）→ @Provider/@Consumer (V2) / @Provide/@Consume (V1)
+ │   ├─ 跨页面 → 全局 @ObservedV2 实例 (V2) / LocalStorage (V1)
+ │   └─ 全局（整个进程）→ AppStorageV2 (V2) / AppStorage (V1)
+ │   └─ 持久化 → PersistenceV2 (V2) / PersistentStorage (V1)
+ │
+ └─ 需要监听变化？
+     ├─ V2 → @Monitor（搭配 @Trace，可深层监听）
+     └─ V1 → @Watch（只能监听本身 + 第一层）
+```
+
+## 反模式清单
+
+| ❌ 反模式 | ✅ 正确做法 | 原因 |
+|---|---|---|
+| V2 `@ObservedV2` 只装饰 class 不给属性加 `@Trace` | 每个需观察的属性都加 `@Trace` | `@ObservedV2` 本身不观察属性，只声明 class 可观察 |
+| V2 组件用 `@State` / `@Prop` / `@Link` | `@ComponentV2` 必须配 V2 装饰器 | 装饰器版本不匹配会编译报错 |
+| V1 中 `@State` 存大对象，任意属性变化都触发整组件重建 | 拆成多个 `@State`，或用 `@Observed` + `@ObjectLink` | 精准刷新 |
+| 在 `build()` 里写 `if (this.count++)` 之类副作用 | 移到 `aboutToAppear` 或事件回调 | `build()` 会被多次调用 |
+| 跨 10 层 `@Provide`/`@Consume` | 改用 `LocalStorage` 单例或 `AppStorage` | 跨层级装饰器性能差、难追踪 |
+| `@Monitor` 监听滚动位置等高频变化 | 用 `displaySync.register` 帧回调 | `@Monitor` 每次变化都触发，高频会卡 |
+| 子组件通过 `@Param` 接收大对象后直接修改 | 通过 `@Event` 通知父组件修改 | `@Param` 是引用但语义上是输入，不应直接 mutate |
+| `LocalStorage` 存全局共享数据 | 全局共享用 `AppStorage`；`LocalStorage` 是页面级 | 作用域错配 |
+| `@Prop` 在 V1 中修改后期望同步回父 | 用 `@Link` | `@Prop` 是单向，修改不回传 |
+| `@Link` 父不传初始值 | `@Link` 必须父有对应 `@State` | 双向同步要求父有数据源 |
+| 在 `@Concurrent` 函数内访问外部闭包变量 | 参数传入，用 `Sendable` 类型 | TaskPool 跨线程，闭包不安全 |
+| 同一组件内混用 V1 和 V2 装饰器 | 组件内保持一致，选 V1 或 V2 | 框架不允许混用 |
+
+## 常见 FAQ
+
+**Q：V1 的 `@Link` 用 V2 怎么实现？**
+A：`@Param` + `@Event`。子组件通过 `@Param` 接收值，通过 `@Event` 回调父组件修改。或直接用 `!!` 双向绑定语法糖：`Child({ value: $$parentValue })`。
+
+**Q：`@Provide`/`@Consume` 和 `@Provider`/`@Consumer` 的差别？**
+A：V2 版本支持双向同步；V1 版本只能单向向下。语义相同，V2 更强大。
+
+**Q：`@Computed` 何时用？**
+A：计算结果依赖多个状态变量且计算成本高时，`@Computed` 会缓存结果，只在依赖变化时重算。类似 Vue 的 computed。
+
+**Q：什么时候用 `AppStorageV2` 而不是全局 `@ObservedV2`？**
+A：需要跨 UIAbility 共享时用 `AppStorageV2`（进程级单例）；单 UIAbility 内跨页面用全局 `@ObservedV2` 实例即可。
+
+**Q：`!!` 双向绑定怎么用？**
+A：父组件传参时写 `Child({ count: $$parentCount })`，`$$` 把父变量引用传给子组件。子组件对应属性用 `@Param` + `@Event` 或 `@Link`（V2 中 `@Link` 仍可用）。
 
