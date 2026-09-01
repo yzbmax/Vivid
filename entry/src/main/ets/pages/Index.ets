@@ -2,6 +2,7 @@ import { HomePage } from '../components/home/HomePage';
 import { WorksPage } from './WorksPage';
 import { MinePage } from '../components/mine/MinePage';
 import { Theme } from '../components/common/Theme';
+import { font } from '@kit.ArkUI';
 
 /**
  * 主框架容器（MainTabs，首页 / 作品 / 我的）。
@@ -12,7 +13,7 @@ import { Theme } from '../components/common/Theme';
  * 「我的」复用组件 components/mine/MinePage（CentralOfUser 迁入）。
  * 编辑页（EditPage）为独立路由，不在此导航。
  *
- * 字体注册：通过 resources/base/profile/font.json 声明，系统自动加载。
+ * 字体注册：在 aboutToAppear() 中通过 font.registerFont() + $rawfile 程序化注册。
  */
 @Entry
 @Component
@@ -22,6 +23,13 @@ struct Index {
   /** 系统导航条高度（vp，EntryAbility 换算后写入；tab 栏底部按此避让） */
   @StorageProp('navBarHeight')
   navBarHeightVp: number = 0;
+
+  aboutToAppear(): void {
+    // 注册自定义字体（$rawfile 仅在组件上下文中可解析）
+    font.registerFont({ familyName: 'Noto Serif', familySrc: $rawfile('fonts/notoserif.ttf') });
+    font.registerFont({ familyName: 'Noto Serif SC', familySrc: $rawfile('fonts/notoserifsc.ttf') });
+    font.registerFont({ familyName: 'Kai', familySrc: $rawfile('fonts/gkai.ttf') });
+  }
 
   @Builder
   tabBarItem(index: number, label: string, icon: Resource) {

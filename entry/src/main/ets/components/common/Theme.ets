@@ -49,7 +49,7 @@ export class Theme {
 
   // ───────────────────────── 字体 ─────────────────────────
   // 中文 → NotoSerifSC，英文/数字 → NotoSerif（系统按字符自动 fallback）
-  static readonly FONT_SERIF: string = 'NotoSerifSC, NotoSerif';
+  static readonly FONT_SERIF: string = 'Noto Serif SC, Noto Serif';
   static readonly FONT_SANS: string = 'HarmonyOS Sans SC';    // 正文无衬线
   static readonly FONT_MONO: string = 'monospace';            // 数据/标签等宽
 
