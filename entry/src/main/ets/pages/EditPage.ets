@@ -21,15 +21,18 @@ import {
   cloneAdjustments,
   cloneRegionAdjustments,
   editRouteError,
+  normalizeEditorToolKey,
   parseEditRouteParams,
   resolveDisplayImageSource
 } from '../models/EditModels';
+import { BorderState, defaultBorderState, cloneBorderState } from '../models/SharedContracts';
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
 import { AdjustPanel } from '../components/editor/AdjustPanel';
 import { StickerPanel } from '../components/editor/StickerPanel';
 import { FilterPanel } from '../components/editor/FilterPanel';
+import { BorderPanel } from '../components/editor/BorderPanel';
 import { EditorToolBar } from '../components/editor/EditorToolBar';
 import { RegionTabs } from '../components/editor/RegionTabs';
 import { common } from '@kit.AbilityKit';
@@ -67,7 +70,7 @@ import { ThumbnailItem, ThumbnailPipeline } from '../services/ThumbnailPipeline'
  *  1. 顶部导航区（~8-10%）：返回（左）| 标题 | 保存（右）。
  *  2. 中部预览区（~65-70%）：Contain 原比例不裁切，占满导航与面板之间。
  *  3. 中下部参数面板（~12-15%）：调节工具两行（重置/滑块/对比 + 调整类型选择）。
- *  4. 底部工具导航（~8-10%）：滤镜/主体/背景/调节/贴纸/文字/模板，高亮「调节」。
+ *  4. 底部工具导航（~8-10%）：滤镜/主体/背景/调节/贴纸/文字/边框，高亮「调节」。
  *
  * 路由参数：source（picker/work）、imageUri（picker 时）、workId（work 时）、
  * initialTool（可选，快捷入口传入）。
@@ -84,6 +87,8 @@ struct EditPage {
   @State displaySrc: string = '';
   @State params: AdjustParams = createDefaultAdjustments();
   @State editState: EditState = createDefaultEditState();
+  // ── Vivid 0.1.9 边框状态（C 独占）──
+  @State borderState: BorderState = defaultBorderState();
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
   @State activeTool: EditorToolKey = 'adjust';
@@ -577,6 +582,31 @@ struct EditPage {
           },
           notifyOpacityChange: (value: number) => {
             this.onSliderOpacityChange(value);
+          }
+        })
+      } else if (this.activeTool === 'border') {
+        // ===== C: Filter & Border =====
+        BorderPanel({
+          border: this.borderState,
+          onSelectTemplate: (templateId: string) => {
+            const next = cloneBorderState(this.borderState);
+            next.templateId = templateId;
+            this.borderState = next;
+          },
+          onWidthRatioChange: (value: number) => {
+            const next = cloneBorderState(this.borderState);
+            next.widthRatio = value;
+            this.borderState = next;
+          },
+          onColorChange: (colorArgb: number) => {
+            const next = cloneBorderState(this.borderState);
+            next.colorArgb = colorArgb;
+            this.borderState = next;
+          },
+          onShadowChange: (value: number) => {
+            const next = cloneBorderState(this.borderState);
+            next.shadowStrength = value;
+            this.borderState = next;
           }
         })
       } else {

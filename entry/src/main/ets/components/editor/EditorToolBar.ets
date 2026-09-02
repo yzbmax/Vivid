@@ -2,8 +2,9 @@ import { EDITOR_TOOLS, EditorTool, EditorToolKey } from '../../models/EditModels
 import { Theme } from '../common/Theme';
 
 /**
- * 底部工具导航（7 项）：滤镜 / 主体 / 背景 / 调节 / 贴纸 / 文字 / 模板。
- * 当前活动工具下方显示朱砂下划线。本轮仅「调节」有内容，其余切换后由页面显示占位。
+ * 底部工具导航（7 项）：滤镜 / 主体 / 背景 / 调节 / 贴纸 / 文字 / 边框。
+ * 当前活动工具下方显示朱砂下划线。
+ * 0.1.9：末项由「模板」整体替换为「边框」（实施计划 §2.3）。
  */
 @Component
 export struct EditorToolBar {
