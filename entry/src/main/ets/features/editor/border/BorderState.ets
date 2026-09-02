@@ -1,0 +1,125 @@
+/**
+ * 边框状态纯函数（实施计划 §三 / §五 任务 5）。
+ *
+ * 纯逻辑模块，无 ArkUI 依赖。所有写入必须经本模块的钳制与归一化。
+ * SharedContracts.ets 提供基础 clamp 与 clone；本模块在此基础上增加：
+ * - 未知 templateId 归一化到 `none`
+ * - 模板不支持的参数被强制回退到安全默认值（而不是静默保留用户输入）
+ * - 状态比较（浅比较，用于判断是否需要重渲染）
+ */
+
+import {
+  BorderState,
+  clampBorderShadow,
+  clampBorderWidthRatio,
+  cloneBorderState,
+  defaultBorderState
+} from '../../../models/SharedContracts';
+import { findBorderTemplate, templateSupportsCapability } from './BorderCatalog';
+
+/** 未知 templateId 时的归一化目标。 */
+export const BORDER_FALLBACK_TEMPLATE_ID: string = 'none';
+
+/** 纸白默认色（白色，ARGB）。 */
+export const BORDER_DEFAULT_COLOR_PAPER_WHITE: number = 0xFFFFFFFF;
+/** 墨色默认色（近黑，ARGB）。 */
+export const BORDER_DEFAULT_COLOR_INK: number = 0xFF1A1A1A;
+/** 拍立得相纸色（乳白，ARGB）。 */
+export const BORDER_DEFAULT_COLOR_POLAROID: number = 0xFFF5F2E8;
+
+/**
+ * 把未知 templateId 归一化到已注册模板；
+ * 未注册时返回 `none`，不抛异常，保证旧数据不崩溃。
+ */
+export function normalizeBorderTemplateId(templateId: string): string {
+  if (templateId === '') {
+    return BORDER_FALLBACK_TEMPLATE_ID;
+  }
+  if (findBorderTemplate(templateId) !== null) {
+    return templateId;
+  }
+  return BORDER_FALLBACK_TEMPLATE_ID;
+}
+
+/**
+ * 按模板能力强制钳制一个 BorderState：
+ * - 未知 id → `none`
+ * - widthRatio 始终钳制到 [0, 0.25]
+ * - 模板不支持 color 时 → 回退到该模板的默认色
+ * - 模板不支持 shadow 时 → shadowStrength 强制 0
+ *
+ * 该函数保证任何输入都得到可被渲染器安全消费的合法状态。
+ */
+export function sanitizeBorderState(raw: BorderState): BorderState {
+  const templateId = normalizeBorderTemplateId(raw.templateId);
+  const widthRatio = clampBorderWidthRatio(raw.widthRatio);
+  let colorArgb = raw.colorArgb;
+  let shadowStrength = clampBorderShadow(raw.shadowStrength);
+
+  if (!templateSupportsCapability(templateId, 'color')) {
+    colorArgb = defaultColorForTemplate(templateId);
+  }
+  if (!templateSupportsCapability(templateId, 'shadow')) {
+    shadowStrength = 0;
+  }
+  if (templateId === BORDER_FALLBACK_TEMPLATE_ID) {
+    // `none` 模板：所有装饰参数强制归零
+    return {
+      templateId: BORDER_FALLBACK_TEMPLATE_ID,
+      widthRatio: 0,
+      colorArgb: BORDER_DEFAULT_COLOR_PAPER_WHITE,
+      shadowStrength: 0
+    };
+  }
+  return { templateId, widthRatio, colorArgb, shadowStrength };
+}
+
+/** 模板不支持 color 时的默认色（按模板 id 返回合理的固定色）。 */
+export function defaultColorForTemplate(templateId: string): number {
+  if (templateId === 'ink_black' || templateId === 'film_negative') {
+    return BORDER_DEFAULT_COLOR_INK;
+  }
+  if (templateId === 'polaroid') {
+    return BORDER_DEFAULT_COLOR_POLAROID;
+  }
+  // paper_white / floating_shadow / scroll_mount 默认纸白
+  return BORDER_DEFAULT_COLOR_PAPER_WHITE;
+}
+
+/** 浅比较两个 BorderState 是否相等（用于跳过不必要的重渲染）。 */
+export function borderStateEquals(a: BorderState, b: BorderState): boolean {
+  return a.templateId === b.templateId &&
+    a.widthRatio === b.widthRatio &&
+    a.colorArgb === b.colorArgb &&
+    a.shadowStrength === b.shadowStrength;
+}
+
+/**
+ * 选择新边框模板时保留用户已调参数（仅当新模板支持该能力时）；
+ * 不支持的能力回退到安全默认值。
+ */
+export function switchBorderTemplate(
+  current: BorderState,
+  nextTemplateId: string
+): BorderState {
+  const candidate: BorderState = {
+    templateId: nextTemplateId,
+    widthRatio: current.widthRatio,
+    colorArgb: current.colorArgb,
+    shadowStrength: current.shadowStrength
+  };
+  return sanitizeBorderState(candidate);
+}
+
+/**
+ * 从旧版本 BorderState 迁移到当前 schema。
+ * 0.1.9 没有历史数据，但预留迁移入口供未来版本使用。
+ * 旧 `template` 字符串归一化为 `border` 在 EditorToolKey 层面处理，
+ * 此处只关心 BorderState 自身的字段兼容。
+ */
+export function migrateBorderState(raw: BorderState | null): BorderState {
+  if (raw === null) {
+    return defaultBorderState();
+  }
+  return sanitizeBorderState(cloneBorderState(raw));
+}

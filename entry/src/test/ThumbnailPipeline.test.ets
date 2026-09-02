@@ -32,5 +32,30 @@ export default function thumbnailPipelineTest() {
       expect(canUseSourceThumbnailFallback('original')).assertTrue();
       expect(canUseSourceThumbnailFallback('fieldnote')).assertFalse();
     });
+
+    // ──────── Vivid 0.1.9：8 款新增 LUT 缓存键（任务 4）────────
+
+    it('produces unique cache keys for the 8 new Vivid 0.1.9 presets', 0, () => {
+      const newPresetIds: string[] = [
+        'jade_mist', 'cinnabar_glow', 'ink_noir', 'rice_paper',
+        'tea_film', 'celadon_cool', 'amber_hour', 'moonlit_blue'
+      ];
+      const seen: string[] = [];
+      for (const id of newPresetIds) {
+        const preset: FilterPreset = { id: id, name: id, defaultStrength: 0.7, version: 1 };
+        const key = buildThumbnailCacheKey('session-1', preset);
+        // 格式：sessionId + preset.id + preset.version
+        expect(key).assertEqual('session-1_' + id + '_1');
+        const dup = seen.find((s) => s === key);
+        expect(dup === undefined).assertTrue();
+        seen.push(key);
+      }
+    });
+
+    it('does not fall back to source thumbnail for any new 0.1.9 preset', 0, () => {
+      expect(canUseSourceThumbnailFallback('jade_mist')).assertFalse();
+      expect(canUseSourceThumbnailFallback('ink_noir')).assertFalse();
+      expect(canUseSourceThumbnailFallback('moonlit_blue')).assertFalse();
+    });
   });
 }

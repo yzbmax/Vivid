@@ -161,5 +161,62 @@ export const FILTER_PRESETS: FilterPreset[] = [
     lutPath: 'filters/YT_Moody_Dark.cube',
     defaultStrength: 0.75,
     version: 1
+  },
+  // ──────── Vivid 0.1.9：8 款新增离线 LUT（实施计划 §2.1）────────
+  {
+    id: 'jade_mist',
+    name: '玉烟',
+    lutPath: 'filters/JadeMist.cube',
+    defaultStrength: 0.68,
+    version: 1
+  },
+  {
+    id: 'cinnabar_glow',
+    name: '丹霞',
+    lutPath: 'filters/CinnabarGlow.cube',
+    defaultStrength: 0.65,
+    version: 1
+  },
+  {
+    id: 'ink_noir',
+    name: '墨影',
+    lutPath: 'filters/InkNoir.cube',
+    defaultStrength: 0.80,
+    version: 1
+  },
+  {
+    id: 'rice_paper',
+    name: '宣纸',
+    lutPath: 'filters/RicePaper.cube',
+    defaultStrength: 0.62,
+    version: 1
+  },
+  {
+    id: 'tea_film',
+    name: '茶褐',
+    lutPath: 'filters/TeaFilm.cube',
+    defaultStrength: 0.72,
+    version: 1
+  },
+  {
+    id: 'celadon_cool',
+    name: '青瓷',
+    lutPath: 'filters/CeladonCool.cube',
+    defaultStrength: 0.70,
+    version: 1
+  },
+  {
+    id: 'amber_hour',
+    name: '琥珀',
+    lutPath: 'filters/AmberHour.cube',
+    defaultStrength: 0.66,
+    version: 1
+  },
+  {
+    id: 'moonlit_blue',
+    name: '月青',
+    lutPath: 'filters/MoonlitBlue.cube',
+    defaultStrength: 0.74,
+    version: 1
   }
 ];
