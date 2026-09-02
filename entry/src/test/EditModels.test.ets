@@ -304,7 +304,8 @@ export default function editModelsTest() {
       expect(EDITOR_TOOLS[6].key).assertEqual('border');
       expect(EDITOR_TOOLS[6].label).assertEqual('边框');
       for (let i = 0; i < EDITOR_TOOLS.length; i++) {
-        expect(EDITOR_TOOLS[i].key === 'template').assertEqual(false);
+        const key: string = EDITOR_TOOLS[i].key;
+        expect(key === 'template').assertEqual(false);
       }
     });
 
