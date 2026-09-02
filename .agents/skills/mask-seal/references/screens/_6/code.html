@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&amp;family=Noto+Sans+SC:wght@400;500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'on-primary-fixed': '#410005', 'surface-container': '#ffe9e7', 'background': '#fff8f7', 'on-primary': '#ffffff', 'on-secondary-fixed-variant': '#444746', 'surface-tint': '#a73837', 'primary-fixed-dim': '#ffb3ae', 'surface-container-high': '#f9e3e1', 'on-error': '#ffffff', 'surface-container-lowest': '#ffffff', 'tertiary-fixed-dim': '#8ad3d0', 'inverse-primary': '#ffb3ae', 'surface-container-highest': '#f3dedc', 'secondary': '#5c5f5e', 'primary-container': '#9b2f2f', 'outline-variant': '#debfbd', 'on-secondary-fixed': '#191c1b', 'on-tertiary': '#ffffff', 'surface-variant': '#f3dedc', 'primary': '#7b171b', 'on-tertiary-fixed': '#00201f', 'tertiary-container': '#00605e', 'on-secondary-container': '#626564', 'on-surface-variant': '#574140', 'surface-dim': '#ebd5d3', 'secondary-container': '#e1e3e1', 'on-tertiary-fixed-variant': '#00504e', 'seal-red': '#b23b2f', 'surface-bright': '#fff8f7', 'inverse-surface': '#3a2d2c', 'on-primary-container': '#ffbab5', 'on-background': '#241918', 'on-surface': '#241918', 'primary-fixed': '#ffdad7', 'paper-surface': '#f2f1ed', 'secondary-fixed': '#e1e3e1', 'surface': '#fff8f7', 'paper-base': '#deddd7', 'surface-container-low': '#fff0ef', 'secondary-fixed-dim': '#c5c7c5', 'outline': '#8b716f', 'error-container': '#ffdad6', 'on-primary-fixed-variant': '#862022', 'on-secondary': '#ffffff', 'inverse-on-surface': '#ffedeb', 'on-error-container': '#93000a', 'error': '#ba1a1a', 'tertiary': '#004645', 'tertiary-fixed': '#a5f0ec', 'on-tertiary-container': '#8ed8d5' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'grid-unit': '5.4rem', 'lab-arrive-x': '0.85rem', 'margin-mobile': '1.25rem', 'gutter': '1rem', 'annotation-margin': '4rem' }, fontFamily: { 'headline-lg': ['Noto Serif SC'], 'headline-lg-mobile': ['Noto Serif SC'], 'body-md': ['Noto Sans SC'], 'label-mono': ['monospace'], 'headline-md': ['Noto Serif SC'] }, fontSize: { 'headline-lg': ['32px', { lineHeight: '40px', fontWeight: '700' }], 'headline-lg-mobile': ['28px', { lineHeight: '36px', fontWeight: '700' }], 'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-mono': ['13px', { lineHeight: '16px', letterSpacing: '0.05em', fontWeight: '500' }], 'headline-md': ['24px', { lineHeight: '32px', fontWeight: '600' }] } } } }</script><style>@layer base { body { background-color: #deddd7; background-image: linear-gradient(to right, rgba(139,113,111,0.1) 1px, transparent 1px); background-size: 5.4rem 100%; overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } ::-webkit-scrollbar { display: none; } .radial-glow { background: radial-gradient(circle at top, rgba(178,59,47,0.05) 0%, transparent 70%); } </style></head><body class="font-body-md text-on-surface"><div class="fixed inset-0 radial-glow pointer-events-none"></div><header class="fixed top-0 inset-x-0 z-50 bg-paper-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin-mobile flex items-center justify-between relative"><div class="w-10"></div><h1 class="absolute left-1/2 -translate-x-1/2 font-headline-md text-headline-md text-on-surface whitespace-nowrap uppercase tracking-widest">Canvas Hub</h1><div class="flex items-center gap-4"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative w-full pt-14 min-h-screen pb-32"><div class="flex flex-col w-full relative">
+<!-- Content Area -->
+<div class="flex-1 w-full flex flex-col items-center pt-8 pb-12 px-margin-mobile gap-8">
+<!-- Hero Action Card: Pick Image -->
+<button class="w-full relative overflow-hidden group border border-primary/20 bg-surface-container hover:bg-surface-container-high transition-colors text-left flex flex-col shadow-sm rounded-sm">
+<div class="absolute right-0 top-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] pointer-events-none"></div>
+<div class="p-6 pb-12 relative z-10 flex flex-col gap-4">
+<div class="w-12 h-12 bg-primary flex items-center justify-center text-on-primary shadow-md">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">add_photo_alternate</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-headline-md text-primary-container">呈交新卷宗</h2>
+<p class="font-body-md text-body-md text-on-surface-variant/80">从相册选择图像，开始调色与印信篆刻。</p>
+</div>
+</div>
+<div class="absolute bottom-0 inset-x-0 h-1 bg-primary/20 group-hover:bg-primary transition-colors"></div>
+</button>
+<!-- Recent Items Section -->
+<div class="w-full flex flex-col gap-4 mt-4">
+<div class="flex items-center justify-between">
+<h3 class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-widest">近 期 归 档</h3>
+<button class="flex items-center text-primary text-sm hover:text-primary-container transition-colors">
+<span class="font-label-mono uppercase text-[10px] tracking-wider">全部查看</span>
+<span class="material-symbols-outlined text-[16px] ml-1">chevron_right</span>
+</button>
+</div>
+<!-- Horizontal Scroll for Recent Edits -->
+<div class="w-full overflow-x-auto snap-x snap-mandatory flex gap-4 pb-4 -mx-margin-mobile px-margin-mobile hide-scrollbar">
+<!-- Item 1 -->
+<a class="snap-center shrink-0 w-48 flex flex-col gap-2 group relative" href="#">
+<div class="w-full h-64 bg-surface-container-high relative overflow-hidden shadow-sm border border-outline/10">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="A moody, high-contrast black and white photograph of an ancient Chinese temple roof with intricate tile work, slightly desaturated, with a bright red square seal stamp in the bottom right corner. Minimalist, brutalist-lite aesthetic, textured like aged paper." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDwTNi0GWgRb-kL2NV3GsFcWfinrj4qwGUBuEL7Mj2WdPBqpuzCyi0qypcrbCMWJLk3xhRMMBHFCL6-HQrSd5zIBQp8dWRhrnfgsTIrhdRyD_tTt7xic70Zm2FcgmUWjvHPdrqFsMi3wRsPafaqhlMOTl6Ynwv11yuDY6rDw7oRRDhhK7LcGIL1u85gxc3FUK_AqDiU1VNJTeF-qJVAujoSxV_st-gbY6Hvod8B47u4IX2I_yxqeck_');"></div>
+<!-- Overlay Info -->
+<div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-inverse-surface/80 to-transparent p-3 pt-6 flex justify-between items-end">
+<span class="font-label-mono text-[10px] text-on-primary bg-primary px-1">已封缄</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">山门影壁</span>
+<span class="font-label-mono text-[10px] text-on-surface-variant/60">甲辰年 七月 廿一</span>
+</div>
+</div>
+</a>
+<!-- Item 2 -->
+<a class="snap-center shrink-0 w-48 flex flex-col gap-2 group relative" href="#">
+<div class="w-full h-64 bg-surface-container-high relative overflow-hidden shadow-sm border border-outline/10">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="A macro shot of a weathered stone texture, warm earthy tones, with deep shadows emphasizing the carving marks. A striking crimson seal stamp is visible on the left side. Cinematic lighting, resembling an excavated artifact." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCneBzfc-X06Dw6ZVfNl9105XV4PadcN8frcbwhaFpL7IIfUq5QkaBidYTSadMqAsMcKTVN3sjZnGlUSXJ9XtcBlTwapDSWKKV3AzeBJ4Tw2HmfFLlW5gr80R-9Nyxis9SaWzy4D0lm0ctz96zVnD6dyWvlDSCpBuF-2ON4dOrBBiaL9lDd9vRSf0ywRsJpPWyNgBudyVOVBmNdHscroPr7ttO4U34OEdfmzQkVjh6wxB1-2cVy93LL');"></div>
+<!-- Overlay Info -->
+<div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-inverse-surface/80 to-transparent p-3 pt-6 flex justify-between items-end">
+<span class="font-label-mono text-[10px] text-outline-variant border border-outline-variant bg-inverse-surface/50 px-1">草稿</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">石刻拓片</span>
+<span class="font-label-mono text-[10px] text-on-surface-variant/60">甲辰年 七月 廿十</span>
+</div>
+</div>
+</a>
+<!-- Item 3 -->
+<a class="snap-center shrink-0 w-48 flex flex-col gap-2 group relative" href="#">
+<div class="w-full h-64 bg-surface-container-high relative overflow-hidden shadow-sm border border-outline/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline/30 text-[32px]">broken_image</span>
+</div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface opacity-50 line-through">遗失档案</span>
+<span class="font-label-mono text-[10px] text-error">数据损坏</span>
+</div>
+</div>
+</a>
+</div>
+</div>
+<!-- Quick Tools / Metrics -->
+<div class="w-full grid grid-cols-2 gap-4">
+<div class="bg-surface-container p-4 flex flex-col justify-between h-24 border-t-2 border-primary">
+<span class="font-label-mono text-[10px] text-on-surface-variant uppercase">累计封缄</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary-container">128</span>
+<span class="font-body-md text-sm text-on-surface-variant/70">卷</span>
+</div>
+</div>
+<div class="bg-surface-container p-4 flex flex-col justify-between h-24 border-t-2 border-tertiary">
+<span class="font-label-mono text-[10px] text-on-surface-variant uppercase">存储空间</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-tertiary">42</span>
+<span class="font-body-md text-sm text-on-surface-variant/70">%</span>
+</div>
+</div>
+</div>
+</div>
+<style>
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</div></main><footer class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-paper-base/90 backdrop-blur-md border-t border-outline/10"><div class="px-margin-mobile py-2 flex justify-center"><div class="px-3 py-0.5 border border-primary/20 bg-primary/5"><span class="font-label-mono text-[10px] text-primary/60 uppercase tracking-[0.2em] font-bold">炎国跨署呈报复核 · 卷宗第肆零玖号</span></div></div><nav class="flex justify-around items-center h-16" data-active-classes="text-primary-container font-bold"><a aria-current="page" class="flex flex-col items-center justify-center gap-1 w-20 transition-colors text-primary-container font-bold" data-path="canvas-hub" href="#"><span class="material-symbols-outlined text-[22px]">format_paint</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">卷轴</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="color-analysis" href="#"><span class="material-symbols-outlined text-[22px]">palette</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">调色</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="seal-services" href="#"><span class="material-symbols-outlined text-[22px]">approval_delegation</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">印信</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="archive" href="#"><span class="material-symbols-outlined text-[22px]">inventory_2</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">档存</span></a></nav></footer></body></html>

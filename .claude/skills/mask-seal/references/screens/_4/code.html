@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&amp;family=Noto+Sans+SC:wght@400;500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'on-primary-fixed': '#410005', 'surface-container': '#ffe9e7', 'background': '#fff8f7', 'on-primary': '#ffffff', 'on-secondary-fixed-variant': '#444746', 'surface-tint': '#a73837', 'primary-fixed-dim': '#ffb3ae', 'surface-container-high': '#f9e3e1', 'on-error': '#ffffff', 'surface-container-lowest': '#ffffff', 'tertiary-fixed-dim': '#8ad3d0', 'inverse-primary': '#ffb3ae', 'surface-container-highest': '#f3dedc', 'secondary': '#5c5f5e', 'primary-container': '#9b2f2f', 'outline-variant': '#debfbd', 'on-secondary-fixed': '#191c1b', 'on-tertiary': '#ffffff', 'surface-variant': '#f3dedc', 'primary': '#7b171b', 'on-tertiary-fixed': '#00201f', 'tertiary-container': '#00605e', 'on-secondary-container': '#626564', 'on-surface-variant': '#574140', 'surface-dim': '#ebd5d3', 'secondary-container': '#e1e3e1', 'on-tertiary-fixed-variant': '#00504e', 'seal-red': '#b23b2f', 'surface-bright': '#fff8f7', 'inverse-surface': '#3a2d2c', 'on-primary-container': '#ffbab5', 'on-background': '#241918', 'on-surface': '#241918', 'primary-fixed': '#ffdad7', 'paper-surface': '#f2f1ed', 'secondary-fixed': '#e1e3e1', 'surface': '#fff8f7', 'paper-base': '#deddd7', 'surface-container-low': '#fff0ef', 'secondary-fixed-dim': '#c5c7c5', 'outline': '#8b716f', 'error-container': '#ffdad6', 'on-primary-fixed-variant': '#862022', 'on-secondary': '#ffffff', 'inverse-on-surface': '#ffedeb', 'on-error-container': '#93000a', 'error': '#ba1a1a', 'tertiary': '#004645', 'tertiary-fixed': '#a5f0ec', 'on-tertiary-container': '#8ed8d5' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'grid-unit': '5.4rem', 'lab-arrive-x': '0.85rem', 'margin-mobile': '1.25rem', 'gutter': '1rem', 'annotation-margin': '4rem' }, fontFamily: { 'headline-lg': ['Noto Serif SC'], 'headline-lg-mobile': ['Noto Serif SC'], 'body-md': ['Noto Sans SC'], 'label-mono': ['monospace'], 'headline-md': ['Noto Serif SC'] }, fontSize: { 'headline-lg': ['32px', { lineHeight: '40px', fontWeight: '700' }], 'headline-lg-mobile': ['28px', { lineHeight: '36px', fontWeight: '700' }], 'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-mono': ['13px', { lineHeight: '16px', letterSpacing: '0.05em', fontWeight: '500' }], 'headline-md': ['24px', { lineHeight: '32px', fontWeight: '600' }] } } } }</script><style>@layer base { body { background-color: #deddd7; background-image: linear-gradient(to right, rgba(139,113,111,0.1) 1px, transparent 1px); background-size: 5.4rem 100%; overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } ::-webkit-scrollbar { display: none; } .radial-glow { background: radial-gradient(circle at top, rgba(178,59,47,0.05) 0%, transparent 70%); } </style><style>
+    @keyframes stamp-in {
+      0% { opacity: 0; transform: scale(1.5) rotate(5deg); }
+      70% { opacity: 1; transform: scale(0.9) rotate(0deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes fade-up {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes unfold-scroll {
+      0% { opacity: 0; transform: scaleY(0); }
+      100% { opacity: 1; transform: scaleY(1); }
+    }
+  </style><style>
+    @keyframes stamp-in {
+      0% { opacity: 0; transform: scale(1.5) rotate(5deg); }
+      70% { opacity: 1; transform: scale(0.9) rotate(0deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes fade-up {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes unfold-scroll {
+      0% { opacity: 0; transform: scaleY(0); }
+      100% { opacity: 1; transform: scaleY(1); }
+    }
+  </style></head><body class="font-body-md text-on-surface"><div class="fixed inset-0 radial-glow pointer-events-none"></div><header class="fixed top-0 inset-x-0 z-50 bg-paper-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin-mobile flex items-center justify-between relative"><div class="w-10"></div><h1 class="absolute left-1/2 -translate-x-1/2 font-headline-md text-headline-md text-on-surface whitespace-nowrap uppercase tracking-widest">Archive</h1><div class="flex items-center gap-4"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative w-full pt-14 min-h-screen pb-32"><div class="flex flex-col w-full px-margin-mobile">
+<!-- Feedback Message -->
+<div class="mt-8 flex flex-col items-center justify-center text-center">
+<div class="w-12 h-12 rounded-full bg-surface-tint/10 border border-primary/20 flex items-center justify-center mb-4 opacity-0 scale-90" style="animation: stamp-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;">
+<span class="material-symbols-outlined text-primary text-[24px]">task_alt</span>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-2 tracking-wide opacity-0 translate-y-2" style="animation: fade-up 0.5s ease-out 0.2s forwards;">呈报已复核</h2>
+<p class="font-body-md text-body-md text-on-surface-variant/80 opacity-0 translate-y-2" style="animation: fade-up 0.5s ease-out 0.3s forwards;">
+      卷宗第肆零玖号已归档印记
+    </p>
+</div>
+<!-- Archived Image Frame -->
+<div class="mt-8 relative w-full aspect-[4/5] opacity-0" style="animation: unfold-scroll 0.8s cubic-bezier(0.2, 0, 0, 1) 0.4s forwards; transform-origin: top center;">
+<!-- Scroll Top Roller -->
+<div class="absolute -top-3 inset-x-4 h-3 bg-inverse-surface rounded-t-sm z-10 before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-white/20"></div>
+<!-- Paper Canvas -->
+<div class="absolute inset-0 bg-paper-surface border-x border-b border-primary/10 p-3 shadow-md">
+<!-- Inner Border (Red line) -->
+<div class="w-full h-full border border-surface-tint/20 p-2 relative flex flex-col">
+<!-- Corner Ornaments -->
+<div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-surface-tint/40"></div>
+<div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-surface-tint/40"></div>
+<div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-surface-tint/40"></div>
+<div class="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-surface-tint/40"></div>
+<!-- The Image -->
+<div class="flex-1 bg-cover bg-center mb-4 filter sepia-[0.3]" data-alt="A striking portrait in traditional ink wash painting style mixed with modern minimal photography. A female subject with elegant features, wearing a garment with subtle folds. The image is rendered with a warm, aged parchment tone, sharp contrast, and deep shadows, fitting an imperial archive aesthetic." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCgOdjoiN-xRfgYQGNaayCV1uJyZuuf5Q6xRCUJ65sPyVrt-weI8ghyAbDMK8_iUueOiw-VScQHBaYuNeWqjW8lth2e59kPN1-wnOd2lTJWVRf9xMc9KlrdrLUxJoZjqyZm_zUeHuO7Tbe199P7Ulk9MEpIV8StTlcw3dx59uqz3NztsoXBjWWl1lhJA0X5CYSPgD8En3po7sxF2-XSPV9bdBMITNLeLXtp3dgKrYdEMXn8SSTbjaBCfdzYE4oZWOOlt1Zpi3XvbeNSxg&quot;);">
+</div>
+<!-- Archive Details / Seal Area -->
+<div class="flex justify-between items-end h-16 border-t border-primary/10 pt-2">
+<div class="flex flex-col gap-1">
+<span class="font-label-mono text-label-mono text-on-surface-variant/60 uppercase tracking-widest">ID: 0409-A</span>
+<span class="font-label-mono text-[10px] text-on-surface-variant/40">庚子年 拾月 廿四</span>
+</div>
+<!-- Red Seal -->
+<div class="w-10 h-10 border border-seal-red text-seal-red flex items-center justify-center -rotate-6 bg-paper-surface relative opacity-90 mix-blend-multiply">
+<span class="font-headline-md text-[18px] leading-none text-center transform scale-x-90 font-bold" style="writing-mode: vertical-rl;">御批</span>
+<div class="absolute inset-0 bg-seal-red/5"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Scroll Bottom Roller -->
+<div class="absolute -bottom-3 inset-x-4 h-3 bg-inverse-surface rounded-b-sm z-10 before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:h-1 before:bg-black/20"></div>
+</div>
+<!-- Actions -->
+<div class="mt-12 flex flex-col gap-4 opacity-0 translate-y-4" style="animation: fade-up 0.5s ease-out 0.8s forwards;">
+<button class="w-full bg-primary text-on-primary py-4 px-6 font-label-mono text-label-mono tracking-widest uppercase hover:bg-on-primary-fixed-variant transition-colors flex justify-center items-center gap-2 group relative overflow-hidden">
+<div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+<span class="material-symbols-outlined text-[18px]">home</span>
+<span class="">返回主阁 (Return to Hub)</span>
+</button>
+<button class="w-full bg-transparent text-primary py-4 px-6 font-label-mono text-label-mono tracking-widest uppercase border border-primary/20 hover:bg-primary/5 transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">share</span>
+<span class="">分发令 (Share)</span>
+</button>
+</div>
+</div>
+<script>
+  // Simple inline animations since Tailwind custom keyframes aren't reliable in this environment
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes stamp-in {
+      0% { opacity: 0; transform: scale(1.5) rotate(5deg); }
+      70% { opacity: 1; transform: scale(0.9) rotate(0deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes fade-up {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes unfold-scroll {
+      0% { opacity: 0; transform: scaleY(0); }
+      100% { opacity: 1; transform: scaleY(1); }
+    }
+  `;
+  document.head.appendChild(style);
+</script></main><footer class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-paper-base/90 backdrop-blur-md border-t border-outline/10"><div class="px-margin-mobile py-2 flex justify-center"><div class="px-3 py-0.5 border border-primary/20 bg-primary/5"><span class="font-label-mono text-[10px] text-primary/60 uppercase tracking-[0.2em] font-bold">炎国跨署呈报复核 · 卷宗第肆零玖号</span></div></div><nav class="flex justify-around items-center h-16" data-active-classes="text-primary-container font-bold"><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="canvas-hub" href="#"><span class="material-symbols-outlined text-[22px]">format_paint</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">卷轴</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="color-analysis" href="#"><span class="material-symbols-outlined text-[22px]">palette</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">调色</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="seal-services" href="#"><span class="material-symbols-outlined text-[22px]">approval_delegation</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">印信</span></a><a aria-current="page" class="flex flex-col items-center justify-center gap-1 w-20 transition-colors text-primary-container font-bold" data-path="archive" href="#"><span class="material-symbols-outlined text-[22px]">inventory_2</span><span class="font-label-mono text-[10px] uppercase tracking-tighter">档存</span></a></nav></footer>
+
+</body></html>
