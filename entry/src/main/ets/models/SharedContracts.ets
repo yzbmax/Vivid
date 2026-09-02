@@ -41,8 +41,16 @@ export function defaultFilterSnapshot(): FilterSnapshot {
 }
 
 /** 深拷贝 FilterSnapshot。 */
-export function cloneFilterSnapshot(src: FilterSnapshot): FilterSnapshot {
-  return { filterId: src.filterId, strength: src.strength };
+export function cloneFilterSnapshot(filter?: FilterSnapshot | null): FilterSnapshot {
+  if (!filter) {
+    return createDefaultFilterSnapshot();
+  }
+  return {
+    filterId: filter.filterId ?? 'original',
+    strength: typeof filter.strength === 'number' && !isNaN(filter.strength)
+      ? Math.max(0, Math.min(1, filter.strength))
+      : 0
+  };
 }
 
 // ───────────────────────── 文字图层 ─────────────────────────
@@ -136,27 +144,36 @@ export function sanitizeTextContent(content: string): string {
 }
 
 /** 深拷贝单个 TextLayer（ArkTS 不支持对象展开 { ...obj }）。 */
-export function cloneTextLayer(src: TextLayer): TextLayer {
+export function cloneTextLayer(layer: TextLayer): TextLayer {
   return {
-    id: src.id,
-    content: src.content,
-    fontKey: src.fontKey,
-    colorArgb: src.colorArgb,
-    fontSizeRatio: src.fontSizeRatio,
-    centerX: src.centerX,
-    centerY: src.centerY,
-    rotationDeg: src.rotationDeg,
-    opacity: src.opacity
+    id: layer.id ?? '',
+    content: layer.content ?? '',
+    fontKey: layer.fontKey ?? 'system_sans',
+    colorArgb: typeof layer.colorArgb === 'number' ? layer.colorArgb : 0xFF241918,
+    fontSizeRatio: typeof layer.fontSizeRatio === 'number' && !isNaN(layer.fontSizeRatio)
+      ? Math.max(0.02, Math.min(0.20, layer.fontSizeRatio))
+      : 0.06,
+    centerX: typeof layer.centerX === 'number' && !isNaN(layer.centerX)
+      ? Math.max(0, Math.min(1, layer.centerX))
+      : 0.5,
+    centerY: typeof layer.centerY === 'number' && !isNaN(layer.centerY)
+      ? Math.max(0, Math.min(1, layer.centerY))
+      : 0.5,
+    rotationDeg: typeof layer.rotationDeg === 'number' && !isNaN(layer.rotationDeg)
+      ? Math.max(-180, Math.min(180, layer.rotationDeg))
+      : 0,
+    opacity: typeof layer.opacity === 'number' && !isNaN(layer.opacity)
+      ? Math.max(0.3, Math.min(1, layer.opacity))
+      : 1
   };
 }
 
-/** 深拷贝 TextLayer 数组。 */
-export function cloneTextLayers(src: TextLayer[]): TextLayer[] {
-  const out: TextLayer[] = [];
-  for (let i = 0; i < src.length; i++) {
-    out.push(cloneTextLayer(src[i]));
+/** 深拷贝 TextLayer 数组，兼容缺失值并限制为最多 8 层。 */
+export function cloneTextLayers(layers?: TextLayer[] | null): TextLayer[] {
+  if (!layers || !Array.isArray(layers)) {
+    return [];
   }
-  return out;
+  return layers.slice(0, 8).map((layer: TextLayer) => cloneTextLayer(layer));
 }
 
 // ───────────────────────── 边框状态 ─────────────────────────
@@ -204,12 +221,19 @@ export function defaultBorderState(): BorderState {
 }
 
 /** 深拷贝 BorderState。 */
-export function cloneBorderState(src: BorderState): BorderState {
+export function cloneBorderState(border?: BorderState | null): BorderState {
+  if (!border) {
+    return createDefaultBorderState();
+  }
   return {
-    templateId: src.templateId,
-    widthRatio: src.widthRatio,
-    colorArgb: src.colorArgb,
-    shadowStrength: src.shadowStrength
+    templateId: border.templateId ?? 'none',
+    widthRatio: typeof border.widthRatio === 'number' && !isNaN(border.widthRatio)
+      ? Math.max(0, Math.min(0.25, border.widthRatio))
+      : 0,
+    colorArgb: typeof border.colorArgb === 'number' ? border.colorArgb : 0xFFFFFFFF,
+    shadowStrength: typeof border.shadowStrength === 'number' && !isNaN(border.shadowStrength)
+      ? Math.max(0, Math.min(1, border.shadowStrength))
+      : 0
   };
 }
 
@@ -242,12 +266,28 @@ export function defaultEditorSnapshot(): EditorSnapshot {
   };
 }
 
-/** 深拷贝 EditorSnapshot（数组与子对象全部独立）。 */
-export function cloneEditorSnapshot(src: EditorSnapshot): EditorSnapshot {
+/** 深拷贝并规范化 EditorSnapshot，兼容缺失快照的旧作品。 */
+export function cloneEditorSnapshot(snapshot?: EditorSnapshot | null): EditorSnapshot {
+  if (!snapshot) {
+    return createDefaultEditorSnapshot();
+  }
   return {
-    schemaVersion: src.schemaVersion,
-    filter: cloneFilterSnapshot(src.filter),
-    textLayers: cloneTextLayers(src.textLayers),
-    border: cloneBorderState(src.border)
+    schemaVersion: EDITOR_SNAPSHOT_SCHEMA_VERSION,
+    filter: cloneFilterSnapshot(snapshot.filter),
+    textLayers: cloneTextLayers(snapshot.textLayers),
+    border: cloneBorderState(snapshot.border)
   };
+}
+
+/** 兼容 B 的默认值工厂命名；与 C 的默认值保持同一实现。 */
+export function createDefaultFilterSnapshot(): FilterSnapshot {
+  return defaultFilterSnapshot();
+}
+
+export function createDefaultBorderState(): BorderState {
+  return defaultBorderState();
+}
+
+export function createDefaultEditorSnapshot(): EditorSnapshot {
+  return defaultEditorSnapshot();
 }

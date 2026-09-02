@@ -1,4 +1,5 @@
 import { AdjustParams, RegionAdjustments, createDefaultRegionAdjustments } from './EditModels';
+import { EditorSnapshot } from './SharedContracts';
 
 /**
  * 作品状态：已封缄（已保存）/ 草稿 / 数据损坏。
@@ -53,4 +54,6 @@ export class WorkRecord {
   };
   /** V2 新增：双区域调色参数（主体/背景各自独立） */
   regionAdjustments: RegionAdjustments = createDefaultRegionAdjustments();
+  /** 0.1.9 新增：统一编辑快照（滤镜、文字图层、边框） */
+  editorSnapshot?: EditorSnapshot;
 }

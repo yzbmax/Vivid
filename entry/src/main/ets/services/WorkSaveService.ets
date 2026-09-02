@@ -9,6 +9,8 @@ import { PhotoExportService, ExportResult } from './PhotoExportService';
 import { WorkFileService } from './WorkFileService';
 import { generateWorkTitle } from '../models/WorkTitleGenerator';
 import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
+import { EditorSnapshot, cloneEditorSnapshot, createDefaultEditorSnapshot } from '../models/SharedContracts';
+import { EditorCompositionService } from './EditorCompositionService';
 
 /**
  * 保存请求
@@ -24,6 +26,8 @@ export interface WorkSaveRequest {
   lastTool: string;
   /** 保存模式：draft=草稿，sealed=正式保存 */
   mode: 'draft' | 'sealed';
+  /** 0.1.9 新增：统一编辑快照 */
+  editorSnapshot?: EditorSnapshot;
 }
 
 /**
@@ -143,19 +147,23 @@ export class WorkSaveService {
       const profile = await AppSettingsStore.getExportSettings();
       const exportProfile: ExportProfile = toExportProfile(profile);
 
-      // 渲染图片
-      const pixelMap = await ImageRenderService.render(
+      // 统一高清合成渲染（包含 LUT、调色、文字图层与边框）
+      const snapshot = work.editorSnapshot ?? createDefaultEditorSnapshot();
+      const compResult = await EditorCompositionService.render(
         work.sourceImageUri,
         work.adjustments,
-        exportProfile
+        snapshot,
+        exportProfile,
+        false,
+        context
       );
 
       // 编码到 cacheDir
       const cacheFilePath = await PhotoExportService.encodeToCacheFile(
-        context, pixelMap, exportProfile
+        context, compResult.pixelMap, exportProfile
       );
 
-      pixelMap.release();
+      compResult.pixelMap.release();
 
       if (cacheFilePath === '') {
         return {
@@ -229,18 +237,22 @@ export class WorkSaveService {
           const profile = await AppSettingsStore.getExportSettings();
           const exportProfile: ExportProfile = toExportProfile(profile);
 
-          const pixelMap = await ImageRenderService.render(
+          const snapshot = request.editorSnapshot ?? createDefaultEditorSnapshot();
+          const compResult = await EditorCompositionService.render(
             sourcePath,
             request.adjustments,
-            exportProfile
+            snapshot,
+            exportProfile,
+            false,
+            context
           );
 
           // 编码到 cacheDir
           cacheFilePath = await PhotoExportService.encodeToCacheFile(
-            context, pixelMap, exportProfile
+            context, compResult.pixelMap, exportProfile
           );
 
-          pixelMap.release();
+          compResult.pixelMap.release();
 
           if (cacheFilePath === '') {
             return {
@@ -274,6 +286,9 @@ export class WorkSaveService {
             existing.adjustments.saturation = request.adjustments.saturation;
             existing.lastTool = request.lastTool;
             existing.status = mode === 'sealed' ? WorkStatus.Sealed : WorkStatus.Draft;
+            if (request.editorSnapshot !== undefined) {
+              existing.editorSnapshot = cloneEditorSnapshot(request.editorSnapshot);
+            }
             existing.updatedAt = Date.now();
             work = mockWorkStore.update(request.workId, existing);
           } else {
@@ -297,6 +312,9 @@ export class WorkSaveService {
           newWork.adjustments.saturation = request.adjustments.saturation;
           newWork.lastTool = request.lastTool;
           newWork.status = mode === 'sealed' ? WorkStatus.Sealed : WorkStatus.Draft;
+          if (request.editorSnapshot !== undefined) {
+            newWork.editorSnapshot = cloneEditorSnapshot(request.editorSnapshot);
+          }
           work = mockWorkStore.create(newWork);
         }
 

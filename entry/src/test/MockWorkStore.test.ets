@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from '@ohos/hypium';
 import { MockWorkStore } from '../main/ets/models/MockWorkStore';
 import { WorkRecord, WorkStatus } from '../main/ets/models/WorkRecord';
+import { EditorSnapshot } from '../main/ets/models/SharedContracts';
 
 export default function mockWorkStoreTest() {
   describe('MockWorkStore', () => {
@@ -208,6 +209,63 @@ export default function mockWorkStoreTest() {
       expect(work!.adjustments.brightness).assertEqual(0);
       expect(work!.adjustments.contrast).assertEqual(0);
       expect(work!.adjustments.saturation).assertEqual(0);
+    });
+
+    // ── 0.1.9 EditorSnapshot tests ──
+
+    it('persists and deep copies editorSnapshot on create and update', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = '快照持久化';
+      draft.status = WorkStatus.Draft;
+      const snapshot: EditorSnapshot = {
+        schemaVersion: 1,
+        filter: { filterId: 'jade_mist', strength: 0.68 },
+        textLayers: [{
+          id: 'txt-0',
+          content: '题签',
+          fontKey: 'noto_serif_sc',
+          colorArgb: 0xFF241918,
+          fontSizeRatio: 0.08,
+          centerX: 0.5,
+          centerY: 0.5,
+          rotationDeg: 0,
+          opacity: 1.0
+        }],
+        border: {
+          templateId: 'paper_white',
+          widthRatio: 0.1,
+          colorArgb: 0xFFF2F1ED,
+          shadowStrength: 0
+        }
+      };
+      draft.editorSnapshot = snapshot;
+
+      const created = store.create(draft);
+      // 修改原始 snapshot
+      snapshot.filter.filterId = 'modified';
+      snapshot.textLayers[0].content = 'modified';
+
+      const found = store.findById(created.id);
+      expect(found !== null).assertTrue();
+      expect(found!.editorSnapshot!.filter.filterId).assertEqual('jade_mist');
+      expect(found!.editorSnapshot!.textLayers[0].content).assertEqual('题签');
+    });
+
+    it('maps legacy template tool to border when finding or listing', 0, () => {
+      const legacy = new WorkRecord();
+      legacy.title = '旧工具名作品';
+      legacy.lastTool = 'template';
+      legacy.status = WorkStatus.Draft;
+
+      const created = store.create(legacy);
+      const found = store.findById(created.id);
+      expect(found !== null).assertTrue();
+      expect(found!.lastTool).assertEqual('border');
+
+      const list = store.list();
+      const item = list.find((w: WorkRecord) => w.id === created.id);
+      expect(item !== undefined).assertTrue();
+      expect(item!.lastTool).assertEqual('border');
     });
 
   });

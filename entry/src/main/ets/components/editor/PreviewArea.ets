@@ -10,6 +10,7 @@ import {
   hasRenderablePreview,
   shouldRenderUriFallback
 } from '../../services/PreviewPipeline';
+import { buildAdjustmentFilter } from '../../utils/ColorMatrixUtils';
 
 /**
  * 预览区：双图叠放 + colorFilter 调色。
@@ -288,8 +289,16 @@ export struct PreviewArea {
     ).height;
   }
 
-  private effects(): AdjustEffects {
-    return mapParamsToEffects(this.params);
+  private effects(): number[] {
+    if (this.isComparing) {
+      return [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+    }
+    return buildAdjustmentFilter(
+      this.params.exposure,
+      this.params.contrast,
+      this.params.saturation,
+      this.params.temperature
+    );
   }
 
   /** 根据 templateId 查找贴纸模板。 */

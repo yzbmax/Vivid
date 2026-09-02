@@ -13,6 +13,8 @@ import filterStateTest from './FilterState.test';
 import previewPipelineTest from './PreviewPipeline.test';
 import thumbnailPipelineTest from './ThumbnailPipeline.test';
 import photoPickerServiceTest from './PhotoPickerService.test';
+import editorSnapshotTest from './EditorSnapshot.test';
+import editorCompositionModelsTest from './EditorCompositionModels.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -30,4 +32,6 @@ export default function testsuite() {
   previewPipelineTest();
   thumbnailPipelineTest();
   photoPickerServiceTest();
+  editorSnapshotTest();
+  editorCompositionModelsTest();
 }

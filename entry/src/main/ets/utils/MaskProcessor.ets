@@ -33,10 +33,10 @@ export function applyConfidenceCurve(
     let mapped: number;
     if (v <= lo) {
       // 低置信段：0 → lo*0.3 线性压缩（保留极少量权重，不完全清零）
-      mapped = (v * 30) / 255;
+      mapped = lo > 0 ? (v * (lo * 30 / 255)) / lo : 0;
     } else if (v >= hi) {
       // 高置信段：hi → 255 线性抬升
-      mapped = hi + ((v - hi) * (255 - hi)) / (255 - hi);
+      mapped = hi >= 255 ? 255 : (hi + ((v - hi) * (255 - hi)) / (255 - hi));
       if (mapped > 255) {
         mapped = 255;
       }
@@ -80,34 +80,17 @@ export function resizeMaskBilinear(
   const xRatio = sw / dw;
   const yRatio = sh / dh;
   for (let dy = 0; dy < dh; dy++) {
-    const sy = (dy + 0.5) * yRatio - 0.5;
-    let sy0 = Math.floor(sy);
-    if (sy0 < 0) {
-      sy0 = 0;
-    }
-    let sy1 = sy0 + 1;
-    if (sy1 > sh - 1) {
-      sy1 = sh - 1;
-    }
+    const sy = Math.max(0, Math.min(sh - 1, (dy + 0.5) * yRatio - 0.5));
+    const sy0 = Math.floor(sy);
+    const sy1 = Math.min(sh - 1, sy0 + 1);
     const fy = sy - sy0;
-    if (fy < 0) {
-      // sy0 被 clamp 后 fy 可能为负
-      continue;
-    }
+
     for (let dx = 0; dx < dw; dx++) {
-      const sx = (dx + 0.5) * xRatio - 0.5;
-      let sx0 = Math.floor(sx);
-      if (sx0 < 0) {
-        sx0 = 0;
-      }
-      let sx1 = sx0 + 1;
-      if (sx1 > sw - 1) {
-        sx1 = sw - 1;
-      }
+      const sx = Math.max(0, Math.min(sw - 1, (dx + 0.5) * xRatio - 0.5));
+      const sx0 = Math.floor(sx);
+      const sx1 = Math.min(sw - 1, sx0 + 1);
       const fx = sx - sx0;
-      if (fx < 0) {
-        continue;
-      }
+
       const p00 = src[sy0 * sw + sx0];
       const p10 = src[sy0 * sw + sx1];
       const p01 = src[sy1 * sw + sx0];

@@ -553,7 +553,9 @@ struct EditPage {
             this.applyFilterSelection(filterId);
           },
           onStrengthChange: (value: number) => {
-            // strength change handled by FilterPanel internally via editState
+            this.editState = this.filterController.setStrength(value);
+            this.dirty = true;
+            this.renderPreview();
           }
         })
       } else if (this.activeTool === 'sticker') {

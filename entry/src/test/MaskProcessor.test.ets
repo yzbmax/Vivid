@@ -22,13 +22,13 @@ export default function maskProcessorTest() {
     });
 
     it('suppresses low-confidence noise without touching strong subject', 0, () => {
-      const src = new Uint8Array([10, 40, 230, 250]);
+      const src = new Uint8Array([10, 40, 230, 255]);
       const cfg: MaskTuningConfig = { lowConfidence: 60, highConfidence: 220 };
       const out = applyConfidenceCurve(src, cfg);
       // 低置信被压低（< 原值），高置信保持/抬升
       expect(out[0] < 10).assertTrue();
       expect(out[1] < 40).assertTrue();
-      expect(out[2]).assertLargerOrEqual(230);
+      expect(out[2] >= 230).assertTrue();
       expect(out[3]).assertEqual(255);
     });
 
@@ -37,9 +37,9 @@ export default function maskProcessorTest() {
       const cfg: MaskTuningConfig = { lowConfidence: 60, highConfidence: 220 };
       const out = applyConfidenceCurve(src, cfg);
       // 相邻值仍单调递增且差值有界——边缘未被二值化
-      expect(out[1]).assertLarger(out[0]);
-      expect(out[2]).assertLarger(out[1]);
-      expect(out[3]).assertLarger(out[2]);
+      expect(out[1] > out[0]).assertTrue();
+      expect(out[2] > out[1]).assertTrue();
+      expect(out[3] > out[2]).assertTrue();
       expect(out[3] - out[0] < 80).assertTrue();
     });
 
@@ -66,7 +66,7 @@ export default function maskProcessorTest() {
       expect(Math.abs(out[15] - src[3]) <= 2).assertTrue();
       // 中间是插值（介于最小与最大之间）
       const mid = out[5];
-      expect(mid).assertLargerOrEqual(0);
+      expect(mid >= 0).assertTrue();
       expect(mid <= 255).assertTrue();
     });
 

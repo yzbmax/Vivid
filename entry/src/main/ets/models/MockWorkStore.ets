@@ -1,6 +1,7 @@
 import { WorkRecord, WorkStatus } from './WorkRecord';
 import { buildMockWorks } from './MockWorks';
 import { cloneRegionAdjustments } from './EditModels';
+import { cloneEditorSnapshot, createDefaultEditorSnapshot } from './SharedContracts';
 
 /**
  * 作品 Mock Store：管理作品列表的增删改查。
@@ -27,12 +28,30 @@ export class MockWorkStore {
   list(): WorkRecord[] {
     return this.works.slice().sort((a: WorkRecord, b: WorkRecord) =>
       b.updatedAt - a.updatedAt
-    );
+    ).map((w: WorkRecord) => {
+      if (w.lastTool === 'template') {
+        w.lastTool = 'border';
+      }
+      if (!w.editorSnapshot) {
+        w.editorSnapshot = createDefaultEditorSnapshot();
+      }
+      return w;
+    });
   }
 
   /** 按 ID 查找单个作品；不存在时返回 null */
   findById(id: string): WorkRecord | null {
-    return this.works.find((w: WorkRecord) => w.id === id) ?? null;
+    const work = this.works.find((w: WorkRecord) => w.id === id);
+    if (!work) {
+      return null;
+    }
+    if (work.lastTool === 'template') {
+      work.lastTool = 'border';
+    }
+    if (!work.editorSnapshot) {
+      work.editorSnapshot = createDefaultEditorSnapshot();
+    }
+    return work;
   }
 
   /**
@@ -47,6 +66,10 @@ export class MockWorkStore {
     if (!record.status) {
       record.status = WorkStatus.Draft;
     }
+    if (record.lastTool === 'template') {
+      record.lastTool = 'border';
+    }
+    record.editorSnapshot = cloneEditorSnapshot(record.editorSnapshot);
     this.works.push(record);
     return record;
   }
@@ -90,7 +113,7 @@ export class MockWorkStore {
       existing.exportedAssetUri = patch.exportedAssetUri;
     }
     if (patch.lastTool.length > 0) {
-      existing.lastTool = patch.lastTool;
+      existing.lastTool = patch.lastTool === 'template' ? 'border' : patch.lastTool;
     }
     if (patch.description.length > 0) {
       existing.description = patch.description;
@@ -106,6 +129,10 @@ export class MockWorkStore {
     // V2: 同步区域参数
     if (patch.regionAdjustments !== undefined) {
       existing.regionAdjustments = cloneRegionAdjustments(patch.regionAdjustments);
+    }
+    // 0.1.9: 同步统一编辑快照（深拷贝）
+    if (patch.editorSnapshot !== undefined) {
+      existing.editorSnapshot = cloneEditorSnapshot(patch.editorSnapshot);
     }
     existing.updatedAt = Date.now();
     return existing;
