@@ -587,7 +587,7 @@ struct EditPage {
       } else if (this.activeTool === 'border') {
         // ===== C: Filter & Border =====
         BorderPanel({
-          border: this.borderState,
+          borderState: this.borderState,
           onSelectTemplate: (templateId: string) => {
             const next = cloneBorderState(this.borderState);
             next.templateId = templateId;

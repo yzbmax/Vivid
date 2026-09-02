@@ -23,7 +23,7 @@ import { Theme } from '../common/Theme';
  */
 @Component
 export struct BorderPanel {
-  @Prop border: BorderState = {
+  @Prop borderState: BorderState = {
     templateId: 'none', widthRatio: 0, colorArgb: 0xFFFFFFFF, shadowStrength: 0
   };
   onSelectTemplate: (templateId: string) => void = () => {};
@@ -53,7 +53,7 @@ export struct BorderPanel {
           .fontWeight(600)
           .fontColor(Theme.ON_SURFACE)
         Blank()
-        Text(this.border.templateId === 'none' ? '无' : this.templateNameOf(this.border.templateId))
+        Text(this.borderState.templateId === 'none' ? '无' : this.templateNameOf(this.borderState.templateId))
           .fontFamily(Theme.FONT_MONO)
           .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
           .fontColor(Theme.PRIMARY)
@@ -85,7 +85,7 @@ export struct BorderPanel {
             .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
             .fontColor(this.enabledWidth() ? Theme.ON_SURFACE_VARIANT : Theme.ON_SURFACE_VARIANT_70)
           Slider({
-            value: this.border.widthRatio,
+            value: this.borderState.widthRatio,
             min: 0,
             max: 0.25,
             step: 0.01,
@@ -97,7 +97,7 @@ export struct BorderPanel {
             .selectedColor(Theme.SEAL_RED)
             .trackColor(Theme.OUTLINE_VARIANT)
             .onChange((value: number) => this.onWidthRatioChange(clampBorderWidthRatio(value)))
-          Text(`${Math.round(this.border.widthRatio * 100)}%`)
+          Text(`${Math.round(this.borderState.widthRatio * 100)}%`)
             .fontFamily(Theme.FONT_MONO)
             .fontSize(Theme.FONT_SIZE_LABEL_MONO)
             .fontColor(Theme.PRIMARY)
@@ -131,7 +131,7 @@ export struct BorderPanel {
             .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
             .fontColor(this.enabledShadow() ? Theme.ON_SURFACE_VARIANT : Theme.ON_SURFACE_VARIANT_70)
           Slider({
-            value: this.border.shadowStrength,
+            value: this.borderState.shadowStrength,
             min: 0,
             max: 1,
             step: 0.01,
@@ -143,7 +143,7 @@ export struct BorderPanel {
             .selectedColor(Theme.SEAL_RED)
             .trackColor(Theme.OUTLINE_VARIANT)
             .onChange((value: number) => this.onShadowChange(clampBorderShadow(value)))
-          Text(`${Math.round(this.border.shadowStrength * 100)}`)
+          Text(`${Math.round(this.borderState.shadowStrength * 100)}`)
             .fontFamily(Theme.FONT_MONO)
             .fontSize(Theme.FONT_SIZE_LABEL_MONO)
             .fontColor(Theme.PRIMARY)
@@ -164,18 +164,18 @@ export struct BorderPanel {
 
   /** 当前模板是否支持边宽调节（非 none 且 widthRatio 能力开启）。 */
   private enabledWidth(): boolean {
-    return this.border.templateId !== 'none' &&
-      templateSupportsCapability(this.border.templateId, 'width');
+    return this.borderState.templateId !== 'none' &&
+      templateSupportsCapability(this.borderState.templateId, 'width');
   }
 
   /** 当前模板是否支持色纸调节。 */
   private enabledColor(): boolean {
-    return templateSupportsCapability(this.border.templateId, 'color');
+    return templateSupportsCapability(this.borderState.templateId, 'color');
   }
 
   /** 当前模板是否支持投影调节。 */
   private enabledShadow(): boolean {
-    return templateSupportsCapability(this.border.templateId, 'shadow');
+    return templateSupportsCapability(this.borderState.templateId, 'shadow');
   }
 
   private templateNameOf(templateId: string): string {
@@ -212,7 +212,7 @@ export struct BorderPanel {
         .height(48)
 
         // 选中态：朱砂 2px 边框
-        if (this.border.templateId === tpl.templateId) {
+        if (this.borderState.templateId === tpl.templateId) {
           Column()
             .width(64)
             .height(48)
@@ -223,8 +223,8 @@ export struct BorderPanel {
       Text(tpl.name)
         .fontFamily(Theme.FONT_SANS)
         .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
-        .fontColor(this.border.templateId === tpl.templateId ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
-        .fontWeight(this.border.templateId === tpl.templateId ? FontWeight.Bold : FontWeight.Normal)
+        .fontColor(this.borderState.templateId === tpl.templateId ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
+        .fontWeight(this.borderState.templateId === tpl.templateId ? FontWeight.Bold : FontWeight.Normal)
         .maxLines(1)
     }
     .width(72)
@@ -243,7 +243,7 @@ export struct BorderPanel {
         .backgroundColor(this.argbToHex(color))
         .borderRadius(2)
         .border({ width: 0.5, color: Theme.OUTLINE_VARIANT })
-      if (this.border.colorArgb === color) {
+      if (this.borderState.colorArgb === color) {
         Column()
           .width(20)
           .height(20)
