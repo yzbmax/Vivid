@@ -15,6 +15,7 @@ import {
   editRouteError,
   formatAdjustValue,
   isValidEditorToolKey,
+  normalizeEditorToolKey,
   mapParamsToEffects,
   parseEditRouteParams,
   resolveDisplayImageSource,
@@ -299,6 +300,12 @@ export default function editModelsTest() {
       expect(EDITOR_TOOLS[3].key).assertEqual('adjust');
       expect(EDITOR_TOOLS[3].label).assertEqual('调节');
       expect(EDITOR_TOOLS[0].label).assertEqual('滤镜');
+      // 0.1.9 入口迁移：末项为 `border` / "边框"，不再有 `template`
+      expect(EDITOR_TOOLS[6].key).assertEqual('border');
+      expect(EDITOR_TOOLS[6].label).assertEqual('边框');
+      for (let i = 0; i < EDITOR_TOOLS.length; i++) {
+        expect(EDITOR_TOOLS[i].key === 'template').assertEqual(false);
+      }
     });
 
     it('defines the five adjust types (V2: + temperature)', 0, () => {
@@ -318,7 +325,9 @@ export default function editModelsTest() {
       expect(isValidEditorToolKey('adjust')).assertEqual(true);
       expect(isValidEditorToolKey('sticker')).assertEqual(true);
       expect(isValidEditorToolKey('text')).assertEqual(true);
-      expect(isValidEditorToolKey('template')).assertEqual(true);
+      expect(isValidEditorToolKey('border')).assertEqual(true);
+      // 0.1.9 入口迁移：旧 `template` 不再是公开工具键
+      expect(isValidEditorToolKey('template')).assertEqual(false);
     });
 
     it('rejects invalid editor tool keys', 0, () => {
@@ -326,6 +335,49 @@ export default function editModelsTest() {
       expect(isValidEditorToolKey('unknown')).assertEqual(false);
       expect(isValidEditorToolKey('ADJUST')).assertEqual(false);
       expect(isValidEditorToolKey('滤镜')).assertEqual(false);
+    });
+
+    it('normalizes legacy template key to border', 0, () => {
+      // 0.1.9 入口迁移：旧 `template` 必须统一归一化为 `border`
+      expect(normalizeEditorToolKey('template')).assertEqual('border');
+    });
+
+    it('passes through valid editor tool keys unchanged', 0, () => {
+      expect(normalizeEditorToolKey('filter')).assertEqual('filter');
+      expect(normalizeEditorToolKey('subject')).assertEqual('subject');
+      expect(normalizeEditorToolKey('background')).assertEqual('background');
+      expect(normalizeEditorToolKey('adjust')).assertEqual('adjust');
+      expect(normalizeEditorToolKey('sticker')).assertEqual('sticker');
+      expect(normalizeEditorToolKey('text')).assertEqual('text');
+      expect(normalizeEditorToolKey('border')).assertEqual('border');
+    });
+
+    it('falls back to adjust for unknown tool keys', 0, () => {
+      expect(normalizeEditorToolKey('')).assertEqual('adjust');
+      expect(normalizeEditorToolKey('unknown_tool')).assertEqual('adjust');
+      expect(normalizeEditorToolKey('TEMPLATE')).assertEqual('adjust');
+      expect(normalizeEditorToolKey('模板')).assertEqual('adjust');
+    });
+
+    it('parses legacy template initialTool as border', 0, () => {
+      // 历史路由、旧作品、待处理编辑意图中的 `template` 必须归一化为 `border`
+      const picker: RawEditRouteParams = {
+        source: 'picker',
+        imageUri: 'file:///tmp/a.jpg',
+        initialTool: 'template'
+      };
+      const pickerRoute = parseEditRouteParams(picker);
+      expect(pickerRoute === null).assertEqual(false);
+      expect(pickerRoute?.initialTool).assertEqual('border');
+
+      const work: RawEditRouteParams = {
+        source: 'work',
+        workId: '0409-A',
+        initialTool: 'template'
+      };
+      const workRoute = parseEditRouteParams(work);
+      expect(workRoute === null).assertEqual(false);
+      expect(workRoute?.initialTool).assertEqual('border');
     });
 
     it('parses initialTool when present and valid', 0, () => {

@@ -24,14 +24,16 @@ export enum EditEntrySource {
 /**
  * 编辑页底部工具导航的稳定键（实施计划 §四 3.1 冻结契约）。
  * 禁止用显示文案作为路由键；A/B 只从本文件 import 该类型。
+ * 0.1.9：原 `template` 已整体迁移为 `border`（"模板"→"边框"）。
+ * 旧输入 `template` 由 normalizeEditorToolKey 统一归一化为 `border`。
  */
 export type EditorToolKey =
   'filter' | 'subject' | 'background' | 'adjust' |
-  'sticker' | 'text' | 'template';
+  'sticker' | 'text' | 'border';
 
 /** 合法 EditorToolKey 集合，用于 parseEditRouteParams 校验。 */
 export const EDITOR_TOOL_KEYS: EditorToolKey[] =
-  ['filter', 'subject', 'background', 'adjust', 'sticker', 'text', 'template'];
+  ['filter', 'subject', 'background', 'adjust', 'sticker', 'text', 'border'];
 
 /** 校验字符串是否为合法 EditorToolKey；非法时返回 false。 */
 export function isValidEditorToolKey(value: string): boolean {
@@ -41,6 +43,24 @@ export function isValidEditorToolKey(value: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * 将原始工具键归一化为合法 EditorToolKey。
+ * 集中处理历史兼容：旧值 `template` → `border`（0.1.9 入口迁移）。
+ * 未知值回退 `adjust`（与 parseEditRouteParams 既有行为一致）。
+ * 禁止在页面里散落字符串兼容判断，统一走本函数。
+ */
+export function normalizeEditorToolKey(raw: string): EditorToolKey {
+  if (raw === 'template') {
+    return 'border';
+  }
+  for (let i = 0; i < EDITOR_TOOL_KEYS.length; i++) {
+    if (EDITOR_TOOL_KEYS[i] === raw) {
+      return EDITOR_TOOL_KEYS[i];
+    }
+  }
+  return 'adjust';
 }
 
 /** EditPage 路由参数契约：B 经 pushUrl params 传入，C 在 aboutToAppear 解析。 */
@@ -133,7 +153,7 @@ export function parseEditRouteParams(raw: RawEditRouteParams): EditRouteParams |
     };
     const tool = raw.initialTool;
     if (tool !== undefined && tool !== '') {
-      result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
+      result.initialTool = normalizeEditorToolKey(tool);
     }
     return result;
   }
@@ -144,7 +164,7 @@ export function parseEditRouteParams(raw: RawEditRouteParams): EditRouteParams |
     };
     const tool = raw.initialTool;
     if (tool !== undefined && tool !== '') {
-      result.initialTool = isValidEditorToolKey(tool) ? tool as EditorToolKey : 'adjust';
+      result.initialTool = normalizeEditorToolKey(tool);
     }
     return result;
   }
@@ -349,7 +369,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
   { key: 'adjust', label: '调节' },
   { key: 'sticker', label: '贴纸' },
   { key: 'text', label: '文字' },
-  { key: 'template', label: '模板' }
+  { key: 'border', label: '边框' }
 ];
 
 /** 调节工具下的调整类型定义。 */

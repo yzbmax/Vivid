@@ -3,6 +3,7 @@ import authValidatorsTest from './AuthValidators.test';
 import mockAuthStoreTest from './MockAuthStore.test';
 import mockWorkStoreTest from './MockWorkStore.test';
 import editModelsTest from './EditModels.test';
+import sharedContractsTest from './SharedContracts.test';
 import appSettingsStoreTest from './AppSettingsStore.test';
 import editPageFixesTest from './EditPageFixes.test';
 import maskProcessorTest from './MaskProcessor.test';
@@ -18,6 +19,7 @@ export default function testsuite() {
   mockAuthStoreTest();
   mockWorkStoreTest();
   editModelsTest();
+  sharedContractsTest();
   appSettingsStoreTest();
   editPageFixesTest();
   maskProcessorTest();

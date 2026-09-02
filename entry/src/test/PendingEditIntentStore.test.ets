@@ -56,7 +56,7 @@ export default function pendingEditIntentStoreTest() {
 
       const peeked = PendingEditIntentStore.peek();
       if (peeked !== undefined) {
-        peeked.initialTool = 'template';
+        peeked.initialTool = 'border';
       }
 
       const consumed = PendingEditIntentStore.consume();

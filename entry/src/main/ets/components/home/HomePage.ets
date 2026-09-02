@@ -77,7 +77,7 @@ export struct HomePage {
     new ToolItem('subject', $r('app.string.home_tool5'), $r('app.media.home_object_scan')),
     new ToolItem('sticker', $r('app.string.home_tool6'), $r('app.media.home_Sticker')),
     new ToolItem('text', $r('app.string.home_tool7'), $r('app.media.home_font')),
-    new ToolItem('template', $r('app.string.home_tool8'), $r('app.media.home_Template')),
+    new ToolItem('border', $r('app.string.home_tool8'), $r('app.media.home_Template')),
   ];
 
   private async startImport(initialTool: EditorToolKey): Promise<void> {
