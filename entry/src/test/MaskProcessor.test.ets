@@ -4,6 +4,7 @@ import {
   defaultMaskTuning,
   resizeMaskBilinear
 } from '../main/ets/utils/MaskProcessor';
+import { MaskTuningConfig } from '../main/ets/models/SegmentationModels';
 
 /** 2×2 蒙版：[[0,64],[192,255]]。 */
 function makeGradMask(): Uint8Array {
@@ -22,23 +23,24 @@ export default function maskProcessorTest() {
 
     it('suppresses low-confidence noise without touching strong subject', 0, () => {
       const src = new Uint8Array([10, 40, 230, 250]);
-      const cfg = { lowConfidence: 60, highConfidence: 220 };
+      const cfg: MaskTuningConfig = { lowConfidence: 60, highConfidence: 220 };
       const out = applyConfidenceCurve(src, cfg);
       // 低置信被压低（< 原值），高置信保持/抬升
-      expect(out[0]).assertSmaller(10);
-      expect(out[1]).assertSmaller(40);
+      expect(out[0] < 10).assertTrue();
+      expect(out[1] < 40).assertTrue();
       expect(out[2]).assertLargerOrEqual(230);
       expect(out[3]).assertEqual(255);
     });
 
     it('keeps soft edges continuous (no binarization red line)', 0, () => {
       const src = new Uint8Array([100, 110, 120, 130]);
-      const out = applyConfidenceCurve(src, { lowConfidence: 60, highConfidence: 220 });
+      const cfg: MaskTuningConfig = { lowConfidence: 60, highConfidence: 220 };
+      const out = applyConfidenceCurve(src, cfg);
       // 相邻值仍单调递增且差值有界——边缘未被二值化
       expect(out[1]).assertLarger(out[0]);
       expect(out[2]).assertLarger(out[1]);
       expect(out[3]).assertLarger(out[2]);
-      expect(out[3] - out[0]).assertSmaller(80);
+      expect(out[3] - out[0] < 80).assertTrue();
     });
 
     it('returns a copy for same-size resize', 0, () => {
@@ -58,14 +60,14 @@ export default function maskProcessorTest() {
       const out = resizeMaskBilinear(src, 2, 2, 4, 4);
       expect(out.length).assertEqual(16);
       // 角落像素中心对齐后应接近原角值
-      expect(Math.abs(out[0] - src[0])).assertSmallerOrEqual(2);
-      expect(Math.abs(out[3] - src[1])).assertSmallerOrEqual(2);
-      expect(Math.abs(out[12] - src[2])).assertSmallerOrEqual(2);
-      expect(Math.abs(out[15] - src[3])).assertSmallerOrEqual(2);
+      expect(Math.abs(out[0] - src[0]) <= 2).assertTrue();
+      expect(Math.abs(out[3] - src[1]) <= 2).assertTrue();
+      expect(Math.abs(out[12] - src[2]) <= 2).assertTrue();
+      expect(Math.abs(out[15] - src[3]) <= 2).assertTrue();
       // 中间是插值（介于最小与最大之间）
       const mid = out[5];
       expect(mid).assertLargerOrEqual(0);
-      expect(mid).assertSmallerOrEqual(255);
+      expect(mid <= 255).assertTrue();
     });
 
     it('downsamples to target size', 0, () => {
