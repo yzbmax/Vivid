@@ -25,6 +25,9 @@ export class ThumbnailPipeline {
   private sourcePixelMap: image.PixelMap | undefined;
   private cache: Map<string, image.PixelMap> = new Map<string, image.PixelMap>();
   private sessionId: string = '';
+  private generation: number = 0;
+  private activeRenders: number = 0;
+  private retiredSources: image.PixelMap[] = [];
 
   async loadSource(
     sourceUri: string,
@@ -32,11 +35,17 @@ export class ThumbnailPipeline {
     context?: common.UIAbilityContext
   ): Promise<void> {
     this.clear();
-    this.sourcePixelMap = await ImageRenderService.createPreviewSource(
+    const generation = this.generation;
+    const source = await ImageRenderService.createPreviewSource(
       sourceUri,
       THUMBNAIL_MAX_LONG_EDGE,
       context
     );
+    if (generation !== this.generation) {
+      source.release();
+      return;
+    }
+    this.sourcePixelMap = source;
     this.sessionId = sessionId;
   }
 
@@ -47,6 +56,8 @@ export class ThumbnailPipeline {
     if (this.sourcePixelMap === undefined || this.sessionId === '') {
       return undefined;
     }
+    const source = this.sourcePixelMap;
+    const generation = this.generation;
     const key = buildThumbnailCacheKey(this.sessionId, preset);
     const cached = this.cache.get(key);
     if (cached !== undefined) {
@@ -59,12 +70,33 @@ export class ThumbnailPipeline {
     if (!(await FilterNativeBridge.loadPreset(context, preset))) {
       return undefined;
     }
-    const rendered = await FilterNativeBridge.render(this.sourcePixelMap, preset.id, 1);
-    this.cache.set(key, rendered);
-    return rendered;
+    if (generation !== this.generation) {
+      return undefined;
+    }
+    this.activeRenders++;
+    try {
+      const rendered = await FilterNativeBridge.render(source, preset.id, 1);
+      if (generation !== this.generation) {
+        if (rendered !== source) {
+          rendered.release();
+        }
+        return undefined;
+      }
+      this.cache.set(key, rendered);
+      return rendered;
+    } finally {
+      this.activeRenders--;
+      if (this.activeRenders === 0) {
+        for (const retired of this.retiredSources) {
+          retired.release();
+        }
+        this.retiredSources = [];
+      }
+    }
   }
 
   clear(): void {
+    this.generation++;
     this.cache.forEach((pixelMap: image.PixelMap) => {
       if (pixelMap !== this.sourcePixelMap) {
         pixelMap.release();
@@ -72,7 +104,11 @@ export class ThumbnailPipeline {
     });
     this.cache.clear();
     if (this.sourcePixelMap !== undefined) {
-      this.sourcePixelMap.release();
+      if (this.activeRenders > 0) {
+        this.retiredSources.push(this.sourcePixelMap);
+      } else {
+        this.sourcePixelMap.release();
+      }
       this.sourcePixelMap = undefined;
     }
     this.sessionId = '';

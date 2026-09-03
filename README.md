@@ -8,7 +8,7 @@
 - pages/Index 提供首页、作品、我的三个底部 Tab。
 - 首页包含宣纸网格背景、品牌区、PhotoViewPicker 单图选取入口、快捷功能、近作和技艺列表。
 - 作品页支持全部 / 已封印 / 草稿筛选、时间排序、作品卡片网格和详情路由。
-- 作品与详情目前使用 MockWorks，尚未接入真实图片编辑、导出或云端保存。
+- 作品列表与详情仍使用 MockWorks；调色复核页已接入图片预览、文字/边框合成和导出流程，但尚未接入云端保存。
 
 ### 图片导入与 LUT 滤镜
 
@@ -20,6 +20,13 @@
 - 渲染优先使用 Vulkan Compute；GPU 输出异常或无变化时回退到 CPU LUT 渲染，保证滤镜效果可见。
 - 预览与缩略图均使用异步代次控制，过期结果会被丢弃并释放；滤镜强度范围为 0–100%。
 - “原图”和滤镜状态保留相同的控制区高度，切换滤镜不会改变预览画布布局。
+
+### 编辑器文字、边框与导出
+
+- `EditPage` 与预览区共用等比适配的照片内容矩形，横图、竖图和长宽比为 5:4 / 16:9 的图片不会溢出背景。
+- 文字图层支持最多 8 层、实时输入、5 种字体和 8 种固定颜色；“保存”只确认当前文字内容，选择图层不会单独产生脏状态。
+- 边框预览提供 6 种模板，边框绘制在照片内容矩形之外，不遮挡滤镜、贴纸和文字；导出时与当前滤镜、文字一起合成。
+- 滤镜缩略图按预设逐项生成；缺失或不可用的 LUT 只隐藏对应预设，不阻塞编辑页进入。
 
 ### 登录与注册 Mock 闭环
 
@@ -61,7 +68,7 @@
 | 页面 | 路由 | 说明 |
 | --- | --- | --- |
 | 主框架 | pages/Index | 首页 / 作品 / 我的三 Tab |
-| 调色复核 | pages/EditPage | 图片预览、LUT 滤镜、强度调节与编辑工具 |
+| 调色复核 | pages/EditPage | 图片预览、LUT 滤镜、文字/边框编辑、强度调节与导出 |
 | 作品详情 | pages/WorkDetailPage | Mock 作品详情 |
 | 登录 | pages/LoginPage | 验证码 / 密码登录 |
 | 注册 | pages/RegisterPage | 注册验证码 + 密码注册 |
@@ -110,6 +117,9 @@ entry/src/test/MockAuthStore.test.ets 覆盖：
 - entry/src/test/FilterState.test.ets：滤镜目录、选择状态与强度边界。
 - entry/src/test/PreviewPipeline.test.ets：预览尺寸、渲染代次与 PixelMap 所有权。
 - entry/src/test/ThumbnailPipeline.test.ets：滤镜缩略图生成与原图回退。
+- entry/src/test/TextLayerState.test.ets：文字内容校验、图层上限、默认值、钳制与选择回退。
+- entry/src/test/TextLayoutResolver.test.ets：文字布局比例、坐标反算与拖动边界。
+- entry/src/test/EditorPreviewLayout.test.ets：照片内容矩形与边框预览几何。
 - entry/src/test/PhotoPickerService.test.ets：选图结果、URI 解析与沙箱导入。
 - entry/src/main/cpp/filter/tests/：Cube 解析、LUT 插值、FilterEngine 与 Vulkan 契约测试源码。
 - entry/src/test/LocalUnit.test.ets：本地 Hypium 示例测试。
@@ -188,5 +198,5 @@ entry/src/test/MockAuthStore.test.ets 覆盖：
 - 无真实后端账号中心、短信服务、持久化存储或生产级安全策略。
 - 换绑手机号当前只校验新手机号验证码，注销授权没有分钟级过期计时。
 - 头像只保存系统返回的 URI，不做裁剪、压缩、云端上传或文件复制。
-- 作品编辑、AI 分割、蒙版导出和真实作品保存尚未实现。
-- 发布前仍需补充真机兼容性、系统相册运行时交互、隐私协议审阅、签名配置和发布包验证。
+- 作品云端保存、AI 分割和蒙版导出尚未实现；当前导出仅覆盖编辑器中的滤镜、文字与边框合成。
+- 仍需在真机补充字体加载、键盘可见性、相册运行时交互和最终导出视觉验证，并完成隐私协议审阅、签名配置和发布包验证。

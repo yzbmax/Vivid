@@ -104,9 +104,10 @@ export function switchBorderTemplate(
 ): BorderState {
   const candidate: BorderState = {
     templateId: nextTemplateId,
-    widthRatio: current.widthRatio,
-    colorArgb: current.colorArgb,
-    shadowStrength: current.shadowStrength
+    widthRatio: current.widthRatio > 0 ? current.widthRatio : 0.08,
+    colorArgb: current.templateId === 'none' || current.colorArgb === defaultColorForTemplate(current.templateId)
+      ? defaultColorForTemplate(nextTemplateId) : current.colorArgb,
+    shadowStrength: templateSupportsCapability(current.templateId, 'shadow') ? current.shadowStrength : 0.35
   };
   return sanitizeBorderState(candidate);
 }

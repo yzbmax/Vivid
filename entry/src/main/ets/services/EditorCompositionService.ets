@@ -45,7 +45,8 @@ export class EditorCompositionService {
     snapshot: EditorSnapshot,
     profile: ExportProfile,
     preserveSourceSize: boolean = false,
-    context?: common.UIAbilityContext
+    context?: common.UIAbilityContext,
+    unavailableFontKeys: string[] = []
   ): Promise<CompositionRenderResult> {
     const safeSnapshot = cloneEditorSnapshot(snapshot);
     const filterId = safeSnapshot.filter.filterId ?? 'original';
@@ -70,7 +71,8 @@ export class EditorCompositionService {
       // 4. 文字图层
       textedPixelMap = await TextCompositionService.render(
         basePixelMap,
-        safeSnapshot.textLayers
+        safeSnapshot.textLayers,
+        unavailableFontKeys
       );
 
       // 5. 边框装裱
@@ -86,6 +88,13 @@ export class EditorCompositionService {
         width: info.size.width,
         height: info.size.height
       };
+      // 只把最终图的所有权交给调用方，成功路径也必须释放中间结果。
+      if (textedPixelMap !== finalPixelMap) {
+        textedPixelMap.release();
+      }
+      if (basePixelMap !== textedPixelMap && basePixelMap !== finalPixelMap) {
+        basePixelMap.release();
+      }
       return res;
     } catch (err) {
       // 异常时安全清理中间 PixelMap 防止内存泄漏

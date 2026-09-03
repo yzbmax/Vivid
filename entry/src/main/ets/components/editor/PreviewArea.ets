@@ -1,15 +1,17 @@
 import {
-  AdjustEffects, AdjustParams, mapParamsToEffects,
+  AdjustParams,
   StickerItem, StickerTemplate, findStickerTemplate
 } from '../../models/EditModels';
 import { Theme } from '../common/Theme';
 import { image } from '@kit.ImageKit';
 import { StickerLayer } from './StickerLayer';
-import {
-  fitPreviewCard,
-  hasRenderablePreview,
-  shouldRenderUriFallback
-} from '../../services/PreviewPipeline';
+import { hasRenderablePreview } from '../../services/PreviewPipeline';
+import { BorderState, defaultBorderState, TextLayer as TextLayerModel } from '../../models/SharedContracts';
+import { EditorPreviewLayout, resolveEditorPreviewLayout } from '../../features/editor/preview/EditorPreviewLayout';
+import { BorderPreviewLayer } from './BorderPreviewLayer';
+// ===== A: Text Layer =====
+import { TextLayer as TextLayerOverlay } from './TextLayer';
+// ===== End A =====
 import { buildAdjustmentFilter } from '../../utils/ColorMatrixUtils';
 
 /**
@@ -38,6 +40,18 @@ export struct PreviewArea {
   @Prop imageSrc: string = '';
   @Link previewPixelMap: image.PixelMap | undefined;
   @Prop previewLoading: boolean = false;
+  @Prop originalPixelMap: image.PixelMap | undefined = undefined;
+  @Prop @Watch('notifyDisplaySize') photoWidth: number = 0;
+  @Prop @Watch('notifyDisplaySize') photoHeight: number = 0;
+  @Prop @Watch('notifyDisplaySize') borderState: BorderState = defaultBorderState();
+  // ===== A: Text Layer =====
+  @Prop textLayers: TextLayerModel[] = [];
+  @Prop selectedTextLayerId: string = '';
+  @Prop textMode: boolean = false;
+  @Prop unavailableFontKeys: string[] = [];
+  onTextSelect: (id: string) => void = () => {};
+  onTextMove: (id: string, x: number, y: number) => void = () => {};
+  // ===== End A =====
   /** 全局调色参数（CSS 效果模式使用）。 */
   @Prop params: AdjustParams = { exposure: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0 };
   /** 原图对比模式：true 时隐藏所有效果。 */
@@ -79,187 +93,80 @@ export struct PreviewArea {
   @State imageNaturalH: number = 0;
 
   build() {
-    // 外层 Column：负责上下居中 + 裁剪溢出
-    Column() {
-      if (this.baseImage !== undefined && this.foregroundImage !== undefined && !this.isComparing) {
-        // ── 双图 colorFilter 模式（主体分割完成后）──
-        Column() {
-          Stack({ alignContent: Alignment.Center }) {
-            // 底层：原图 + 背景调色
-            Image(this.baseImage)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .colorFilter(this.baseFilter)
-              .accessibilityDescription('原图（背景调色）')
-
-            // 上层：前景图 + 主体调色（叠放在底层之上）
-            Image(this.foregroundImage)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Contain)
-              .colorFilter(this.subjectFilter)
-              .accessibilityDescription('前景（主体调色）')
-
-            // 贴纸层
-            if (this.stickers.length > 0) {
-              ForEach(this.stickers, (item: StickerItem) => {
-                StickerLayer({
-                  item: item,
-                  template: this.findTpl(item.templateId),
-                  isSelected: this.selectedStickerId === item.instanceId,
-                  onUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
-                    this.onStickerUpdate(instanceId, posX, posY, size, rotation);
-                  },
-                  onSelect: (instanceId: string) => {
-                    this.onStickerSelect(instanceId);
-                  }
-                })
-              }, (item: StickerItem) => item.instanceId)
-            }
-
-            // 装裱边框
-            Column() {
-              Column()
-                .width('100%')
-                .height('100%')
-                .border({ width: 1, color: Theme.PRIMARY_20 })
-            }
-            .width('100%')
-            .height('100%')
-            .border({ width: 1, color: Theme.OUTLINE_VARIANT })
-            .padding(8)
-            .hitTestBehavior(HitTestMode.None)
-          }
-          .width(this.displayW())
-          .height(this.displayH())
-          .clip(true)
-          .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
-          .id(PREVIEW_STACK_ID)
-        }
-      } else if (this.previewLoading) {
-        Column({ space: 8 }) {
-          Text('正在显影…')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(Theme.FONT_SIZE_BODY_MD)
-            .fontColor(Theme.ON_SURFACE_VARIANT)
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+    Stack({ alignContent: Alignment.TopStart }) {
+      if (this.previewLoading && this.foregroundImage === undefined) {
+        Text('正在显影…')
+          .fontFamily(Theme.FONT_SERIF)
+          .fontColor(Theme.ON_SURFACE_VARIANT)
+          .align(Alignment.Center)
       } else if (hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined)) {
-        // ── CSS 效果模式（未分割，使用 imageSrc 或 previewPixelMap）──
-        Column() {
+        Stack({ alignContent: Alignment.TopStart }) {
+          if (!this.isComparing) {
+            BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
+          }
           Stack({ alignContent: Alignment.Center }) {
-            if (this.previewPixelMap !== undefined) {
-              Image(this.previewPixelMap)
-                .width('100%')
-                .height('100%')
-                .objectFit(ImageFit.Contain)
-                .colorFilter(this.effects())
-                .accessibilityDescription('预览图')
-            } else {
-              Image(this.imageSrc)
-                .width('100%')
-                .height('100%')
-                .objectFit(ImageFit.Contain)
-                .colorFilter(this.effects())
-                .onComplete((event) => {
-                  const w = event?.width ?? 0;
-                  const h = event?.height ?? 0;
-                  this.updateNaturalSize(w, h);
-                })
-                .accessibilityDescription('预览图')
-            }
-
-            // 贴纸层
-            if (this.stickers.length > 0) {
+            this.photoLayers()
+            if (!this.isComparing) {
               ForEach(this.stickers, (item: StickerItem) => {
                 StickerLayer({
                   item: item,
                   template: this.findTpl(item.templateId),
                   isSelected: this.selectedStickerId === item.instanceId,
-                  onUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
-                    this.onStickerUpdate(instanceId, posX, posY, size, rotation);
-                  },
-                  onSelect: (instanceId: string) => {
-                    this.onStickerSelect(instanceId);
-                  }
+                  onUpdate: this.onStickerUpdate,
+                  onSelect: this.onStickerSelect
                 })
               }, (item: StickerItem) => item.instanceId)
             }
-
-            // 装裱边框
-            Column() {
-              Column()
-                .width('100%')
-                .height('100%')
-                .border({ width: 1, color: Theme.PRIMARY_20 })
-            }
-            .width('100%')
-            .height('100%')
-            .border({ width: 1, color: Theme.OUTLINE_VARIANT })
-            .padding(8)
-            .hitTestBehavior(HitTestMode.None)
-
-            // 原图对比提示胶囊
+            // ===== A: Text Layer =====
+            TextLayerOverlay({
+              layers: this.textLayers,
+              selectedId: this.selectedTextLayerId,
+              active: this.textMode,
+              isComparing: this.isComparing,
+              contentRect: { x: 0, y: 0, width: this.layout().photoRect.width, height: this.layout().photoRect.height },
+              unavailableFontKeys: this.unavailableFontKeys,
+              onSelect: this.onTextSelect,
+              onMove: this.onTextMove
+            })
+            // ===== End A =====
             if (this.isComparing) {
               Text('原图')
                 .fontFamily(Theme.FONT_MONO)
-                .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
+                .fontSize(12)
                 .fontColor(Theme.ON_PRIMARY)
-                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
                 .backgroundColor(Theme.PRIMARY)
-                .borderRadius(Theme.RADIUS_FULL)
+                .padding(6)
+                .hitTestBehavior(HitTestMode.None)
             }
           }
-          .width(this.displayW())
-          .height(this.displayH())
+          .width(this.layout().photoRect.width)
+          .height(this.layout().photoRect.height)
+          .position({ x: this.layout().photoRect.x - this.layout().outputRect.x,
+            y: this.layout().photoRect.y - this.layout().outputRect.y })
           .clip(true)
-          .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
-          .id(PREVIEW_STACK_ID)
         }
+        .width(this.layout().outputRect.width)
+        .height(this.layout().outputRect.height)
+        .position({ x: this.layout().outputRect.x, y: this.layout().outputRect.y })
+        .clip(true)
+        .id(PREVIEW_STACK_ID)
       } else {
-        // 无图片：占位
-        Column({ space: 8 }) {
-          Text('预览区占位')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
-            .fontWeight(600)
-            .fontColor(Theme.ON_SURFACE)
-          Text('请选择图片或加载作品')
-            .fontFamily(Theme.FONT_SANS)
-            .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
-            .fontColor(Theme.ON_SURFACE_VARIANT_70)
-            .textAlign(TextAlign.Center)
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .padding(24)
-        .justifyContent(FlexAlign.Center)
+        Text('请选择图片或加载作品')
+          .fontFamily(Theme.FONT_SERIF)
+          .fontColor(Theme.ON_SURFACE_VARIANT)
+          .align(Alignment.Center)
       }
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
     .clip(true)
     .onAreaChange((_oldValue: Area, newValue: Area) => {
-      const w = newValue.width as number;
-      const h = newValue.height as number;
-      if (w > 0 && h > 0 && (w !== this.containerW || h !== this.containerH)) {
-        this.containerW = w;
-        this.containerH = h;
-        this.onDisplaySizeChange(this.containerW, this.displayH());
-        console.info(`Editor preview area ready: ${w}x${h}`);
-      }
+      this.containerW = Number(newValue.width);
+      this.containerH = Number(newValue.height);
+      this.notifyDisplaySize();
     })
     .onTouch((event: TouchEvent) => {
-      // 贴纸模式下禁用按住对比，避免与贴纸手势冲突
-      if (this.stickerMode) {
-        return;
-      }
-      if (!hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined) &&
-          !shouldRenderUriFallback(this.imageSrc, false, this.previewLoading)) {
+      if (this.stickerMode || this.textMode || !hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined)) {
         return;
       }
       if (event.type === TouchType.Down) {
@@ -270,23 +177,39 @@ export struct PreviewArea {
     })
   }
 
-  /** 图片尺寸未知时先使用容器尺寸，避免自适应父子形成百分比循环。 */
-  private displayW(): number {
-    return fitPreviewCard(
-      this.containerW,
-      this.containerH,
-      this.imageNaturalW,
-      this.imageNaturalH
-    ).width;
+  @Builder
+  private photoLayers() {
+    if (this.baseImage !== undefined && this.foregroundImage !== undefined && !this.isComparing) {
+      Image(this.baseImage)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+        .colorFilter(this.baseFilter)
+      Image(this.foregroundImage)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+        .colorFilter(this.subjectFilter)
+    } else if (this.isComparing && this.originalPixelMap !== undefined) {
+      Image(this.originalPixelMap)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+    } else if (this.previewPixelMap !== undefined) {
+      Image(this.previewPixelMap)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+        .colorFilter(this.effects())
+    } else {
+      Image(this.imageSrc)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+        .colorFilter(this.effects())
+        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+    }
   }
 
-  private displayH(): number {
-    return fitPreviewCard(
-      this.containerW,
-      this.containerH,
-      this.imageNaturalW,
-      this.imageNaturalH
-    ).height;
+  private layout(): EditorPreviewLayout {
+    return resolveEditorPreviewLayout(this.containerW, this.containerH,
+      this.photoWidth > 0 ? this.photoWidth : this.imageNaturalW,
+      this.photoHeight > 0 ? this.photoHeight : this.imageNaturalH, this.borderState);
+  }
+
+  private notifyDisplaySize(): void {
+    const photo = this.layout().photoRect;
+    this.onDisplaySizeChange(photo.width, photo.height);
   }
 
   private effects(): number[] {
@@ -312,6 +235,7 @@ export struct PreviewArea {
       this.imageNaturalH = height;
       console.info(`Editor preview image ready: ${width}x${height}`);
       this.onImageSizeChange(width, height);
+      this.notifyDisplaySize();
     }
   }
 }

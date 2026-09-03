@@ -199,14 +199,17 @@ export struct BorderPanel {
             .height(48)
             .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
             .borderRadius(2)
-          // 四角括号 + 浅朱砂内线（Mask & Seal 边框缩略图语言）
-          Column()
-            .width(60)
-            .height(44)
-            .border({
-              width: 0.5,
-              color: Theme.PRIMARY_20
-            })
+          if (tpl.templateId !== 'none') {
+            Image(this.templateResource(tpl.templateId))
+              .width(64)
+              .height(48)
+              .objectFit(ImageFit.Contain)
+          } else {
+            Text('原图')
+              .fontFamily(Theme.FONT_MONO)
+              .fontSize(11)
+              .fontColor(Theme.ON_SURFACE_VARIANT)
+          }
         }
         .width(64)
         .height(48)
@@ -231,6 +234,15 @@ export struct BorderPanel {
     .height(68)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => this.onSelectTemplate(tpl.templateId))
+  }
+
+  private templateResource(id: string): Resource {
+    if (id === 'ink_black') { return $r('app.media.border_ink_black'); }
+    if (id === 'floating_shadow') { return $r('app.media.border_floating_shadow'); }
+    if (id === 'film_negative') { return $r('app.media.border_film_negative'); }
+    if (id === 'polaroid') { return $r('app.media.border_polaroid'); }
+    if (id === 'scroll_mount') { return $r('app.media.border_scroll_mount'); }
+    return $r('app.media.border_paper_white');
   }
 
   /** 单个色板方块。选中时显示朱砂描边。 */

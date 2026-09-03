@@ -14,6 +14,7 @@ export struct FilterPanel {
   @Prop editState: EditState = { filter: { filterId: 'original', strength: 0 } };
   @Link previewPixelMap: image.PixelMap | undefined;
   @Link thumbnails: ThumbnailItem[];
+  @Prop unavailableFilterIds: string[] = [];
   onSelectFilter: (filterId: string) => void = () => {};
   onStrengthChange: (value: number) => void = () => {};
 
@@ -21,7 +22,7 @@ export struct FilterPanel {
     Column({ space: 8 }) {
       Scroll() {
         Row({ space: 10 }) {
-          ForEach(FILTER_PRESETS, (preset: FilterPreset) => {
+          ForEach(this.visiblePresets(), (preset: FilterPreset) => {
             this.filterCard(preset)
           }, (preset: FilterPreset) => preset.id)
         }
@@ -30,7 +31,7 @@ export struct FilterPanel {
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
       .width('100%')
-      .height(108)
+      .height(120)
 
       Row({ space: 10 }) {
         Text('强度')
@@ -77,36 +78,41 @@ export struct FilterPanel {
       Stack({ alignContent: Alignment.Center }) {
         if (this.thumbnailFor(preset.id) !== undefined) {
           Image(this.thumbnailFor(preset.id))
-            .width(64)
-            .height(64)
-            .objectFit(ImageFit.Cover)
+            .width(66)
+            .height(82)
+            .objectFit(ImageFit.Contain)
         } else if (canUseSourceThumbnailFallback(preset.id) && this.previewPixelMap !== undefined) {
           Image(this.previewPixelMap)
-            .width(64)
-            .height(64)
-            .objectFit(ImageFit.Cover)
+            .width(66)
+            .height(82)
+            .objectFit(ImageFit.Contain)
         } else {
-          Column()
-            .width(64)
-            .height(64)
-            .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+          Text('显影中')
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(11)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
         }
         if (this.editState.filter.filterId === preset.id) {
           Column()
-            .width(64)
-            .height(64)
+            .width('100%')
+            .height('100%')
             .border({ width: 2, color: Theme.SEAL_RED })
         }
       }
+      .width(78)
+      .height(94)
+      .backgroundColor(Theme.PAPER_SURFACE)
+      .border({ width: 1, color: Theme.OUTLINE_VARIANT })
+      .borderRadius(2)
       Text(preset.name)
-        .fontFamily(Theme.FONT_SANS)
+        .fontFamily(Theme.FONT_MONO)
         .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
         .fontColor(this.editState.filter.filterId === preset.id ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
         .fontWeight(this.editState.filter.filterId === preset.id ? FontWeight.Bold : FontWeight.Normal)
         .maxLines(1)
     }
-    .width(72)
-    .height(92)
+    .width(82)
+    .height(116)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => this.onSelectFilter(preset.id))
   }
@@ -118,5 +124,9 @@ export struct FilterPanel {
       }
     }
     return undefined;
+  }
+
+  private visiblePresets(): FilterPreset[] {
+    return FILTER_PRESETS.filter((preset: FilterPreset) => !this.unavailableFilterIds.includes(preset.id));
   }
 }

@@ -1,5 +1,8 @@
 import { image } from '@kit.ImageKit';
 import { BorderState } from '../models/SharedContracts';
+import { LengthMetricsUnit } from '@kit.ArkUI';
+import { resolveBorderGeometry } from '../features/editor/border/BorderLayoutResolver';
+import { paintBorder } from '../features/editor/border/BorderPainter';
 
 /**
  * 边框外扩几何布局数据
@@ -32,7 +35,7 @@ export interface BorderGeometry {
  */
 export class BorderCompositionService {
   /**
-   * 计算边框装裱的绝对像素几何结构（无 UI 依赖纯逻辑）
+   * 旧版几何查询接口（保留兼容）；实际预览和导出统一使用 BorderLayoutResolver。
    * @param border 边框状态
    * @param imageWidth 照片宽
    * @param imageHeight 照片高
@@ -135,22 +138,17 @@ export class BorderCompositionService {
       return basePixelMap;
     }
 
-    try {
-      const imageInfo = await basePixelMap.getImageInfo();
-      const geom = BorderCompositionService.resolveGeometry(
-        border,
-        imageInfo.size.width,
-        imageInfo.size.height
-      );
-
-      if (geom.templateId === 'none' || (geom.margins.top === 0 && geom.margins.bottom === 0 && geom.margins.left === 0 && geom.margins.right === 0)) {
-        return basePixelMap;
-      }
-
-      // 如果未启用外扩或运行在纯单测无 GPU 环境下，安全回退基底 PixelMap
-      return basePixelMap;
-    } catch (_err) {
+    const imageInfo = await basePixelMap.getImageInfo();
+    const geom = resolveBorderGeometry({ border: border, photoWidth: imageInfo.size.width,
+      photoHeight: imageInfo.size.height });
+    if (geom.templateId === 'none') {
       return basePixelMap;
     }
+    const canvas = new OffscreenCanvasRenderingContext2D(geom.outputWidth, geom.outputHeight,
+      new RenderingContextSettings(true), LengthMetricsUnit.PX);
+    paintBorder(canvas, geom, border);
+    canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+    // 失败必须上抛，不能把未装裱的原图当作成功结果。
+    return canvas.getPixelMap(0, 0, geom.outputWidth, geom.outputHeight);
   }
 }

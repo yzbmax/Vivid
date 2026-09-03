@@ -1,5 +1,8 @@
 import { image } from '@kit.ImageKit';
 import { TextLayer } from '../models/SharedContracts';
+import { LengthMetricsUnit } from '@kit.ArkUI';
+import { findFontEntry, resolveFontKey } from '../features/editor/text/FontCatalog';
+import { validateTextContent } from '../features/editor/text/TextLayerState';
 
 /**
  * 文字布局计算结果（用于确定性离线绘制与单测验证）
@@ -92,34 +95,42 @@ export class TextCompositionService {
    */
   static async render(
     basePixelMap: image.PixelMap,
-    textLayers: TextLayer[]
+    textLayers: TextLayer[],
+    unavailableFontKeys: string[] = []
   ): Promise<image.PixelMap> {
     if (!textLayers || textLayers.length === 0) {
       return basePixelMap;
     }
 
-    const validLayers = textLayers.filter((l: TextLayer) => l.content && l.content.trim().length > 0);
-    if (validLayers.length === 0) {
-      return basePixelMap;
-    }
-
-    try {
-      const imageInfo = await basePixelMap.getImageInfo();
-      const metrics = TextCompositionService.resolveLayoutMetrics(
-        validLayers,
-        imageInfo.size.width,
-        imageInfo.size.height
-      );
-
-      if (metrics.length === 0) {
-        return basePixelMap;
+    for (const layer of textLayers) {
+      if (!validateTextContent(layer.content).valid) {
+        throw new Error('Invalid text layer content');
       }
-
-      // 此处在 PixelMap 基础上合成文字图层
-      // 在无 GUI 运行态下保持基底安全返回并确保 metrics 确定性计算
-      return basePixelMap;
-    } catch (_err) {
-      return basePixelMap;
     }
+    const info = await basePixelMap.getImageInfo();
+    const w = info.size.width;
+    const h = info.size.height;
+    const canvas = new OffscreenCanvasRenderingContext2D(w, h, new RenderingContextSettings(true), LengthMetricsUnit.PX);
+    canvas.drawImage(basePixelMap, 0, 0, w, h);
+    const metrics = TextCompositionService.resolveLayoutMetrics(textLayers, w, h);
+    for (const metric of metrics) {
+      const family = findFontEntry(resolveFontKey(metric.fontKey, unavailableFontKeys))?.family ?? 'HarmonyOS Sans SC';
+      canvas.save();
+      canvas.translate(metric.centerPixelX, metric.centerPixelY);
+      canvas.rotate(metric.rotationDeg * Math.PI / 180);
+      canvas.globalAlpha = metric.opacity;
+      canvas.fillStyle = 'rgba(' + ((metric.colorArgb >>> 16) & 255) + ',' + ((metric.colorArgb >>> 8) & 255)
+        + ',' + (metric.colorArgb & 255) + ',' + ((metric.colorArgb >>> 24) / 255) + ')';
+      canvas.font = metric.fontSizePx + 'px "' + family + '"';
+      canvas.textAlign = 'center';
+      canvas.textBaseline = 'middle';
+      const lines = metric.content.replace(/\r\n|\r/g, '\n').split('\n');
+      const lineHeight = metric.fontSizePx * 1.25;
+      for (let i = 0; i < lines.length; i++) {
+        canvas.fillText(lines[i], 0, (i - (lines.length - 1) / 2) * lineHeight);
+      }
+      canvas.restore();
+    }
+    return canvas.getPixelMap(0, 0, w, h);
   }
 }

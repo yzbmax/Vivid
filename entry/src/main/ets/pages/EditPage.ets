@@ -33,12 +33,20 @@ import { AdjustPanel } from '../components/editor/AdjustPanel';
 import { StickerPanel } from '../components/editor/StickerPanel';
 import { FilterPanel } from '../components/editor/FilterPanel';
 import { BorderPanel } from '../components/editor/BorderPanel';
+import { sanitizeBorderState, switchBorderTemplate } from '../features/editor/border/BorderState';
+import { EditorCompositionService } from '../services/EditorCompositionService';
+import { EditorSnapshot, defaultEditorSnapshot } from '../models/SharedContracts';
+// ===== A: Text Layer =====
+import { TextLayer as TextLayerModel, cloneTextLayers } from '../models/SharedContracts';
+import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { TextPanel } from '../components/editor/TextPanel';
+import { registerTextFonts } from '../components/editor/TextFontRegistrar';
+// ===== End A =====
 import { EditorToolBar } from '../components/editor/EditorToolBar';
 import { RegionTabs } from '../components/editor/RegionTabs';
 import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { toExportProfile } from '../models/AppSettingsModels';
-import { ImageRenderService } from '../services/ImageRenderService';
 import { PhotoExportService } from '../services/PhotoExportService';
 import { getSubjectSegmentationService } from '../services/SubjectSegmentationService';
 import { WorkRecord } from '../models/WorkRecord';
@@ -54,7 +62,6 @@ import {
 import { image } from '@kit.ImageKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { buildAdjustmentFilter } from '../utils/ColorMatrixUtils';
-import { PREVIEW_STACK_ID } from '../components/editor/PreviewArea';
 import { EditState, createDefaultEditState } from '../features/editor/filter/FilterState';
 import { FilterPreset } from '../features/editor/filter/FilterModels';
 import { FILTER_PRESETS } from '../features/editor/filter/FilterCatalog';
@@ -62,6 +69,15 @@ import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge
 import { FilterController } from '../features/editor/filter/FilterController';
 import { OwnedRenderResult, PreviewPipeline } from '../services/PreviewPipeline';
 import { ThumbnailItem, ThumbnailPipeline } from '../services/ThumbnailPipeline';
+import { renderThumbnailBatch } from '../features/editor/filter/ThumbnailBatch';
+// ===== A: Text Layer =====
+import {
+  applyTextInput,
+  deleteTextLayer,
+  TextLayerPatch,
+  updateTextLayer
+} from '../features/editor/text/TextLayerState';
+// ===== End A =====
 
 /**
  * 独立调色编辑页。
@@ -75,7 +91,7 @@ import { ThumbnailItem, ThumbnailPipeline } from '../services/ThumbnailPipeline'
  * 路由参数：source（picker/work）、imageUri（picker 时）、workId（work 时）、
  * initialTool（可选，快捷入口传入）。
  *
- * 保存当前为占位（仅按钮不保存）；B 的 WorkSaveService 交付后接入异步保存/草稿链路。
+ * 文字区“保存”确认当前题签；顶部“导出”执行滤镜、调色、文字、边框合成及相册保存。
  * 编辑页为独立 @Entry 路由，不进入 Index 底部 Tab。
  */
 @Entry
@@ -89,6 +105,19 @@ struct EditPage {
   @State editState: EditState = createDefaultEditState();
   // ── Vivid 0.1.9 边框状态（C 独占）──
   @State borderState: BorderState = defaultBorderState();
+  // ===== A: Text Layer =====
+  @State textLayers: TextLayerModel[] = [];
+  @State selectedTextLayerId: string = '';
+  @State textInputContent: string = '';
+  @State textValidationMessage: string = '';
+  @State textSaved: boolean = false;
+  @State textPhotoWidth: number = 0;
+  @State textPhotoHeight: number = 0;
+  @State textEditorViewportH: number = 600;
+  @State unavailableTextFontKeys: string[] = [];
+  private previousTextKeyboardMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+  private textLayerSequence: number = 1;
+  // ===== End A =====
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
   @State activeTool: EditorToolKey = 'adjust';
@@ -117,6 +146,8 @@ struct EditPage {
   @State previewPixelMap: image.PixelMap | undefined = undefined;
   @State previewLoading: boolean = true;
   @State thumbnailItems: ThumbnailItem[] = [];
+  @State unavailableFilterIds: string[] = [];
+  private thumbnailsComplete: boolean = false;
   private previewSourcePixelMap: image.PixelMap | undefined = undefined;
   private renderedPreviewOwner: OwnedRenderResult<image.PixelMap> =
     new OwnedRenderResult<image.PixelMap>((value: image.PixelMap) => value.release());
@@ -132,6 +163,15 @@ struct EditPage {
   aboutToAppear(): void {
     this.disposed = false;
     this.previewLoading = true;
+    // ===== A: Text Layer =====
+    const textContext = this.getUIContext();
+    this.previousTextKeyboardMode = textContext.getKeyboardAvoidMode();
+    const fontReport = registerTextFonts(textContext);
+    this.unavailableTextFontKeys = fontReport.failed;
+    if (fontReport.failed.length > 0) {
+      console.warn('Text font registration fallback count: ' + fontReport.failed.length);
+    }
+    // ===== End A =====
     const raw = this.getUIContext().getRouter().getParams() as RawEditRouteParams;
     const route = parseEditRouteParams(raw ?? {});
     this.route = route;
@@ -157,6 +197,12 @@ struct EditPage {
         if (work.regionAdjustments !== undefined) {
           this.regionAdjustments = cloneRegionAdjustments(work.regionAdjustments);
         }
+        // ===== A: Text Layer =====
+        if (work.editorSnapshot !== undefined) {
+          this.textLayers = cloneTextLayers(work.editorSnapshot.textLayers);
+          this.textLayerSequence = this.nextTextLayerSequence(this.textLayers);
+        }
+        // ===== End A =====
       } else {
         this.errorText = '作品不存在';
       }
@@ -164,6 +210,11 @@ struct EditPage {
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
     }
+    // ===== A: Text Layer =====
+    if (this.activeTool === 'text') {
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE_WITH_CARET);
+    }
+    // ===== End A =====
     if (this.activeTool === 'subject' || this.activeTool === 'background') {
       this.activeRegion = this.activeTool;
       this.selectedType = REGION_ADJUST_TYPES[0].key;
@@ -175,6 +226,9 @@ struct EditPage {
   }
 
   aboutToDisappear(): void {
+    // ===== A: Text Layer =====
+    this.getUIContext().setKeyboardAvoidMode(this.previousTextKeyboardMode);
+    // ===== End A =====
     this.disposed = true;
     this.releaseRenderedPreview();
     this.previewPipeline.dispose();
@@ -215,6 +269,16 @@ struct EditPage {
       }
       this.previewSourcePixelMap = source;
       this.previewPixelMap = source;
+      // ===== A: Text Layer =====
+      // PixelMap 预览不会触发 URI Image 尺寸回调；供照片、文字和装裱统一布局使用。
+      try {
+        const textImageInfo = source.getImageInfoSync();
+        this.textPhotoWidth = textImageInfo.size.width;
+        this.textPhotoHeight = textImageInfo.size.height;
+      } catch (_err) {
+        console.warn('Editor preview dimensions unavailable');
+      }
+      // ===== End A =====
       this.previewLoading = false;
       console.info('Editor preview source decoded');
       if (this.activeTool === 'filter') {
@@ -276,10 +340,12 @@ struct EditPage {
       );
       if (result !== undefined) {
         if (this.disposed) {
-          result.release();
+          if (result !== source) {
+            result.release();
+          }
           return;
         }
-        this.renderedPreviewOwner.replace(result);
+        this.renderedPreviewOwner.replace(result, source);
         this.previewPixelMap = result;
       }
     } catch (err) {
@@ -296,7 +362,7 @@ struct EditPage {
     if (this.imageSrc === '' || this.loadingThumbnails) {
       return;
     }
-    if (this.thumbnailItems.length === FILTER_PRESETS.length) {
+    if (this.thumbnailsComplete) {
       return;
     }
     this.loadingThumbnails = true;
@@ -305,18 +371,18 @@ struct EditPage {
       const sessionId = `session_${Date.now()}`;
       await this.thumbnailPipeline.loadSource(this.imageSrc, sessionId, context);
       const items: ThumbnailItem[] = [];
-      for (let i = 0; i < FILTER_PRESETS.length; i++) {
-        if (this.disposed) {
-          break;
-        }
-        const preset = FILTER_PRESETS[i];
-        const pm = await this.thumbnailPipeline.renderPreset(context, preset);
-        if (pm !== undefined) {
+      await renderThumbnailBatch<image.PixelMap>(FILTER_PRESETS,
+        (preset: FilterPreset) => this.thumbnailPipeline.renderPreset(context, preset),
+        (preset: FilterPreset, pm: image.PixelMap) => {
           items.push({ filterId: preset.id, pixelMap: pm });
-        }
-      }
+          this.thumbnailItems = items.slice();
+        },
+        (preset: FilterPreset) => {
+          this.unavailableFilterIds = this.unavailableFilterIds.concat([preset.id]);
+          console.warn('Filter thumbnail unavailable: ' + preset.id);
+        }, () => !this.disposed);
       if (!this.disposed) {
-        this.thumbnailItems = items;
+        this.thumbnailsComplete = true;
       }
     } catch (err) {
       console.error(`Failed to build filter thumbnails: ${JSON.stringify(err)}`);
@@ -433,51 +499,69 @@ struct EditPage {
   editorBody() {
     Column() {
       // 中部预览区
-      PreviewArea({
-        imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
-        previewPixelMap: $previewPixelMap,
-        previewLoading: this.previewLoading,
-        params: this.params,
-        isComparing: this.isComparing,
-        baseImage: this.baseImage,
-        foregroundImage: this.foregroundImage,
-        subjectFilter: buildAdjustmentFilter(
-          this.regionAdjustments.subject.exposure,
-          this.regionAdjustments.subject.contrast,
-          this.regionAdjustments.subject.saturation,
-          this.regionAdjustments.subject.temperature
-        ),
-        baseFilter: buildAdjustmentFilter(
-          this.regionAdjustments.background.exposure,
-          this.regionAdjustments.background.contrast,
-          this.regionAdjustments.background.saturation,
-          this.regionAdjustments.background.temperature
-        ),
-        onCompareChange: (down: boolean) => {
-          this.isComparing = down;
-        },
-        onImageSizeChange: (w: number, h: number) => {
-          this.imageWidth = w;
-          this.imageHeight = h;
-        },
-        stickers: this.stickers,
-        stickerMode: this.activeTool === 'sticker',
-        selectedStickerId: this.selectedStickerId,
-        stickerVersion: this.stickerVersion,
-        onStickerSelect: (instanceId: string) => {
-          this.selectedStickerId = instanceId;
-          this.updateTargetValues();
-        },
-        onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
-          this.updateStickerPosition(instanceId, posX, posY, size, rotation);
-        },
-        onDisplaySizeChange: (displayW: number, displayH: number) => {
-          this.previewDisplayW = displayW;
-          this.previewDisplayH = displayH;
-        }
-      })
-        .layoutWeight(1)
-        .padding({ top: Theme.GUTTER, bottom: Theme.GUTTER })
+      // ===== A: Text Layer =====
+      Column() {
+        PreviewArea({
+          imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
+          previewPixelMap: $previewPixelMap,
+          previewLoading: this.previewLoading,
+          originalPixelMap: this.previewSourcePixelMap,
+          photoWidth: this.textPhotoWidth,
+          photoHeight: this.textPhotoHeight,
+          borderState: this.borderState,
+          textLayers: this.textLayers,
+          selectedTextLayerId: this.textSaved ? '' : this.selectedTextLayerId,
+          textMode: this.activeTool === 'text',
+          unavailableFontKeys: this.unavailableTextFontKeys,
+          onTextSelect: (id: string) => this.selectTextLayer(id),
+          onTextMove: (id: string, x: number, y: number) => this.updateTextLayer(id, { centerX: x, centerY: y }),
+          params: this.params,
+          isComparing: this.isComparing,
+          baseImage: this.baseImage,
+          foregroundImage: this.foregroundImage,
+          subjectFilter: buildAdjustmentFilter(
+            this.regionAdjustments.subject.exposure,
+            this.regionAdjustments.subject.contrast,
+            this.regionAdjustments.subject.saturation,
+            this.regionAdjustments.subject.temperature
+          ),
+          baseFilter: buildAdjustmentFilter(
+            this.regionAdjustments.background.exposure,
+            this.regionAdjustments.background.contrast,
+            this.regionAdjustments.background.saturation,
+            this.regionAdjustments.background.temperature
+          ),
+          onCompareChange: (down: boolean) => {
+            this.isComparing = this.activeTool === 'text' ? false : down;
+          },
+          onImageSizeChange: (w: number, h: number) => {
+            this.imageWidth = w;
+            this.imageHeight = h;
+          },
+          stickers: this.stickers,
+          stickerMode: this.activeTool === 'sticker',
+          selectedStickerId: this.selectedStickerId,
+          stickerVersion: this.stickerVersion,
+          onStickerSelect: (instanceId: string) => {
+            this.selectedStickerId = instanceId;
+            this.updateTargetValues();
+          },
+          onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
+            this.updateStickerPosition(instanceId, posX, posY, size, rotation);
+          },
+          onDisplaySizeChange: (displayW: number, displayH: number) => {
+            this.previewDisplayW = displayW;
+            this.previewDisplayH = displayH;
+          }
+        })
+          .width('100%')
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .padding(Theme.GUTTER)
+      .clip(true)
+      // ===== End A =====
 
       // 区域切换 Tab（主体/背景）
       if (this.isRegionMode()) {
@@ -549,6 +633,7 @@ struct EditPage {
           editState: this.editState,
           previewPixelMap: $previewPixelMap,
           thumbnails: $thumbnailItems,
+          unavailableFilterIds: this.unavailableFilterIds,
           onSelectFilter: (filterId: string) => {
             this.applyFilterSelection(filterId);
           },
@@ -586,29 +671,52 @@ struct EditPage {
             this.onSliderOpacityChange(value);
           }
         })
+      } else if (this.activeTool === 'text') {
+        // ===== A: Text Layer =====
+        TextPanel({
+          layers: this.textLayers,
+          selectedId: this.selectedTextLayerId,
+          inputContent: this.textInputContent,
+          validationMessage: this.textValidationMessage,
+          saved: this.textSaved,
+          unavailableFontKeys: this.unavailableTextFontKeys,
+          maxPanelHeight: Math.max(80, Math.min(320, this.textEditorViewportH * 0.55)),
+          onInputChange: (value: string) => this.onTextInput(value),
+          onConfirm: () => this.confirmTextLayer(),
+          onDelete: () => this.deleteSelectedTextLayer(),
+          onSelect: (id: string) => this.selectTextLayer(id),
+          onFontChange: (fontKey: string) => this.updateTextLayer(this.selectedTextLayerId, { fontKey: fontKey }),
+          onColorChange: (colorArgb: number) => this.updateTextLayer(this.selectedTextLayerId, { colorArgb: colorArgb }),
+          onFontSizeChange: (value: number) => this.updateTextLayer(this.selectedTextLayerId, { fontSizeRatio: value }),
+          onRotationChange: (value: number) => this.updateTextLayer(this.selectedTextLayerId, { rotationDeg: value }),
+          onOpacityChange: (value: number) => this.updateTextLayer(this.selectedTextLayerId, { opacity: value })
+        })
+        // ===== End A =====
       } else if (this.activeTool === 'border') {
         // ===== C: Filter & Border =====
         BorderPanel({
           borderState: this.borderState,
           onSelectTemplate: (templateId: string) => {
-            const next = cloneBorderState(this.borderState);
-            next.templateId = templateId;
-            this.borderState = next;
+            this.borderState = switchBorderTemplate(this.borderState, templateId);
+            this.dirty = true;
           },
           onWidthRatioChange: (value: number) => {
             const next = cloneBorderState(this.borderState);
             next.widthRatio = value;
-            this.borderState = next;
+            this.borderState = sanitizeBorderState(next);
+            this.dirty = true;
           },
           onColorChange: (colorArgb: number) => {
             const next = cloneBorderState(this.borderState);
             next.colorArgb = colorArgb;
-            this.borderState = next;
+            this.borderState = sanitizeBorderState(next);
+            this.dirty = true;
           },
           onShadowChange: (value: number) => {
             const next = cloneBorderState(this.borderState);
             next.shadowStrength = value;
-            this.borderState = next;
+            this.borderState = sanitizeBorderState(next);
+            this.dirty = true;
           }
         })
       } else {
@@ -625,6 +733,11 @@ struct EditPage {
     }
     .width('100%')
     .layoutWeight(1)
+    // ===== A: Text Layer =====
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.textEditorViewportH = Number(newValue.height);
+    })
+    // ===== End A =====
   }
 
   @Builder
@@ -649,6 +762,11 @@ struct EditPage {
 
   private onToolSelect(key: EditorToolKey): void {
     this.activeTool = key;
+    // ===== A: Text Layer =====
+    this.getUIContext().setKeyboardAvoidMode(key === 'text'
+      ? KeyboardAvoidMode.RESIZE_WITH_CARET : this.previousTextKeyboardMode);
+    this.isComparing = false;
+    // ===== End A =====
     if (key === 'subject' || key === 'background') {
       this.activeRegion = key;
       this.selectedType = REGION_ADJUST_TYPES[0].key;
@@ -680,6 +798,118 @@ struct EditPage {
     }
     return '';
   }
+
+  // ===== A: Text Layer =====
+  private selectTextLayer(id: string): void {
+    if (id !== '' && id === this.selectedTextLayerId) {
+      this.textSaved = false;
+      return;
+    }
+    this.textValidationMessage = '';
+    this.textSaved = false;
+    for (let i = 0; i < this.textLayers.length; i++) {
+      if (this.textLayers[i].id === id) {
+        this.selectedTextLayerId = id;
+        this.textInputContent = this.textLayers[i].content;
+        this.textValidationMessage = '';
+        return;
+      }
+    }
+    this.selectedTextLayerId = '';
+    this.textInputContent = '';
+  }
+
+  private onTextInput(value: string): void {
+    if (this.textInputContent === value) {
+      return;
+    }
+    this.textInputContent = value;
+    this.textSaved = false;
+    this.syncTextInput();
+  }
+
+  private syncTextInput(): boolean {
+    const id = 'text-' + this.textLayerSequence;
+    const isNew = this.selectedTextLayerId === '';
+    const result = applyTextInput(this.textLayers, this.selectedTextLayerId, this.textInputContent, id);
+    if (result.error !== '') {
+      this.textValidationMessage = result.error;
+      return false;
+    }
+    if (isNew) {
+      this.textLayerSequence++;
+    }
+    this.textLayers = result.layers;
+    this.selectedTextLayerId = result.selectedId ?? '';
+    this.textValidationMessage = '';
+    this.dirty = true;
+    return true;
+  }
+
+  private confirmTextLayer(): boolean {
+    if (!this.syncTextInput()) {
+      return false;
+    }
+    // 保存当前题签，不导出、不退出编辑页，也不清空整张作品的 dirty 状态。
+    this.textSaved = true;
+    this.toast('文字已保存');
+    return true;
+  }
+
+  private updateTextLayer(id: string, patch: TextLayerPatch): void {
+    if (id === '') {
+      return;
+    }
+    const result = updateTextLayer(this.textLayers, id, patch);
+    if (result.error !== '') {
+      this.textValidationMessage = result.error;
+      return;
+    }
+    this.textLayers = result.layers;
+    this.textSaved = false;
+    // 参数变化不能抹掉尚未修正的内容校验错误。
+    if (patch.content !== undefined) {
+      this.textInputContent = patch.content;
+    }
+    this.dirty = true;
+  }
+
+  private deleteSelectedTextLayer(): void {
+    if (this.selectedTextLayerId === '') {
+      return;
+    }
+    const result = deleteTextLayer(this.textLayers, this.selectedTextLayerId, this.selectedTextLayerId);
+    this.textLayers = result.layers;
+    this.selectedTextLayerId = result.selectedId ?? '';
+    this.textInputContent = '';
+    if (this.selectedTextLayerId !== '') {
+      for (let i = 0; i < this.textLayers.length; i++) {
+        if (this.textLayers[i].id === this.selectedTextLayerId) {
+          this.textInputContent = this.textLayers[i].content;
+          break;
+        }
+      }
+    }
+    this.textValidationMessage = '';
+    this.textSaved = false;
+    this.dirty = true;
+  }
+
+  private nextTextLayerSequence(layers: TextLayerModel[]): number {
+    let next = 1;
+    for (let i = 0; i < layers.length; i++) {
+      const prefix = 'text-';
+      if (!layers[i].id.startsWith(prefix)) {
+        continue;
+      }
+      const numeric = Number(layers[i].id.substring(prefix.length));
+      if (Number.isFinite(numeric) && numeric >= next) {
+        next = Math.floor(numeric) + 1;
+      }
+    }
+    return next;
+  }
+  // ===== End A =====
 
   // ── 参数更新 ──
 
@@ -998,6 +1228,16 @@ struct EditPage {
     if (this.saving) {
       return;
     }
+    if (this.textValidationMessage !== '') {
+      this.onToolSelect('text');
+      this.toast('请先修正题签内容再导出');
+      return;
+    }
+    const snapshot: EditorSnapshot = defaultEditorSnapshot();
+    snapshot.filter = { filterId: this.editState.filter.filterId, strength: this.editState.filter.strength };
+    snapshot.textLayers = cloneTextLayers(this.textLayers);
+    snapshot.border = cloneBorderState(this.borderState);
+    const adjustments = cloneAdjustments(this.params);
     this.saving = true;
 
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -1015,8 +1255,7 @@ struct EditPage {
       const exportProfile = toExportProfile(exportSettings);
 
       // 确保滤镜资源已加载
-      const filterId = this.editState.filter.filterId;
-      const filterStrength = this.editState.filter.strength;
+      const filterId = snapshot.filter.filterId;
       const preset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
       if (preset !== undefined && preset.lutPath !== undefined && !this.loadedFilterIds.includes(filterId)) {
         const loaded = await FilterNativeBridge.loadPreset(context, preset);
@@ -1029,19 +1268,23 @@ struct EditPage {
       }
 
       // 渲染调色后的图片
-      const pixelMap = await ImageRenderService.render(
+      const composition = await EditorCompositionService.render(
         sourceUri,
-        this.params,
+        adjustments,
+        snapshot,
         exportProfile,
-        filterId,
-        filterStrength,
         true,
-        context
+        context,
+        this.unavailableTextFontKeys
       );
 
       // 编码到 cacheDir
-      const cacheFilePath = await PhotoExportService.encodeToCacheFile(context, pixelMap, exportProfile);
-      pixelMap.release();
+      let cacheFilePath: string;
+      try {
+        cacheFilePath = await PhotoExportService.encodeToCacheFile(context, composition.pixelMap, exportProfile);
+      } finally {
+        composition.pixelMap.release();
+      }
 
       if (!cacheFilePath) {
         this.toast('图片编码失败');

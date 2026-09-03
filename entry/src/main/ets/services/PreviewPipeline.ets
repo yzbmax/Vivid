@@ -1,6 +1,7 @@
 import { image } from '@kit.ImageKit';
 import { common } from '@kit.AbilityKit';
 import { ImageRenderService } from './ImageRenderService';
+export { fitPreviewCard } from '../features/editor/preview/EditorPreviewLayout';
 
 /** Preview renders never decode a source image beyond this long edge. */
 export const PREVIEW_MAX_LONG_EDGE: number = 1440;
@@ -47,33 +48,6 @@ export function fitPreviewDimensions(
   };
 }
 
-/**
- * Resolves an explicit preview card size inside the measured editor area.
- * Before the Image component reports its natural size, the full container is
- * used as a non-zero bootstrap size so ArkUI can mount and decode the source.
- */
-export function fitPreviewCard(
-  containerWidth: number,
-  containerHeight: number,
-  imageWidth: number,
-  imageHeight: number
-): PreviewDimensions {
-  if (containerWidth <= 0 || containerHeight <= 0) {
-    return { width: 0, height: 0 };
-  }
-  if (imageWidth <= 0 || imageHeight <= 0) {
-    return {
-      width: Math.max(1, Math.floor(containerWidth)),
-      height: Math.max(1, Math.floor(containerHeight))
-    };
-  }
-  const scale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
-  return {
-    width: Math.max(1, Math.floor(imageWidth * scale)),
-    height: Math.max(1, Math.floor(imageHeight * scale))
-  };
-}
-
 /** Monotonically increasing token used to discard out-of-order renders. */
 export class RenderGeneration {
   private renderGeneration: number = 0;
@@ -101,9 +75,13 @@ export class OwnedRenderResult<T> {
     this.releaseResult = releaseResult;
   }
 
-  replace(next: T): T {
+  replace(next: T, borrowed?: T): T {
+    if (next === this.current) {
+      return next;
+    }
     this.clear();
-    this.current = next;
+    // 原图由 PreviewPipeline 持有，不能随临时滤镜结果一起释放。
+    this.current = next === borrowed ? undefined : next;
     return next;
   }
 
@@ -163,7 +141,11 @@ export class PreviewPipeline {
     return keepLatest(
       this.generations,
       () => renderTask(source),
-      (stale: image.PixelMap) => stale.release()
+      (stale: image.PixelMap) => {
+        if (stale !== source) {
+          stale.release();
+        }
+      }
     );
   }
 
