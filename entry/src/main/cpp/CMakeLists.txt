@@ -26,6 +26,11 @@ target_compile_definitions(vivid_image PRIVATE
     NODE_GYP_MODULE_NAME=vivid_image
 )
 
+target_compile_options(vivid_image PRIVATE
+    -fexceptions
+    -frtti
+)
+
 target_link_libraries(vivid_image PUBLIC
     image_effect
     pixelmap

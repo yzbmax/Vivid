@@ -24,7 +24,7 @@ export struct AgreementPage {
       Scroll() {
         Column({ space: 18 }) {
           Column({ space: 6 }) {
-            Text('呈报依据')
+            Text('法律依据')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(11)
               .fontColor(MASK_SEAL.primary)
@@ -66,7 +66,7 @@ export struct AgreementPage {
             .backgroundColor(MASK_SEAL.paperSurface)
             .border({ width: 1, color: '#ded0cc' });
           }, (section: string) => section);
-          Text('呈报复核 · 文书示例')
+          Text('归档示例 · 文书留存')
             .fontFamily(Theme.FONT_MONO)
             .fontSize(10)
             .fontColor('#8a5c57')

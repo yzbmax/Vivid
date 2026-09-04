@@ -129,5 +129,12 @@ export default function filterStateTest() {
       const moon = selectFilter(createDefaultEditState(), 'moonlit_blue');
       expect(moon.filter.strength).assertEqual(0.74);
     });
+
+    it('ensures all filter presets have Chinese names', 0, () => {
+      const chineseRegex = /^[\u4e00-\u9fa5]+$/;
+      for (const preset of FILTER_PRESETS) {
+        expect(chineseRegex.test(preset.name)).assertTrue();
+      }
+    });
   });
 }

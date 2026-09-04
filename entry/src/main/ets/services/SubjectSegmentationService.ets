@@ -187,11 +187,19 @@ export class SubjectSegmentationService {
       elapsed, count, maskW, maskH);
 
     // 提取前景图（透明背景，用于双图 colorFilter 渲染）
-    const foregroundImage = full.foregroundImage;
+    let foregroundImage: image.PixelMap | undefined = full.foregroundImage;
     if (foregroundImage !== undefined && foregroundImage !== null) {
-      hilog.info(0x0000, TAG, 'foreground image extracted');
+      hilog.info(0x0000, TAG, 'foreground image extracted from platform');
     } else {
-      hilog.warn(0x0000, TAG, 'foreground image not available');
+      hilog.warn(0x0000, TAG, 'foreground image not available from platform, synthesizing from mask');
+      try {
+        foregroundImage = await SubjectSegmentationService.extractForegroundFromMask(
+          pixelMap, weights, maskW, maskH);
+        hilog.info(0x0000, TAG, 'foreground image synthesized from mask successfully');
+      } catch (synthErr) {
+        hilog.error(0x0000, TAG, 'synthesize foreground image failed: %{public}s', String(synthErr));
+        foregroundImage = undefined;
+      }
     }
 
     const output: SegmentationOutput = {
@@ -201,6 +209,37 @@ export class SubjectSegmentationService {
       foregroundImage: foregroundImage
     };
     return SegmentOutcome.ready(output);
+  }
+
+  /**
+   * 从原图与逐像素蒙版权重合成透明背景前景 PixelMap。
+   * 逐像素计算：Alpha = (原图Alpha * 权重) / 255。
+   */
+  static async extractForegroundFromMask(
+    sourcePixelMap: image.PixelMap,
+    weights: Uint8Array,
+    width: number,
+    height: number
+  ): Promise<image.PixelMap> {
+    const info = await sourcePixelMap.getImageInfo();
+    const realW = info.size.width;
+    const realH = info.size.height;
+    const byteCount = sourcePixelMap.getPixelBytesNumber();
+    const buffer = new ArrayBuffer(byteCount);
+    await sourcePixelMap.readPixelsToBuffer(buffer);
+    const view = new Uint8Array(buffer);
+    const pixelCount = realW * realH;
+    const len = Math.min(weights.length, pixelCount);
+    for (let i = 0; i < len; i++) {
+      const alphaIdx = i * 4 + 3;
+      view[alphaIdx] = Math.round((view[alphaIdx] * weights[i]) / 255);
+    }
+    const opts: image.InitializationOptions = {
+      size: { width: realW, height: realH },
+      pixelFormat: image.PixelMapFormat.RGBA_8888,
+      editable: false
+    };
+    return await image.createPixelMap(buffer, opts);
   }
 
   /** 换图 / 页面离开：自增会话代次，使在途 segment 结果作废（V2 §30）。 */

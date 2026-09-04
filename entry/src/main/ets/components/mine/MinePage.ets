@@ -1,5 +1,6 @@
-import { MASK_SEAL, SealButton, SealPaperBackground, SettingRow } from '../MaskSeal';
+import { MASK_SEAL, SealButton, SettingRow } from '../MaskSeal';
 import { PageHeader } from '../common/PageHeader';
+import { PaperBackground } from '../common/PaperBackground';
 import { Theme } from '../common/Theme';
 import { AuthUiState } from '../../models/AuthUiState';
 import { AuthSession, MockUser } from '../../models/AuthModels';
@@ -65,7 +66,7 @@ export struct MinePage {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      SealPaperBackground();
+      PaperBackground();
       Column() {
       PageHeader({ title: '我的', showBack: false, onBack: () => {}, topInset: true });
       Scroll() {
@@ -155,7 +156,7 @@ export struct MinePage {
           }
 
           Column() {
-            Text('呈报依据')
+            Text('法律依据')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
@@ -177,7 +178,7 @@ export struct MinePage {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
-        .padding({ left: 32, right: 32, top: 20, bottom: 28 });
+        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: 20, bottom: 28 });
       }
       .layoutWeight(1);
       }

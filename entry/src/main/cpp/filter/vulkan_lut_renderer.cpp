@@ -50,20 +50,6 @@ void LogError(const char* message) {
     OH_LOG_Print(LOG_APP, LOG_ERROR, kLogDomain, kLogTag, "%{public}s", message);
 }
 
-uint64_t SampleChecksum(const uint8_t* data, VkDeviceSize size) {
-    constexpr uint64_t kOffsetBasis = 1469598103934665603ULL;
-    constexpr uint64_t kPrime = 1099511628211ULL;
-    uint64_t hash = kOffsetBasis;
-    for (VkDeviceSize offset = 0; offset < size; offset += 64) {
-        const VkDeviceSize sampleEnd = std::min(size, offset + 4);
-        for (VkDeviceSize index = offset; index < sampleEnd; ++index) {
-            hash ^= data[index];
-            hash *= kPrime;
-        }
-    }
-    return hash;
-}
-
 }  // namespace
 
 VulkanLutRenderer::~VulkanLutRenderer() {
@@ -412,7 +398,6 @@ bool VulkanLutRenderer::Render(uint8_t* rgba,
     }
     const VkDeviceSize imageSize =
         static_cast<VkDeviceSize>(rowBytes) * static_cast<VkDeviceSize>(height);
-    const uint64_t inputChecksum = SampleChecksum(rgba, imageSize);
     const std::vector<uint8_t> originalPixels(
         rgba, rgba + static_cast<std::size_t>(imageSize));
     Buffer input{};
@@ -569,15 +554,10 @@ bool VulkanLutRenderer::Render(uint8_t* rgba,
         usedCpuFallback = true;
     }
 
-    const uint64_t outputChecksum = SampleChecksum(rgba, imageSize);
-
     cleanupRender();
     const std::string message = "Dispatched filter=" + filterId + " size=" +
                                 std::to_string(width) + "x" + std::to_string(height) +
                                 " strength=" + std::to_string(strength) +
-                                " inputHash=" + std::to_string(inputChecksum) +
-                                " outputHash=" + std::to_string(outputChecksum) +
-                                " changed=" + (inputChecksum == outputChecksum ? "false" : "true") +
                                 " backend=" + (usedCpuFallback ? "cpu-fallback" : "vulkan");
     LogInfo(message.c_str());
     return true;

@@ -3,6 +3,7 @@ import { WorksPage } from './WorksPage';
 import { MinePage } from '../components/mine/MinePage';
 import { Theme } from '../components/common/Theme';
 import { font } from '@kit.ArkUI';
+import { WorkUiState } from '../models/WorkUiState';
 
 /**
  * 主框架容器（MainTabs，首页 / 作品 / 我的）。
@@ -18,7 +19,8 @@ import { font } from '@kit.ArkUI';
 @Entry
 @Component
 struct Index {
-  @State currentIndex: number = 0;
+  @StorageLink('mainTabIndex') currentIndex: number = 0;
+  private tabsController: TabsController = new TabsController();
 
   /** 系统导航条高度（vp，EntryAbility 换算后写入；tab 栏底部按此避让） */
   @StorageProp('navBarHeight')
@@ -29,6 +31,10 @@ struct Index {
     font.registerFont({ familyName: 'Noto Serif', familySrc: $rawfile('fonts/notoserif.ttf') });
     font.registerFont({ familyName: 'Noto Serif SC', familySrc: $rawfile('fonts/notoserifsc.ttf') });
     font.registerFont({ familyName: 'Kai', familySrc: $rawfile('fonts/gkai.ttf') });
+  }
+
+  onPageShow(): void {
+    WorkUiState.bumpRevision();
   }
 
   @Builder
@@ -54,7 +60,7 @@ struct Index {
   }
 
   build() {
-    Tabs({ barPosition: BarPosition.End }) {
+    Tabs({ barPosition: BarPosition.End, controller: this.tabsController, index: this.currentIndex }) {
       TabContent() {
         HomePage()
       }

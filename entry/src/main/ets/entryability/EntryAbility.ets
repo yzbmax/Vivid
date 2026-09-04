@@ -1,6 +1,8 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window, display } from '@kit.ArkUI';
+import { mockWorkStore } from '../models/MockWorkStore';
+import { draftStore } from '../models/DraftStore';
 
 const DOMAIN = 0x0000;
 
@@ -11,6 +13,10 @@ export default class EntryAbility extends UIAbility {
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
+    AppStorage.setOrCreate('appContext', this.context);
+    // 进程启动或冷启动时立即从沙箱持久化存储载入作品与草稿
+    mockWorkStore.init(this.context);
+    draftStore.init(this.context);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
 

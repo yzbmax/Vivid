@@ -10,6 +10,9 @@ import { EditEntrySource } from '../models/EditModels';
 import { WorkUiState } from '../models/WorkUiState';
 import { WorkSaveService } from '../services/WorkSaveService';
 import { PhotoExportService } from '../services/PhotoExportService';
+import { AppSettingsStore } from '../models/AppSettingsStore';
+import { AppExportSettings, ExportFormat, toExportProfile } from '../models/AppSettingsModels';
+import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
 import { common } from '@kit.AbilityKit';
 
 /**
@@ -28,20 +31,53 @@ export struct WorksPage {
     @State sortDescending: boolean = true;
     /** 当前正在导出的作品 ID */
     @State exportingWorkId: string = '';
+    @State showExportDialog: boolean = false;
+    @State pendingExportId: string = '';
 
-    private filterItems: SegmentItem[] = [
-        { label: '全部卷宗 (ALL)', key: 'all' },
-        { label: '已封印 (SEALED)', key: 'sealed' },
-        { label: '草稿 (DRAFTS)', key: 'draft' }
-    ];
+    private sealedCount(): number {
+        return this.works.filter((w: WorkRecord) => w.status === WorkStatus.Sealed).length;
+    }
+
+    private draftCount(): number {
+        return this.works.filter((w: WorkRecord) => w.status === WorkStatus.Draft).length;
+    }
+
+    private getFilterItems(): SegmentItem[] {
+        return [
+            { label: `全部卷宗 (${this.works.length})`, key: 'all' },
+            { label: `已封印 (${this.sealedCount()})`, key: 'sealed' },
+            { label: `草稿 (${this.draftCount()})`, key: 'draft' }
+        ];
+    }
+
+    private getStatCount(): number {
+        if (this.selectedFilter === 'sealed') {
+            return this.sealedCount();
+        }
+        if (this.selectedFilter === 'draft') {
+            return this.draftCount();
+        }
+        return this.works.length;
+    }
+
+    private getStatLabel(): string {
+        if (this.selectedFilter === 'sealed') {
+            return 'SEALED ARCHIVED WORKS';
+        }
+        if (this.selectedFilter === 'draft') {
+            return 'PENDING DRAFT ARCHIVES';
+        }
+        return 'TOTAL ARCHIVED WORKS';
+    }
 
     private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     private unsubWorkUi: (() => void) | null = null;
 
     aboutToAppear(): void {
-        mockWorkStore.init();
+        mockWorkStore.init(this.context);
         this.works = mockWorkStore.list();
         this.unsubWorkUi = WorkUiState.onChange(() => {
+            mockWorkStore.init(this.context);
             this.works = mockWorkStore.list();
         });
     }
@@ -54,60 +90,80 @@ export struct WorksPage {
     }
 
     build() {
-        // @Entry 根节点必须是内置容器组件，故以 Column 作为外层，宣纸背景作为子层铺满
-        Column() {
-            PaperBackground() {
-                Column() {
-                    // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
-                    PageHeader({ title: '作品', showBack: false, onBack: () => {}, topInset: true })
-                    Scroll() {
-                        Column() {
-                            // 筛选分段（Works Page 样板：全部卷宗 / 已封印 / 草稿）
-                            SegmentTabs({
-                                items: this.filterItems,
-                                selected: this.selectedFilter,
-                                cornerMark: true,
-                                chipMode: true,
-                                onChange: (key: string) => {
-                                    this.selectedFilter = key;
-                                }
-                            })
-                            this.statBlock()
-                            WorkGrid({
-                                items: this.displayedWorks(),
-                                emptyTitle: '暂无作品',
-                                emptyDescription: '导入图片开始创作',
-                                onCardClick: (id: string) => {
-                                    this.onWorkClick(id);
-                                },
-                                onCardLongPress: (id: string) => {
-                                    this.onWorkLongPress(id);
-                                }
-                            })
-                            this.endMark()
-                        }
-                        .width('100%')
-                        .constraintSize({ minHeight: '100%' })
-                        .padding({ bottom: 24 })
-                    }
-                    .layoutWeight(1)
-                    .scrollBar(BarState.Off)
-                    .edgeEffect(EdgeEffect.Spring)
-                    // 底部：卷宗落款（底部导航由 Index 的 Tabs 提供，本页不再预留占位）
+        Stack({ alignContent: Alignment.Center }) {
+            // @Entry 根节点外层布局
+            Column() {
+                PaperBackground() {
                     Column() {
+                        // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
+                        PageHeader({ title: '作品', showBack: false, onBack: () => {}, topInset: true })
+                        Scroll() {
+                            Column() {
+                                // 筛选分段（Works Page 样板：全部卷宗 / 已封印 / 草稿）
+                                SegmentTabs({
+                                    items: this.getFilterItems(),
+                                    selected: this.selectedFilter,
+                                    cornerMark: true,
+                                    chipMode: true,
+                                    onChange: (key: string) => {
+                                        this.selectedFilter = key;
+                                    }
+                                })
+                                this.statBlock()
+                                WorkGrid({
+                                    items: this.displayedWorks(),
+                                    emptyTitle: '暂无作品',
+                                    emptyDescription: '导入图片开始创作',
+                                    onCardClick: (id: string) => {
+                                        this.onWorkClick(id);
+                                    },
+                                    onCardLongPress: (id: string) => {
+                                        this.onWorkLongPress(id);
+                                    }
+                                })
+                                this.endMark()
+                            }
+                            .width('100%')
+                            .constraintSize({ minHeight: '100%' })
+                            .padding({ bottom: 24 })
+                        }
+                        .layoutWeight(1)
+                        .scrollBar(BarState.Off)
+                        .edgeEffect(EdgeEffect.Spring)
+                        // 底部：卷宗落款（底部导航由 Index 的 Tabs 提供，本页不再预留占位）
                         Column() {
-                            FooterSealBar({ count: this.works.length })
+                            Column() {
+                                FooterSealBar({ count: this.displayedWorks().length })
+                            }
+                            .width('100%')
+                            .padding({ top: 8, bottom: 8 })
+                            // .backgroundImageSize({ width: '', height: '' })
                         }
                         .width('100%')
-                        .padding({ top: 8, bottom: 8 })
-                        // .backgroundImageSize({ width: '', height: '' })
+                        // 透明背景 + 无模糊，让下方网格纹理透出
+                        // .backgroundColor(Theme.PAPER_BASE_90)
                     }
                     .width('100%')
-                    // 透明背景 + 无模糊，让下方网格纹理透出
-                    // .backgroundColor(Theme.PAPER_BASE_90)
+                    .height('100%')
                 }
-                .width('100%')
-                .height('100%')
+            }
+            .width('100%')
+            .height('100%')
+
+            if (this.showExportDialog) {
+                ExportSettingsDialog({
+                    isVisible: this.showExportDialog,
+                    imageWidth: mockWorkStore.findById(this.pendingExportId)?.width ?? 0,
+                    imageHeight: mockWorkStore.findById(this.pendingExportId)?.height ?? 0,
+                    sourceUri: mockWorkStore.findById(this.pendingExportId)?.sourceImageUri ?? '',
+                    onConfirm: (settings: AppExportSettings) => {
+                        this.doExportToGallery(this.pendingExportId, settings);
+                    },
+                    onCancel: () => {
+                        this.showExportDialog = false;
+                        this.pendingExportId = '';
+                    }
+                })
             }
         }
         .width('100%')
@@ -119,13 +175,13 @@ export struct WorksPage {
     statBlock() {
         Row() {
             Column() {
-                Text(this.works.length.toString())
+                Text(this.getStatCount().toString())
                     .fontFamily(Theme.FONT_SERIF)
                     .fontSize(Theme.FONT_SIZE_HEADLINE_LG_MOBILE)
                     .fontWeight(700)
                     .fontColor(Theme.ON_SURFACE)
                     .letterSpacing(0.7)
-                Text('TOTAL ARCHIVED WORKS')
+                Text(this.getStatLabel())
                     .fontFamily(Theme.FONT_MONO)
                     .fontSize(Theme.FONT_SIZE_LABEL_MONO)
                     .fontWeight(500)
@@ -263,10 +319,28 @@ export struct WorksPage {
             return;
         }
 
+        const shouldPrompt = await AppSettingsStore.isPromptOnExport();
+        if (shouldPrompt) {
+            this.pendingExportId = id;
+            this.showExportDialog = true;
+            return;
+        }
+
+        const defaultSettings = await AppSettingsStore.getExportSettings();
+        await this.doExportToGallery(id, defaultSettings);
+    }
+
+    private async doExportToGallery(id: string, settings: AppExportSettings): Promise<void> {
+        this.showExportDialog = false;
+        if (this.exportingWorkId.length > 0) {
+            this.toast('正在导出中，请稍候');
+            return;
+        }
+
         this.exportingWorkId = id;
 
         try {
-            const result = await WorkSaveService.exportWork(this.context, id);
+            const result = await WorkSaveService.exportWork(this.context, id, settings);
 
             if (!result.success) {
                 this.toast(result.errorMessage ?? '导出失败');
@@ -275,11 +349,13 @@ export struct WorksPage {
             }
 
             if (result.cacheFilePath) {
+                const work = mockWorkStore.findById(id);
+                const ext = toExportProfile(settings, work?.sourceImageUri).extension.replace('.', '');
                 const exportResult = await PhotoExportService.saveViaDialog(
                     this.context,
                     result.cacheFilePath,
                     `Vivid_${id}`,
-                    this.getExportExtension(id)
+                    ext
                 );
 
                 if (exportResult.success) {
@@ -293,9 +369,9 @@ export struct WorksPage {
             }
         } catch (_err) {
             this.toast('导出失败');
+        } finally {
+            this.exportingWorkId = '';
         }
-
-        this.exportingWorkId = '';
     }
 
     /** 删除作品 */
@@ -310,8 +386,14 @@ export struct WorksPage {
             secondaryButton: {
                 value: '删除',
                 action: () => {
-                    // TODO: 接入 WorkRepository 后实现真实删除
-                    this.toast('删除功能待接入');
+                    const success = mockWorkStore.delete(id);
+                    if (success) {
+                        this.refreshWorks();
+                        WorkUiState.bumpRevision();
+                        this.toast('作品已删除');
+                    } else {
+                        this.toast('删除失败，作品不存在');
+                    }
                 }
             },
             cancel: () => {}

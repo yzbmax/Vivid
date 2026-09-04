@@ -1,6 +1,7 @@
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { WorkRecord } from '../models/WorkRecord';
 
 const TAG = 'WorkFileService';
 
@@ -46,7 +47,7 @@ export class WorkFileService {
     WorkFileService.copyFile(sourceUri, destPath);
 
     hilog.info(0x0000, TAG, 'Source copied to sandbox: %{public}s', destPath);
-    return destPath;
+    return `file://${destPath}`;
   }
 
   /**
@@ -66,10 +67,10 @@ export class WorkFileService {
     for (const ext of extensions) {
       const path = `${workDir}/source${ext}`;
       if (fs.accessSync(path)) {
-        return path;
+        return `file://${path}`;
       }
     }
-    return `${workDir}/source.jpg`; // 默认返回
+    return `file://${workDir}/source.jpg`; // 默认返回
   }
 
   /**
@@ -110,23 +111,81 @@ export class WorkFileService {
   }
 
   /**
+   * 保存作品渲染预览图到沙箱持久化目录
+   * @param context 应用上下文
+   * @param workId 作品 ID
+   * @param sourceFilePath 渲染生成的临时图片路径或 URI
+   * @returns 带有 file:// 前缀的标准持久化文件 URI
+   */
+  static savePreviewToSandbox(
+    context: common.UIAbilityContext,
+    workId: string,
+    sourceFilePath: string
+  ): string {
+    const workDir = WorkFileService.getWorkDir(context, workId);
+    WorkFileService.ensureDir(workDir);
+
+    // 清理旧的 preview 文件以节省空间并避免缓存冲突
+    WorkFileService.cleanOldPreviews(workDir);
+
+    const now = Date.now();
+    const ext = WorkFileService.getExtension(sourceFilePath);
+    const destPath = `${workDir}/preview_${now}${ext}`;
+
+    WorkFileService.copyFile(sourceFilePath, destPath);
+    hilog.info(0x0000, TAG, 'Preview saved to sandbox: %{public}s', destPath);
+    return `file://${destPath}`;
+  }
+
+  /**
+   * 清理指定目录下的旧预览图
+   */
+  private static cleanOldPreviews(workDir: string): void {
+    try {
+      if (!fs.accessSync(workDir)) {
+        return;
+      }
+      const filenames = fs.listFileSync(workDir);
+      for (const fn of filenames) {
+        if (fn.startsWith('preview')) {
+          WorkFileService.safeUnlink(`${workDir}/${fn}`);
+        }
+      }
+    } catch (_e) {
+    }
+  }
+
+  /**
    * 复制文件
    */
   private static copyFile(src: string, dest: string): void {
-    const srcFile = fs.openSync(src, fs.OpenMode.READ_ONLY);
-    const destFile = fs.openSync(dest, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE);
-
-    const bufferSize = 4096;
-    const buffer = new ArrayBuffer(bufferSize);
-    let bytesRead: number = bufferSize;
-
-    while (bytesRead === bufferSize) {
-      bytesRead = fs.readSync(srcFile.fd, buffer);
-      fs.writeSync(destFile.fd, buffer, { offset: 0, length: bytesRead });
+    let cleanDest = dest;
+    if (cleanDest.startsWith('file://')) {
+      cleanDest = cleanDest.substring(7);
     }
 
-    fs.closeSync(srcFile.fd);
-    fs.closeSync(destFile.fd);
+    // 针对本地绝对路径优先直接路径复制
+    let cleanSrc = src;
+    if (cleanSrc.startsWith('file:///')) {
+      cleanSrc = cleanSrc.substring(7);
+    }
+    if (cleanSrc.startsWith('/')) {
+      try {
+        fs.copyFileSync(cleanSrc, cleanDest);
+        return;
+      } catch (_err) {
+      }
+    }
+
+    // fd 复制，通用兼容各类 URI（含 PhotoPicker 等 system provider URI）
+    const srcFile = fs.openSync(src, fs.OpenMode.READ_ONLY);
+    const destFile = fs.openSync(cleanDest, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+    try {
+      fs.copyFileSync(srcFile.fd, destFile.fd);
+    } finally {
+      fs.closeSync(srcFile.fd);
+      fs.closeSync(destFile.fd);
+    }
   }
 
   /**
@@ -158,6 +217,105 @@ export class WorkFileService {
       }
     } catch (_e) {
       // 忽略清理错误
+    }
+  }
+
+  /**
+   * 获取作品清单文件路径
+   */
+  static getManifestPath(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/works_manifest.json`;
+  }
+
+  /**
+   * 保存作品清单到应用沙箱持久化存储（无大小限制，进程重启依然保持）
+   */
+  static saveWorksManifest(context: common.UIAbilityContext, works: WorkRecord[]): void {
+    try {
+      const manifestPath = WorkFileService.getManifestPath(context);
+      const json = JSON.stringify(works);
+      const file = fs.openSync(manifestPath, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, json);
+      fs.closeSync(file);
+      hilog.info(0x0000, TAG, 'Works manifest saved: %{public}d items', works.length);
+    } catch (e) {
+      hilog.error(0x0000, TAG, 'Failed to save works manifest: %{public}s', String(e));
+    }
+  }
+
+  /**
+   * 从应用沙箱持久化存储加载作品清单
+   */
+  static loadWorksManifest(context: common.UIAbilityContext): WorkRecord[] {
+    try {
+      const manifestPath = WorkFileService.getManifestPath(context);
+      if (!fs.accessSync(manifestPath)) {
+        return [];
+      }
+      const json = fs.readTextSync(manifestPath);
+      if (!json || json.trim().length === 0) {
+        return [];
+      }
+      const parsed = JSON.parse(json) as WorkRecord[];
+      if (Array.isArray(parsed)) {
+        hilog.info(0x0000, TAG, 'Works manifest loaded: %{public}d items', parsed.length);
+        return parsed;
+      }
+      return [];
+    } catch (e) {
+      hilog.error(0x0000, TAG, 'Failed to load works manifest: %{public}s', String(e));
+      return [];
+    }
+  }
+
+  /**
+   * 保存当前草稿到应用沙箱文件存储
+   */
+  static saveDraftFile(context: common.UIAbilityContext, draft: Object): void {
+    try {
+      const draftPath = `${context.filesDir}/current_draft.json`;
+      const json = JSON.stringify(draft);
+      const file = fs.openSync(draftPath, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, json);
+      fs.closeSync(file);
+      hilog.info(0x0000, TAG, 'Draft file saved to sandbox: %{public}s', draftPath);
+    } catch (e) {
+      hilog.error(0x0000, TAG, 'Failed to save draft file: %{public}s', String(e));
+    }
+  }
+
+  /**
+   * 从应用沙箱文件加载当前草稿
+   */
+  static loadDraftFile<T>(context: common.UIAbilityContext): T | null {
+    try {
+      const draftPath = `${context.filesDir}/current_draft.json`;
+      if (!fs.accessSync(draftPath)) {
+        return null;
+      }
+      const json = fs.readTextSync(draftPath);
+      if (!json || json.trim().length === 0) {
+        return null;
+      }
+      return JSON.parse(json) as T;
+    } catch (e) {
+      hilog.error(0x0000, TAG, 'Failed to load draft file: %{public}s', String(e));
+      return null;
+    }
+  }
+
+  /**
+   * 清除沙箱草稿文件
+   */
+  static clearDraftFile(context: common.UIAbilityContext): void {
+    try {
+      const draftPath = `${context.filesDir}/current_draft.json`;
+      if (fs.accessSync(draftPath)) {
+        fs.unlinkSync(draftPath);
+        hilog.info(0x0000, TAG, 'Draft file cleared from sandbox: %{public}s', draftPath);
+      }
+    } catch (e) {
+      hilog.warn(0x0000, TAG, 'Failed to clear draft file: %{public}s', String(e));
     }
   }
 }

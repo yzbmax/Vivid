@@ -9,7 +9,7 @@
     "externalNativeOptions": {
       "path": "./src/main/cpp/CMakeLists.txt",
       "arguments": "-DOHOS_STL=c++_shared",
-      "cppFlags": "",
+      "cppFlags": "-fexceptions -frtti",
       "abiFilters": ["arm64-v8a", "x86_64"]
     }
   },

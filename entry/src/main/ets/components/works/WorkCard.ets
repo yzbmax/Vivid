@@ -2,6 +2,7 @@ import { Theme } from '../common/Theme';
 import { SealBadge } from '../common/SealBadge';
 import { StatusTag } from '../common/StatusTag';
 import { WorkRecord, WorkStatus } from '../../models/WorkRecord';
+import { resolveWorkImageSource } from '../../utils/WorkImageUtils';
 
 /**
  * 作品卡片：缩略图 + 浮印（SealBadge）/ 草稿遮罩 + 标题 + 日期 + 状态图标。
@@ -50,22 +51,6 @@ export struct WorkCard {
           SealBadge({ glyph: this.data.sealGlyph, boxSize: 24 })
             .align(Alignment.TopEnd)
             .margin({ top: 8, right: 8 })
-        }
-
-        // 导出状态标记（右下角）
-        if (this.data.exportedAssetUri.length > 0) {
-          Stack({ alignContent: Alignment.Center }) {
-            Image($r('app.media.icon_archive'))
-              .width(12)
-              .height(12)
-              .fillColor(Theme.ON_PRIMARY)
-          }
-          .width(20)
-          .height(20)
-          .borderRadius(10)
-          .backgroundColor('#4CD964')
-          .align(Alignment.BottomEnd)
-          .margin({ bottom: 8, right: 8 })
         }
       }
       .width('100%')
@@ -131,21 +116,15 @@ export struct WorkCard {
   }
 
   /**
-   * 缩略图源：sourceImageUri > previewImage > previewImageUri > 兜底占位图。
-   * 返回 ResourceStr 以同时支持 Resource 和 string URI。
+   * 缩略图源：previewImageUri > sourceImageUri > previewImage > 兜底画作。
+   * 通过 resolveWorkImageSource 补齐 file:// 前缀，并自动修复 .image 文件识别问题。
    */
   private previewSource(): ResourceStr {
-    if (this.data.sourceImageUri.length > 0) {
-      return this.data.sourceImageUri;
-    }
-    const preview: Resource | null = this.data.previewImage;
-    if (preview !== null) {
-      return preview;
-    }
-    if (this.data.previewImageUri.length > 0) {
-      return this.data.previewImageUri;
-    }
-    return $r('app.media.work_mountain');
+    return resolveWorkImageSource(
+      this.data.previewImageUri,
+      this.data.sourceImageUri,
+      this.data.previewImage
+    );
   }
 
   private statusIcon(): Resource {

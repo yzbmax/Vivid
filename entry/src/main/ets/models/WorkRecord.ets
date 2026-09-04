@@ -29,7 +29,7 @@ export class WorkRecord {
   date: string = '';
   /** 浮印字（甲/乙/丙…） */
   sealGlyph: string = '';
-  status: WorkStatus = WorkStatus.Sealed;
+  status: WorkStatus = WorkStatus.Draft;
   createdAt: number = 0;
   updatedAt: number = 0;
   /** 原始图片 URI；内置 Resource 样例允许为空 */

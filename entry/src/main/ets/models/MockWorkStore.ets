@@ -2,12 +2,15 @@ import { WorkRecord, WorkStatus } from './WorkRecord';
 import { buildMockWorks } from './MockWorks';
 import { cloneRegionAdjustments } from './EditModels';
 import { cloneEditorSnapshot, createDefaultEditorSnapshot } from './SharedContracts';
+import { workRepository } from './WorkRepository';
+import { WorkFileService } from '../services/WorkFileService';
+import { common } from '@kit.AbilityKit';
 
 /**
  * 作品 Mock Store：管理作品列表的增删改查。
  *
  * 首次调用 init() 时加载 MockWorks 的种子数据（当前为空）；
- * 后续 create / update 在进程内生效，不跨重启持久化。
+ * 后续 create / update 在进程内生效，并同步到 WorkRepository 进行持久化。
  *
  * 方法命名：list / findById / create / update（开发者 C 统一使用）。
  */
@@ -15,12 +18,30 @@ export class MockWorkStore {
   private works: WorkRecord[] = [];
   private initialized: boolean = false;
 
-  /** 初始化：首次调用时加载种子数据，重复调用安全跳过 */
-  init(): void {
-    if (this.initialized) {
+  /** 初始化：首次调用时加载持久化数据，无数据时加载种子数据，重复调用安全跳过 */
+  init(context?: common.UIAbilityContext): void {
+    if (this.initialized && this.works.length > 0) {
       return;
     }
-    this.works = buildMockWorks();
+    const ctx = context ?? AppStorage.get<common.UIAbilityContext>('appContext');
+    if (ctx) {
+      try {
+        const persisted = WorkFileService.loadWorksManifest(ctx);
+        if (persisted.length > 0) {
+          this.works = persisted;
+          this.initialized = true;
+          return;
+        }
+      } catch (_e) {
+      }
+    }
+    workRepository.ensureInitSync();
+    const persisted = workRepository.list();
+    if (persisted.length > 0) {
+      this.works = persisted;
+    } else if (this.works.length === 0) {
+      this.works = buildMockWorks();
+    }
     this.initialized = true;
   }
 
@@ -55,13 +76,13 @@ export class MockWorkStore {
   }
 
   /**
-   * 新建作品：生成 MOCK-{timestamp} ID，设置 createdAt / updatedAt，
-   * 加入列表并返回新记录。
+   * 新建作品：生成或保留 ID，设置 createdAt / updatedAt，
+   * 加入列表、持久化到沙箱存储并返回新记录。
    */
   create(record: WorkRecord): WorkRecord {
     const now = Date.now();
-    record.id = 'MOCK-' + now;
-    record.createdAt = now;
+    record.id = (record.id && record.id.length > 0) ? record.id : 'MOCK-' + now;
+    record.createdAt = record.createdAt > 0 ? record.createdAt : now;
     record.updatedAt = now;
     if (!record.status) {
       record.status = WorkStatus.Draft;
@@ -71,6 +92,11 @@ export class MockWorkStore {
     }
     record.editorSnapshot = cloneEditorSnapshot(record.editorSnapshot);
     this.works.push(record);
+    this.persist();
+    try {
+      workRepository.upsert(record);
+    } catch (_e) {
+    }
     return record;
   }
 
@@ -135,6 +161,11 @@ export class MockWorkStore {
       existing.editorSnapshot = cloneEditorSnapshot(patch.editorSnapshot);
     }
     existing.updatedAt = Date.now();
+    this.persist();
+    try {
+      workRepository.update(id, patch);
+    } catch (_e) {
+    }
     return existing;
   }
 
@@ -143,7 +174,7 @@ export class MockWorkStore {
    * 统一入口，避免调用方判断 create/update。
    */
   upsert(record: WorkRecord): WorkRecord {
-    if (record.id === '') {
+    if (record.id === '' || !this.works.some((w: WorkRecord) => w.id === record.id)) {
       return this.create(record);
     }
     return this.update(record.id, record);
@@ -154,6 +185,42 @@ export class MockWorkStore {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     return this.works.filter((w: WorkRecord) => w.createdAt >= todayStart).length;
+  }
+
+  /**
+   * 删除作品：按 ID 匹配并移除，持久化更新清单并清理作品沙箱目录。
+   * 成功删除返回 true，未找到返回 false。
+   */
+  delete(id: string): boolean {
+    const index = this.works.findIndex((w: WorkRecord) => w.id === id);
+    if (index >= 0) {
+      const removed = this.works.splice(index, 1)[0];
+      this.persist();
+      try {
+        workRepository.delete(id);
+      } catch (_e) {
+      }
+      try {
+        const ctx = AppStorage.get<common.UIAbilityContext>('appContext');
+        if (ctx && removed.id) {
+          WorkFileService.deleteWorkDir(ctx, removed.id);
+        }
+      } catch (_e) {
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** 将当前作品清单持久化存盘到应用沙箱文件 */
+  private persist(): void {
+    try {
+      const ctx = AppStorage.get<common.UIAbilityContext>('appContext');
+      if (ctx) {
+        WorkFileService.saveWorksManifest(ctx, this.works);
+      }
+    } catch (_e) {
+    }
   }
 }
 

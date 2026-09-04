@@ -11,6 +11,8 @@ import {
   RegionKey,
   RegionAdjustments,
   StickerItem,
+  StickerTemplate,
+  StickerRenderType,
   RawEditRouteParams,
   SaveMode,
   buildDraftIntent,
@@ -18,6 +20,7 @@ import {
   createDefaultAdjustments,
   createDefaultRegionAdjustments,
   createStickerInstance,
+  createCustomStickerInstance,
   cloneAdjustments,
   cloneRegionAdjustments,
   editRouteError,
@@ -25,7 +28,8 @@ import {
   parseEditRouteParams,
   resolveDisplayImageSource
 } from '../models/EditModels';
-import { BorderState, defaultBorderState, cloneBorderState } from '../models/SharedContracts';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { PhotoPickerService } from '../services/PhotoPickerService';
 import { Theme } from '../components/common/Theme';
 import { PaperBackground } from '../components/common/PaperBackground';
 import { PreviewArea } from '../components/editor/PreviewArea';
@@ -33,22 +37,41 @@ import { AdjustPanel } from '../components/editor/AdjustPanel';
 import { StickerPanel } from '../components/editor/StickerPanel';
 import { FilterPanel } from '../components/editor/FilterPanel';
 import { BorderPanel } from '../components/editor/BorderPanel';
+import { BorderTemplatePickerModal } from '../components/editor/BorderTemplatePickerModal';
+import { isWatermarkTemplate } from '../features/editor/border/BorderCatalog';
 import { sanitizeBorderState, switchBorderTemplate } from '../features/editor/border/BorderState';
 import { EditorCompositionService } from '../services/EditorCompositionService';
-import { EditorSnapshot, defaultEditorSnapshot } from '../models/SharedContracts';
-// ===== A: Text Layer =====
-import { TextLayer as TextLayerModel, cloneTextLayers } from '../models/SharedContracts';
+import {
+  BorderState,
+  defaultBorderState,
+  cloneBorderState,
+  WatermarkConfig,
+  defaultWatermarkConfig,
+  cloneWatermarkConfig,
+  EditorSnapshot,
+  defaultEditorSnapshot,
+  cloneEditorSnapshot,
+  cloneFilterSnapshot,
+  TextLayer as TextLayerModel,
+  cloneTextLayers,
+  StickerSnapshotItem
+} from '../models/SharedContracts';
+import { ExifReaderService } from '../services/ExifReaderService';
+import { draftStore } from '../models/DraftStore';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { TextPanel } from '../components/editor/TextPanel';
 import { registerTextFonts } from '../components/editor/TextFontRegistrar';
+import { fixAndNormalizePath } from '../utils/WorkImageUtils';
+import { WorkFileService } from '../services/WorkFileService';
 // ===== End A =====
 import { EditorToolBar } from '../components/editor/EditorToolBar';
 import { RegionTabs } from '../components/editor/RegionTabs';
 import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
-import { toExportProfile } from '../models/AppSettingsModels';
+import { toExportProfile, ExportProfile, AppExportSettings } from '../models/AppSettingsModels';
+import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
 import { PhotoExportService } from '../services/PhotoExportService';
-import { getSubjectSegmentationService } from '../services/SubjectSegmentationService';
+import { SubjectSegmentationService, getSubjectSegmentationService } from '../services/SubjectSegmentationService';
 import { WorkRecord } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
 import { WorkUiState } from '../models/WorkUiState';
@@ -63,7 +86,7 @@ import { image } from '@kit.ImageKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { buildAdjustmentFilter } from '../utils/ColorMatrixUtils';
 import { EditState, createDefaultEditState } from '../features/editor/filter/FilterState';
-import { FilterPreset } from '../features/editor/filter/FilterModels';
+import { FilterPreset, FilterEditState } from '../features/editor/filter/FilterModels';
 import { FILTER_PRESETS } from '../features/editor/filter/FilterCatalog';
 import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge';
 import { FilterController } from '../features/editor/filter/FilterController';
@@ -105,6 +128,8 @@ struct EditPage {
   @State editState: EditState = createDefaultEditState();
   // ── Vivid 0.1.9 边框状态（C 独占）──
   @State borderState: BorderState = defaultBorderState();
+  @State showBorderPickerModal: boolean = false;
+  @State showExportDialog: boolean = false;
   // ===== A: Text Layer =====
   @State textLayers: TextLayerModel[] = [];
   @State selectedTextLayerId: string = '';
@@ -136,6 +161,7 @@ struct EditPage {
   // ── 贴纸状态 ──
   @State stickers: StickerItem[] = [];
   @State selectedStickerId: string = '';
+  @State customStickerTemplates: StickerTemplate[] = [];
   @State previewDisplayW: number = 0;
   @State previewDisplayH: number = 0;
   @State stickerVersion: number = 0;
@@ -148,7 +174,9 @@ struct EditPage {
   @State thumbnailItems: ThumbnailItem[] = [];
   @State unavailableFilterIds: string[] = [];
   private thumbnailsComplete: boolean = false;
-  private previewSourcePixelMap: image.PixelMap | undefined = undefined;
+  @State previewSourcePixelMap: image.PixelMap | undefined = undefined;
+  private strengthDebounceTimer: number = -1;
+  private filterPrewarmTimer: number = -1;
   private renderedPreviewOwner: OwnedRenderResult<image.PixelMap> =
     new OwnedRenderResult<image.PixelMap>((value: image.PixelMap) => value.release());
   private previewPipeline: PreviewPipeline = new PreviewPipeline();
@@ -197,14 +225,126 @@ struct EditPage {
         if (work.regionAdjustments !== undefined) {
           this.regionAdjustments = cloneRegionAdjustments(work.regionAdjustments);
         }
-        // ===== A: Text Layer =====
         if (work.editorSnapshot !== undefined) {
           this.textLayers = cloneTextLayers(work.editorSnapshot.textLayers);
           this.textLayerSequence = this.nextTextLayerSequence(this.textLayers);
+          if (work.editorSnapshot.border) {
+            this.borderState = cloneBorderState(work.editorSnapshot.border);
+          }
+          if (work.editorSnapshot.filter) {
+            const nextFilter: FilterEditState = {
+              filterId: work.editorSnapshot.filter.filterId,
+              strength: work.editorSnapshot.filter.strength
+            };
+            const nextEditState: EditState = {
+              filter: nextFilter
+            };
+            this.editState = nextEditState;
+          }
+          if (work.editorSnapshot.stickers) {
+            this.stickers = work.editorSnapshot.stickers.map((s: StickerSnapshotItem): StickerItem => {
+              const item: StickerItem = {
+                instanceId: s.instanceId,
+                templateId: s.templateId,
+                posX: s.posX,
+                posY: s.posY,
+                size: s.size,
+                rotation: s.rotation,
+                opacity: s.opacity,
+                zIndex: s.zIndex,
+                customUri: s.customUri
+              };
+              return item;
+            });
+            for (const s of this.stickers) {
+              if (s.customUri && !this.customStickerTemplates.some((t: StickerTemplate) => t.customUri === s.customUri)) {
+                const customTpl: StickerTemplate = {
+                  id: s.templateId,
+                  name: '自定',
+                  category: 'custom',
+                  renderType: StickerRenderType.CustomImage,
+                  resource: null,
+                  textContent: '',
+                  defaultSize: 64,
+                  customUri: s.customUri
+                };
+                this.customStickerTemplates.push(customTpl);
+              }
+            }
+          }
         }
-        // ===== End A =====
       } else {
         this.errorText = '作品不存在';
+      }
+    } else if (route != null && route.source === EditEntrySource.Draft) {
+      const draft = draftStore.get();
+      if (draft !== null && draft.imageUri.length > 0) {
+        this.imageSrc = draft.imageUri;
+        this.displaySrc = draft.displayUri ?? this.imageSrc;
+        this.params = {
+          exposure: draft.adjustments.exposure,
+          brightness: draft.adjustments.brightness,
+          contrast: draft.adjustments.contrast,
+          saturation: draft.adjustments.saturation,
+          temperature: draft.adjustments.temperature
+        };
+        if (draft.regionAdjustments !== undefined) {
+          this.regionAdjustments = cloneRegionAdjustments(draft.regionAdjustments);
+        }
+        if (draft.editorSnapshot !== undefined) {
+          this.textLayers = cloneTextLayers(draft.editorSnapshot.textLayers);
+          this.textLayerSequence = this.nextTextLayerSequence(this.textLayers);
+          if (draft.editorSnapshot.border) {
+            this.borderState = cloneBorderState(draft.editorSnapshot.border);
+          }
+          if (draft.editorSnapshot.filter) {
+            const nextFilter: FilterEditState = {
+              filterId: draft.editorSnapshot.filter.filterId,
+              strength: draft.editorSnapshot.filter.strength
+            };
+            const nextEditState: EditState = {
+              filter: nextFilter
+            };
+            this.editState = nextEditState;
+          }
+          if (draft.editorSnapshot.stickers) {
+            this.stickers = draft.editorSnapshot.stickers.map((s: StickerSnapshotItem): StickerItem => {
+              const item: StickerItem = {
+                instanceId: s.instanceId,
+                templateId: s.templateId,
+                posX: s.posX,
+                posY: s.posY,
+                size: s.size,
+                rotation: s.rotation,
+                opacity: s.opacity,
+                zIndex: s.zIndex,
+                customUri: s.customUri
+              };
+              return item;
+            });
+            for (const s of this.stickers) {
+              if (s.customUri && !this.customStickerTemplates.some((t: StickerTemplate) => t.customUri === s.customUri)) {
+                const customTpl: StickerTemplate = {
+                  id: s.templateId,
+                  name: '自定',
+                  category: 'custom',
+                  renderType: StickerRenderType.CustomImage,
+                  resource: null,
+                  textContent: '',
+                  defaultSize: 64,
+                  customUri: s.customUri
+                };
+                this.customStickerTemplates.push(customTpl);
+              }
+            }
+          }
+        }
+        if (draft.activeTool !== undefined) {
+          this.activeTool = draft.activeTool;
+        }
+        this.dirty = true;
+      } else {
+        this.errorText = '草稿不存在或已被清理';
       }
     }
     if (route?.initialTool !== undefined) {
@@ -218,6 +358,9 @@ struct EditPage {
     if (this.activeTool === 'subject' || this.activeTool === 'background') {
       this.activeRegion = this.activeTool;
       this.selectedType = REGION_ADJUST_TYPES[0].key;
+      if (this.baseImage === undefined) {
+        this.baseImage = this.previewSourcePixelMap ?? this.previewPixelMap;
+      }
       setTimeout(() => {
         this.triggerSegmentation();
       }, 100);
@@ -225,7 +368,19 @@ struct EditPage {
     this.loadPreviewSource();
   }
 
+  onPageHide(): void {
+    this.persistDraftQuietly();
+  }
+
   aboutToDisappear(): void {
+    if (this.strengthDebounceTimer !== -1) {
+      clearTimeout(this.strengthDebounceTimer);
+      this.strengthDebounceTimer = -1;
+    }
+    if (this.filterPrewarmTimer !== -1) {
+      clearTimeout(this.filterPrewarmTimer);
+      this.filterPrewarmTimer = -1;
+    }
     // ===== A: Text Layer =====
     this.getUIContext().setKeyboardAvoidMode(this.previousTextKeyboardMode);
     // ===== End A =====
@@ -269,6 +424,9 @@ struct EditPage {
       }
       this.previewSourcePixelMap = source;
       this.previewPixelMap = source;
+      if (this.baseImage === undefined) {
+        this.baseImage = source;
+      }
       // ===== A: Text Layer =====
       // PixelMap 预览不会触发 URI Image 尺寸回调；供照片、文字和装裱统一布局使用。
       try {
@@ -283,6 +441,17 @@ struct EditPage {
       console.info('Editor preview source decoded');
       if (this.activeTool === 'filter') {
         this.loadFilterThumbnails();
+      } else {
+        // 空闲预热：主预览图就绪后，利用空闲时间在后台静默预热滤镜缩略图，用户点击“滤镜”时秒开
+        if (this.filterPrewarmTimer !== -1) {
+          clearTimeout(this.filterPrewarmTimer);
+        }
+        this.filterPrewarmTimer = setTimeout(() => {
+          this.filterPrewarmTimer = -1;
+          if (!this.disposed && !this.thumbnailsComplete && !this.loadingThumbnails) {
+            this.loadFilterThumbnails();
+          }
+        }, 300);
       }
     } catch (err) {
       console.error(`Failed to decode editor preview: ${JSON.stringify(err)}`);
@@ -353,6 +522,16 @@ struct EditPage {
     }
   }
 
+  private schedulePreviewRender(): void {
+    if (this.strengthDebounceTimer !== -1) {
+      clearTimeout(this.strengthDebounceTimer);
+    }
+    this.strengthDebounceTimer = setTimeout(() => {
+      this.strengthDebounceTimer = -1;
+      this.renderPreview();
+    }, 32);
+  }
+
   private releaseRenderedPreview(): void {
     this.renderedPreviewOwner.clear();
     this.previewPixelMap = undefined;
@@ -392,18 +571,55 @@ struct EditPage {
   }
 
   build() {
-    Column() {
-      PaperBackground() {
-        Column() {
-          this.editorTopBar()
-          if (this.errorText !== '') {
-            this.errorState()
-          } else {
-            this.editorBody()
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        PaperBackground() {
+          Column() {
+            this.editorTopBar()
+            if (this.errorText !== '') {
+              this.errorState()
+            } else {
+              this.editorBody()
+            }
           }
+          .width('100%')
+          .height('100%')
         }
-        .width('100%')
-        .height('100%')
+      }
+      .width('100%')
+      .height('100%')
+
+      if (this.showBorderPickerModal) {
+        BorderTemplatePickerModal({
+          currentTemplateId: this.borderState.templateId,
+          imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
+          onSelectTemplate: (templateId: string) => {
+            this.borderState = switchBorderTemplate(this.borderState, templateId);
+            this.dirty = true;
+            if (isWatermarkTemplate(templateId)) {
+              this.loadExifForWatermark();
+            }
+            this.showBorderPickerModal = false;
+          },
+          onClose: () => {
+            this.showBorderPickerModal = false;
+          }
+        })
+      }
+
+      if (this.showExportDialog) {
+        ExportSettingsDialog({
+          isVisible: this.showExportDialog,
+          imageWidth: this.imageWidth,
+          imageHeight: this.imageHeight,
+          sourceUri: this.imageSrc,
+          onConfirm: (settings: AppExportSettings) => {
+            this.executeSave(settings);
+          },
+          onCancel: () => {
+            this.showExportDialog = false;
+          }
+        })
       }
     }
     .width('100%')
@@ -438,7 +654,7 @@ struct EditPage {
         .height(Theme.HEADER_HEIGHT)
         .padding({ left: 16, right: 16 })
 
-        Text('调色复核')
+        Text('影像调色')
           .fontFamily(Theme.FONT_SERIF)
           .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
           .fontWeight(600)
@@ -505,7 +721,7 @@ struct EditPage {
           imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
           previewPixelMap: $previewPixelMap,
           previewLoading: this.previewLoading,
-          originalPixelMap: this.previewSourcePixelMap,
+          originalPixelMap: $previewSourcePixelMap,
           photoWidth: this.textPhotoWidth,
           photoHeight: this.textPhotoHeight,
           borderState: this.borderState,
@@ -517,20 +733,23 @@ struct EditPage {
           onTextMove: (id: string, x: number, y: number) => this.updateTextLayer(id, { centerX: x, centerY: y }),
           params: this.params,
           isComparing: this.isComparing,
-          baseImage: this.baseImage,
-          foregroundImage: this.foregroundImage,
+          baseImage: $baseImage,
+          foregroundImage: $foregroundImage,
           subjectFilter: buildAdjustmentFilter(
             this.regionAdjustments.subject.exposure,
             this.regionAdjustments.subject.contrast,
             this.regionAdjustments.subject.saturation,
-            this.regionAdjustments.subject.temperature
+            this.regionAdjustments.subject.temperature,
+            this.regionAdjustments.subject.brightness
           ),
           baseFilter: buildAdjustmentFilter(
             this.regionAdjustments.background.exposure,
             this.regionAdjustments.background.contrast,
             this.regionAdjustments.background.saturation,
-            this.regionAdjustments.background.temperature
+            this.regionAdjustments.background.temperature,
+            this.regionAdjustments.background.brightness
           ),
+          isRegionMode: this.isRegionMode(),
           onCompareChange: (down: boolean) => {
             this.isComparing = this.activeTool === 'text' ? false : down;
           },
@@ -539,6 +758,7 @@ struct EditPage {
             this.imageHeight = h;
           },
           stickers: this.stickers,
+          customTemplates: this.customStickerTemplates,
           stickerMode: this.activeTool === 'sticker',
           selectedStickerId: this.selectedStickerId,
           stickerVersion: this.stickerVersion,
@@ -618,12 +838,33 @@ struct EditPage {
           }
         })
       } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
-        this.segStatus !== 'ready' && this.segStatus !== 'idle') {
-        Column({ space: 8 }) {
-          Text('主体识别中…')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(Theme.FONT_SIZE_BODY_MD)
-            .fontColor(Theme.ON_SURFACE_VARIANT)
+        this.segStatus !== 'ready') {
+        Column({ space: 12 }) {
+          if (this.segStatus === 'preparing' || this.segStatus === 'segmenting') {
+            LoadingProgress()
+              .width(28)
+              .height(28)
+              .color(Theme.PRIMARY)
+            Text('智能主体识别中…')
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(Theme.FONT_SIZE_BODY_MD)
+              .fontColor(Theme.ON_SURFACE_VARIANT)
+          } else {
+            Text(this.segErrorMessage !== '' ? this.segErrorMessage : '未能识别到明显主体')
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(Theme.FONT_SIZE_BODY_MD)
+              .fontColor(Theme.ON_SURFACE_VARIANT)
+            Button('重新识别主体')
+              .type(ButtonType.Capsule)
+              .fontSize(13)
+              .backgroundColor(Theme.PRIMARY)
+              .fontColor(Theme.ON_PRIMARY)
+              .height(32)
+              .onClick(() => {
+                this.segStatus = 'idle';
+                this.triggerSegmentation();
+              })
+          }
         }
         .width('100%')
         .height(120)
@@ -640,7 +881,7 @@ struct EditPage {
           onStrengthChange: (value: number) => {
             this.editState = this.filterController.setStrength(value);
             this.dirty = true;
-            this.renderPreview();
+            this.schedulePreviewRender();
           }
         })
       } else if (this.activeTool === 'sticker') {
@@ -648,8 +889,12 @@ struct EditPage {
           stickers: this.stickers,
           selectedId: this.selectedStickerId,
           allTemplates: STICKER_TEMPLATES,
-          onAddSticker: (templateId: string) => {
-            this.addSticker(templateId);
+          customTemplates: this.customStickerTemplates,
+          onAddSticker: (templateId: string, customUri?: string) => {
+            this.addSticker(templateId, customUri);
+          },
+          onUploadCustomSticker: () => {
+            this.uploadCustomSticker();
           },
           onSelectSticker: (instanceId: string) => {
             this.selectedStickerId = instanceId;
@@ -696,13 +941,23 @@ struct EditPage {
         // ===== C: Filter & Border =====
         BorderPanel({
           borderState: this.borderState,
+          imageSrc: this.displaySrc !== '' ? this.displaySrc : this.imageSrc,
           onSelectTemplate: (templateId: string) => {
             this.borderState = switchBorderTemplate(this.borderState, templateId);
             this.dirty = true;
+            if (isWatermarkTemplate(templateId)) {
+              this.loadExifForWatermark();
+            }
           },
           onWidthRatioChange: (value: number) => {
             const next = cloneBorderState(this.borderState);
             next.widthRatio = value;
+            this.borderState = sanitizeBorderState(next);
+            this.dirty = true;
+          },
+          onRadiusChange: (value: number) => {
+            const next = cloneBorderState(this.borderState);
+            next.radiusRatio = value;
             this.borderState = sanitizeBorderState(next);
             this.dirty = true;
           },
@@ -717,6 +972,18 @@ struct EditPage {
             next.shadowStrength = value;
             this.borderState = sanitizeBorderState(next);
             this.dirty = true;
+          },
+          onWatermarkChange: (watermark: WatermarkConfig) => {
+            const next = cloneBorderState(this.borderState);
+            next.watermark = watermark;
+            this.borderState = sanitizeBorderState(next);
+            this.dirty = true;
+          },
+          onExtractExif: () => {
+            this.loadExifForWatermark();
+          },
+          onOpenFullPicker: () => {
+            this.showBorderPickerModal = true;
           }
         })
       } else {
@@ -770,12 +1037,19 @@ struct EditPage {
     if (key === 'subject' || key === 'background') {
       this.activeRegion = key;
       this.selectedType = REGION_ADJUST_TYPES[0].key;
+      if (this.baseImage === undefined) {
+        this.baseImage = this.decodedPixelMap ?? this.previewSourcePixelMap ?? this.previewPixelMap;
+      }
       this.triggerSegmentation();
     }
     if (key === 'adjust') {
       this.selectedType = ADJUST_TYPES[0].key;
     }
     if (key === 'filter') {
+      if (this.filterPrewarmTimer !== -1) {
+        clearTimeout(this.filterPrewarmTimer);
+        this.filterPrewarmTimer = -1;
+      }
       this.loadFilterThumbnails();
     }
   }
@@ -1018,13 +1292,16 @@ struct EditPage {
 
   // ── 贴纸操作 ──
 
-  private addSticker(templateId: string): void {
+  private addSticker(templateId: string, customUri?: string): void {
     if (this.stickers.length >= STICKER_MAX_COUNT) {
+      this.toast('贴纸数量已达上限（最多 12 枚）');
       return;
     }
     const centerX = this.previewDisplayW > 0 ? this.previewDisplayW / 2 : 150;
     const centerY = this.previewDisplayH > 0 ? this.previewDisplayH / 2 : 200;
-    const newItem = createStickerInstance(templateId, centerX, centerY);
+    const newItem = (customUri !== undefined && customUri !== '')
+      ? createCustomStickerInstance(customUri, centerX, centerY)
+      : createStickerInstance(templateId, centerX, centerY);
     const next: StickerItem[] = [];
     for (let i = 0; i < this.stickers.length; i++) {
       next.push(this.stickers[i]);
@@ -1035,6 +1312,55 @@ struct EditPage {
     this.selectedStickerId = newItem.instanceId;
     this.dirty = true;
     this.updateTargetValues();
+  }
+
+  private async uploadCustomSticker(): Promise<void> {
+    if (this.stickers.length >= STICKER_MAX_COUNT) {
+      this.toast('贴纸数量已达上限（最多 12 枚）');
+      return;
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const pickResult = await PhotoPickerService.pickSingleImage(context);
+      if (pickResult.status === 'cancelled') {
+        return;
+      }
+      if (pickResult.status === 'failed' || !pickResult.sourcePath) {
+        this.toast('选择图片失败，请重试');
+        return;
+      }
+      const dir = `${context.filesDir}/stickers`;
+      try {
+        if (!fs.accessSync(dir)) {
+          fs.mkdirSync(dir);
+        }
+      } catch (_e) {
+        try {
+          fs.mkdirSync(dir);
+        } catch (_e2) {}
+      }
+      const filename = `custom_${Date.now()}.png`;
+      const destPath = `${dir}/${filename}`;
+      fs.copyFileSync(pickResult.sourcePath, destPath);
+
+      const tplId = `custom-${Date.now()}`;
+      const customTpl: StickerTemplate = {
+        id: tplId,
+        name: '自定',
+        category: 'custom',
+        renderType: StickerRenderType.CustomImage,
+        resource: null,
+        textContent: '',
+        defaultSize: 64,
+        customUri: destPath
+      };
+      this.customStickerTemplates.push(customTpl);
+      this.addSticker(tplId, destPath);
+      this.toast('贴纸已添加');
+    } catch (err) {
+      console.error(`Upload custom sticker failed: ${JSON.stringify(err)}`);
+      this.toast('导入贴纸失败');
+    }
   }
 
   private removeSticker(instanceId: string): void {
@@ -1065,7 +1391,8 @@ struct EditPage {
           size: size,
           rotation: rotation,
           opacity: s.opacity,
-          zIndex: s.zIndex
+          zIndex: s.zIndex,
+          customUri: s.customUri
         };
         next.push(updated);
       } else {
@@ -1090,7 +1417,8 @@ struct EditPage {
           size: size,
           rotation: rotation,
           opacity: opacity,
-          zIndex: s.zIndex
+          zIndex: s.zIndex,
+          customUri: s.customUri
         };
         next.push(updated);
       } else {
@@ -1101,6 +1429,32 @@ struct EditPage {
     this.stickerVersion++;
     this.dirty = true;
     this.updateTargetValues();
+  }
+
+  private async loadExifForWatermark(): Promise<void> {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const info = await ExifReaderService.extractWatermarkInfo(this.imageSrc, context);
+      const current = this.borderState.watermark ? cloneWatermarkConfig(this.borderState.watermark) : defaultWatermarkConfig();
+      if (info.deviceModel && info.deviceModel.trim().length > 0) {
+        current.deviceModel = info.deviceModel;
+      }
+      if (info.logo) {
+        current.logo = info.logo;
+      }
+      if (info.paramsText && info.paramsText.trim().length > 0) {
+        current.paramsText = info.paramsText;
+      }
+      if (info.timeText && info.timeText.trim().length > 0) {
+        current.timeText = info.timeText;
+      }
+      const next = cloneBorderState(this.borderState);
+      next.watermark = current;
+      this.borderState = sanitizeBorderState(next);
+      this.dirty = true;
+    } catch (err) {
+      console.warn(`Failed to auto-load EXIF for watermark: ${JSON.stringify(err)}`);
+    }
   }
 
   private updateTargetValues(): void {
@@ -1208,9 +1562,20 @@ struct EditPage {
 
   private async onSegmentationSuccess(output: SegmentationOutput): Promise<void> {
     this.segStatus = 'ready';
-    this.baseImage = this.decodedPixelMap;
+    this.baseImage = this.decodedPixelMap ?? this.previewSourcePixelMap ?? this.previewPixelMap;
 
-    const fg = output.foregroundImage;
+    let fg = output.foregroundImage;
+    if (fg === undefined || fg === null) {
+      try {
+        if (this.baseImage !== undefined) {
+          fg = await SubjectSegmentationService.extractForegroundFromMask(
+            this.baseImage, output.rawMask.weights, output.rawMask.width, output.rawMask.height);
+        }
+      } catch (synthErr) {
+        hilog.error(0x0000, 'EditPage', 'synthesize foreground image failed: %{public}s', String(synthErr));
+      }
+    }
+
     if (fg !== undefined && fg !== null) {
       this.foregroundImage = fg;
       hilog.info(0x0000, 'EditPage', 'foreground image stored');
@@ -1222,7 +1587,7 @@ struct EditPage {
     this.dirty = true;
   }
 
-  // ── 保存 ──
+  // ── 保存与导出 ──
 
   private async save(): Promise<void> {
     if (this.saving) {
@@ -1233,10 +1598,37 @@ struct EditPage {
       this.toast('请先修正题签内容再导出');
       return;
     }
+
+    const shouldPrompt = await AppSettingsStore.isPromptOnExport();
+    if (shouldPrompt) {
+      this.showExportDialog = true;
+      return;
+    }
+
+    const defaultSettings = await AppSettingsStore.getExportSettings();
+    await this.executeSave(defaultSettings);
+  }
+
+  private async executeSave(exportSettings: AppExportSettings): Promise<void> {
+    this.showExportDialog = false;
     const snapshot: EditorSnapshot = defaultEditorSnapshot();
     snapshot.filter = { filterId: this.editState.filter.filterId, strength: this.editState.filter.strength };
     snapshot.textLayers = cloneTextLayers(this.textLayers);
     snapshot.border = cloneBorderState(this.borderState);
+    snapshot.stickers = this.stickers.map((s: StickerItem): StickerSnapshotItem => {
+      const item: StickerSnapshotItem = {
+        instanceId: s.instanceId,
+        templateId: s.templateId,
+        posX: s.posX,
+        posY: s.posY,
+        size: s.size,
+        rotation: s.rotation,
+        opacity: s.opacity,
+        zIndex: s.zIndex,
+        customUri: s.customUri
+      };
+      return item;
+    });
     const adjustments = cloneAdjustments(this.params);
     this.saving = true;
 
@@ -1251,8 +1643,7 @@ struct EditPage {
         return;
       }
 
-      const exportSettings = await AppSettingsStore.getExportSettings();
-      const exportProfile = toExportProfile(exportSettings);
+      const exportProfile = toExportProfile(exportSettings, sourceUri);
 
       // 确保滤镜资源已加载
       const filterId = snapshot.filter.filterId;
@@ -1292,23 +1683,7 @@ struct EditPage {
         return;
       }
 
-      // 写入系统相册
-      const fileName = `Vivid_${Date.now()}`;
-      const ext = exportProfile.extension === '.png' ? 'png' : 'jpg';
-      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
-
-      if (exportResult.success) {
-        this.toast('已保存到系统相册「图片」');
-      } else if (exportResult.errorCode === 'USER_CANCELLED') {
-        this.saving = false;
-        return;
-      } else {
-        this.toast(exportResult.errorMessage ?? '保存到相册失败');
-        this.saving = false;
-        return;
-      }
-
-      // 保存作品记录
+      // 保存作品记录意图初始化
       const intent = buildSaveIntent(
         route?.source ?? EditEntrySource.Picker,
         route?.workId ?? '',
@@ -1322,12 +1697,58 @@ struct EditPage {
       record.id = intent.draft.id;
       record.title = generateWorkTitle(now, mockWorkStore.countToday());
       record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
-      record.sourceImageUri = intent.draft.sourceImageUri;
-      record.previewImageUri = intent.draft.sourceImageUri;
+
+      // 若源图不在沙箱持久化目录中，复制到沙箱持久化目录
+      let savedUri = fixAndNormalizePath(intent.draft.sourceImageUri);
+      try {
+        if (savedUri.startsWith('file://') || savedUri.startsWith('/')) {
+          const cleanSrc = savedUri.startsWith('file://') ? savedUri.substring(7) : savedUri;
+          if (fs.accessSync(cleanSrc) && !cleanSrc.includes(`/works/${record.id}/`)) {
+            const sandboxed = await WorkFileService.copySourceToSandbox(context, record.id, cleanSrc);
+            savedUri = fixAndNormalizePath(sandboxed);
+          }
+        }
+      } catch (e) {
+        hilog.warn(0x0000, 'EditPage', 'copySourceToSandbox warning: %{public}s', String(e));
+      }
+      record.sourceImageUri = savedUri;
+
+      // 【关键修复】：必须在 PhotoExportService.saveViaDialog 之前将预览图持久化到沙箱！
+      // 因为 saveViaDialog 在写入相册或用户取消后都会调用 safeUnlink(cacheFilePath)
+      let previewUri = savedUri;
+      try {
+        previewUri = WorkFileService.savePreviewToSandbox(context, record.id, cacheFilePath);
+      } catch (e) {
+        hilog.error(0x0000, 'EditPage', 'savePreviewToSandbox error: %{public}s', String(e));
+        previewUri = savedUri;
+      }
+      record.previewImageUri = previewUri;
+
+      // 写入系统相册（内部在完成或取消时会 safeUnlink cacheFilePath）
+      const fileName = `Vivid_${Date.now()}`;
+      const ext = exportProfile.extension.replace('.', '');
+      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+
+      if (exportResult.success) {
+        this.toast('已保存到系统相册「图片」');
+      } else if (exportResult.errorCode === 'USER_CANCELLED') {
+        this.saving = false;
+        return;
+      } else {
+        this.toast(exportResult.errorMessage ?? '保存到相册失败');
+        this.saving = false;
+        return;
+      }
+
+      if (exportResult.success && exportResult.mediaUri) {
+        record.exportedAssetUri = exportResult.mediaUri;
+      }
+
       record.width = this.imageWidth;
       record.height = this.imageHeight;
       record.adjustments = intent.draft.adjustments;
       record.regionAdjustments = cloneRegionAdjustments(this.regionAdjustments);
+      record.editorSnapshot = cloneEditorSnapshot(snapshot);
       record.status = intent.draft.status;
       record.createdAt = now;
       record.updatedAt = now;
@@ -1336,6 +1757,7 @@ struct EditPage {
       } else {
         mockWorkStore.create(record);
       }
+      draftStore.clear();
       WorkUiState.bumpRevision();
 
       this.dirty = false;
@@ -1351,7 +1773,7 @@ struct EditPage {
     if (this.dirty && this.errorText === '') {
       this.getUIContext().showAlertDialog({
         title: '放弃未保存的调整？',
-        message: '当前调整尚未落印，返回将自动存为草稿。',
+        message: '当前调整尚未保存，返回将自动存为草稿。',
         primaryButton: {
           value: '继续编辑',
           action: () => {
@@ -1385,11 +1807,77 @@ struct EditPage {
       record.id = intent.draft.id;
       record.title = generateWorkTitle(now, mockWorkStore.countToday());
       record.description = generateWorkDescription(this.params, this.imageWidth, this.imageHeight);
-      record.sourceImageUri = intent.draft.sourceImageUri;
-      record.previewImageUri = intent.draft.sourceImageUri;
-      record.width = this.imageWidth;
-      record.height = this.imageHeight;
-      record.adjustments = intent.draft.adjustments;
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      let savedUri = fixAndNormalizePath(intent.draft.sourceImageUri);
+      try {
+        if (savedUri.startsWith('file://') || savedUri.startsWith('/')) {
+          const cleanSrc = savedUri.startsWith('file://') ? savedUri.substring(7) : savedUri;
+          if (fs.accessSync(cleanSrc) && !cleanSrc.includes(`/works/${record.id}/`)) {
+            const sandboxed = await WorkFileService.copySourceToSandbox(context, record.id, cleanSrc);
+            savedUri = fixAndNormalizePath(sandboxed);
+          }
+        }
+      } catch (e) {
+        hilog.warn(0x0000, 'EditPage', 'copySourceToSandbox draft warning: %{public}s', String(e));
+      }
+      record.sourceImageUri = savedUri;
+
+      const snapshot: EditorSnapshot = defaultEditorSnapshot();
+      snapshot.filter = { filterId: this.editState.filter.filterId, strength: this.editState.filter.strength };
+      snapshot.textLayers = cloneTextLayers(this.textLayers);
+      snapshot.border = cloneBorderState(this.borderState);
+      snapshot.stickers = this.stickers.map((s: StickerItem): StickerSnapshotItem => {
+        const item: StickerSnapshotItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: s.posX,
+          posY: s.posY,
+          size: s.size,
+          rotation: s.rotation,
+          opacity: s.opacity,
+          zIndex: s.zIndex,
+          customUri: s.customUri
+        };
+        return item;
+      });
+
+      // 尝试为草稿渲染生成当前调整效果的预览图，使作品列表展示调整后的草稿
+      let previewUri = savedUri;
+      try {
+        const draftProfile: ExportProfile = {
+          mimeType: 'image/jpeg',
+          extension: '.jpg',
+          maxLongEdge: 1080,
+          encoderQuality: 80
+        };
+        const composition = await EditorCompositionService.render(
+          this.imageSrc,
+          this.params,
+          snapshot,
+          draftProfile,
+          false,
+          context,
+          this.unavailableTextFontKeys
+        );
+        try {
+          const cachePath = await PhotoExportService.encodeToCacheFile(context, composition.pixelMap, draftProfile);
+          if (cachePath) {
+            previewUri = WorkFileService.savePreviewToSandbox(context, record.id, cachePath);
+            try {
+              if (fs.accessSync(cachePath)) {
+                fs.unlinkSync(cachePath);
+              }
+            } catch (_) {
+            }
+          }
+        } finally {
+          composition.pixelMap.release();
+        }
+      } catch (e) {
+        console.warn('Draft preview generation fallback to source:', e);
+      }
+      record.previewImageUri = previewUri;
+      record.editorSnapshot = cloneEditorSnapshot(snapshot);
       record.status = intent.draft.status;
       record.createdAt = now;
       record.updatedAt = now;
@@ -1398,6 +1886,18 @@ struct EditPage {
       } else {
         mockWorkStore.create(record);
       }
+      draftStore.save({
+        imageUri: this.imageSrc,
+        displayUri: this.displaySrc,
+        adjustments: cloneAdjustments(this.params),
+        regionAdjustments: cloneRegionAdjustments(this.regionAdjustments),
+        editorSnapshot: cloneEditorSnapshot(snapshot),
+        workId: record.id,
+        savedAt: now,
+        title: `未保存草稿 · ${this.formatDraftTime(now)}`,
+        activeTool: this.activeTool,
+        previewUri: previewUri
+      });
       WorkUiState.bumpRevision();
       this.toast('已存为草稿');
     } catch (_err) {
@@ -1406,6 +1906,86 @@ struct EditPage {
 
     this.dirty = false;
     this.getUIContext().getRouter().back();
+  }
+
+  private persistDraftQuietly(): void {
+    if (!this.dirty || !this.imageSrc || this.errorText !== '' || this.disposed) {
+      return;
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      let persistentImageUri = this.imageSrc;
+
+      // 确保正在编辑的源图已固化存储在持久沙箱 filesDir 中（防低内存清理或跨版本更新丢失）
+      try {
+        if (persistentImageUri.startsWith('file://') || persistentImageUri.startsWith('/')) {
+          const rawPath = persistentImageUri.startsWith('file://') ? persistentImageUri.substring(7) : persistentImageUri;
+          if (rawPath.includes(context.cacheDir) && fs.accessSync(rawPath)) {
+            const draftsDir = `${context.filesDir}/drafts`;
+            if (!fs.accessSync(draftsDir)) {
+              fs.mkdirSync(draftsDir, true);
+            }
+            let ext = '.jpg';
+            const lower = rawPath.toLowerCase();
+            if (lower.endsWith('.png')) {
+              ext = '.png';
+            } else if (lower.endsWith('.webp')) {
+              ext = '.webp';
+            }
+            const destPath = `${draftsDir}/current_draft_source${ext}`;
+            fs.copyFileSync(rawPath, destPath);
+            persistentImageUri = `file://${destPath}`;
+            this.imageSrc = persistentImageUri;
+          }
+        }
+      } catch (e) {
+        hilog.warn(0x0000, 'EditPage', 'persistDraftQuietly copy to sandbox failed: %{public}s', String(e));
+      }
+
+      const now = Date.now();
+      const snapshot: EditorSnapshot = defaultEditorSnapshot();
+      snapshot.filter = { filterId: this.editState.filter.filterId, strength: this.editState.filter.strength };
+      snapshot.textLayers = cloneTextLayers(this.textLayers);
+      snapshot.border = cloneBorderState(this.borderState);
+      snapshot.stickers = this.stickers.map((s: StickerItem): StickerSnapshotItem => {
+        const item: StickerSnapshotItem = {
+          instanceId: s.instanceId,
+          templateId: s.templateId,
+          posX: s.posX,
+          posY: s.posY,
+          size: s.size,
+          rotation: s.rotation,
+          opacity: s.opacity,
+          zIndex: s.zIndex,
+          customUri: s.customUri
+        };
+        return item;
+      });
+
+      draftStore.save({
+        imageUri: persistentImageUri,
+        displayUri: this.displaySrc,
+        adjustments: cloneAdjustments(this.params),
+        regionAdjustments: cloneRegionAdjustments(this.regionAdjustments),
+        editorSnapshot: cloneEditorSnapshot(snapshot),
+        workId: this.route?.workId,
+        savedAt: now,
+        title: `未保存草稿 · ${this.formatDraftTime(now)}`,
+        activeTool: this.activeTool,
+        previewUri: persistentImageUri
+      });
+      WorkUiState.bumpRevision();
+      hilog.info(0x0000, 'EditPage', 'Auto-saved draft on page hide: %{public}s', persistentImageUri);
+    } catch (err) {
+      hilog.warn(0x0000, 'EditPage', 'persistDraftQuietly failed: %{public}s', String(err));
+    }
+  }
+
+  private formatDraftTime(ts: number): string {
+    const d = new Date(ts);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
   }
 
   onBackPress(): boolean {

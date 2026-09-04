@@ -74,6 +74,15 @@ export default function editModelsTest() {
       expect(editRouteError(route)).assertEqual('');
     });
 
+    it('parses a draft route', 0, () => {
+      const raw: RawEditRouteParams = { source: 'draft', initialTool: 'filter' };
+      const route = parseEditRouteParams(raw);
+      expect(route === null).assertEqual(false);
+      expect(route?.source).assertEqual(EditEntrySource.Draft);
+      expect(route?.initialTool).assertEqual('filter');
+      expect(editRouteError(route)).assertEqual('');
+    });
+
     it('falls back to the stable processing path when display uri is absent', 0, () => {
       expect(resolveDisplayImageSource('/data/cache/a.image', '')).assertEqual('/data/cache/a.image');
       expect(resolveDisplayImageSource('/data/cache/a.image', 'file://media/Photo/1'))
@@ -223,12 +232,32 @@ export default function editModelsTest() {
       expect(intent.draft.adjustments.brightness).assertEqual(30);
     });
 
+    it('builds an update intent from a draft source with workId', 0, () => {
+      const intent = buildSaveIntent(EditEntrySource.Draft, '0409-D', 'file:///tmp/a.jpg',
+        { exposure: 10, brightness: -20, contrast: 30, saturation: 0, temperature: 0 }, 2500);
+      expect(intent.mode).assertEqual(SaveMode.Update);
+      expect(intent.id).assertEqual('0409-D');
+      expect(intent.draft.id).assertEqual('0409-D');
+      expect(intent.draft.status).assertEqual(WorkStatus.Sealed);
+      expect(intent.draft.updatedAt).assertEqual(2500);
+    });
+
     it('treats a work source without id as a draft create', 0, () => {
       const intent = buildDraftIntent(EditEntrySource.Work, '', 'file:///tmp/a.jpg',
         createDefaultAdjustments(), 6000);
       expect(intent.mode).assertEqual(SaveMode.Create);
       expect(intent.draft.status).assertEqual(WorkStatus.Draft);
       expect(intent.draft.title).assertEqual('未题草卷');
+    });
+
+    it('builds a draft update intent from a draft source with workId', 0, () => {
+      const intent = buildDraftIntent(EditEntrySource.Draft, '0409-D', 'file:///tmp/b.jpg',
+        { exposure: 0, brightness: 30, contrast: -10, saturation: 0, temperature: 0 }, 5500);
+      expect(intent.mode).assertEqual(SaveMode.Update);
+      expect(intent.id).assertEqual('0409-D');
+      expect(intent.draft.id).assertEqual('0409-D');
+      expect(intent.draft.status).assertEqual(WorkStatus.Draft);
+      expect(intent.draft.updatedAt).assertEqual(5500);
     });
 
     it('stub store creates and finds a draft', 0, () => {

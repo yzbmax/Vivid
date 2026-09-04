@@ -3,7 +3,7 @@ import { WorkRecord, WorkStatus } from '../models/WorkRecord';
 import { AdjustParams } from '../models/EditModels';
 import { mockWorkStore } from '../models/MockWorkStore';
 import { AppSettingsStore } from '../models/AppSettingsStore';
-import { ExportProfile, toExportProfile } from '../models/AppSettingsModels';
+import { AppExportSettings, ExportProfile, toExportProfile } from '../models/AppSettingsModels';
 import { ImageRenderService } from './ImageRenderService';
 import { PhotoExportService, ExportResult } from './PhotoExportService';
 import { WorkFileService } from './WorkFileService';
@@ -121,9 +121,10 @@ export class WorkSaveService {
    * @param workId 作品 ID
    * @returns 导出结果，包含 cacheFilePath 供 SaveButton 使用
    */
-  static async exportWork(
+  public static async exportWork(
     context: common.UIAbilityContext,
-    workId: string
+    workId: string,
+    customSettings?: AppExportSettings
   ): Promise<WorkSaveResult> {
     const work = mockWorkStore.findById(workId);
     if (!work) {
@@ -143,9 +144,9 @@ export class WorkSaveService {
     }
 
     try {
-      // 获取导出配置
-      const profile = await AppSettingsStore.getExportSettings();
-      const exportProfile: ExportProfile = toExportProfile(profile);
+      // 获取导出配置（优先使用即时传入的弹窗规格）
+      const profile = customSettings ?? await AppSettingsStore.getExportSettings();
+      const exportProfile: ExportProfile = toExportProfile(profile, work.sourceImageUri);
 
       // 统一高清合成渲染（包含 LUT、调色、文字图层与边框）
       const snapshot = work.editorSnapshot ?? createDefaultEditorSnapshot();
@@ -230,12 +231,12 @@ export class WorkSaveService {
 
       // 2. 渲染图片（仅正式保存需要渲染）
       let cacheFilePath: string | undefined;
-      const previewUri = sourcePath;
+      let previewUri = sourcePath;
 
       if (mode === 'sealed') {
         try {
           const profile = await AppSettingsStore.getExportSettings();
-          const exportProfile: ExportProfile = toExportProfile(profile);
+          const exportProfile: ExportProfile = toExportProfile(profile, sourcePath);
 
           const snapshot = request.editorSnapshot ?? createDefaultEditorSnapshot();
           const compResult = await EditorCompositionService.render(
@@ -261,6 +262,9 @@ export class WorkSaveService {
               errorMessage: '图片编码失败'
             };
           }
+
+          // 将渲染后的合成预览图存入作品沙箱目录
+          previewUri = WorkFileService.savePreviewToSandbox(context, workId, cacheFilePath);
         } catch (_err) {
           return {
             success: false,

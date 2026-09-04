@@ -1,6 +1,7 @@
 #include "filter_engine.h"
 
 #include "cube_parser.h"
+#include "lut_renderer.h"
 
 bool FilterEngine::LoadLut(const std::string& filterId, const std::string& cubeContent) {
     if (filterId.empty()) {
@@ -46,6 +47,16 @@ bool FilterEngine::Render(uint8_t* rgba,
         }
         return false;
     }
-    return renderer_.Render(rgba, width, height, rowBytes, filterId,
-                            it->second, strength, error);
+    std::string vkError;
+    if (renderer_.Render(rgba, width, height, rowBytes, filterId,
+                         it->second, strength, &vkError)) {
+        return true;
+    }
+    if (LutRenderer::Render(rgba, width, height, rowBytes, it->second, strength)) {
+        return true;
+    }
+    if (error != nullptr) {
+        *error = vkError.empty() ? "Filter render failed" : vkError;
+    }
+    return false;
 }

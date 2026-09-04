@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from '@ohos/hypium';
 import { MockWorkStore } from '../main/ets/models/MockWorkStore';
 import { WorkRecord, WorkStatus } from '../main/ets/models/WorkRecord';
 import { EditorSnapshot } from '../main/ets/models/SharedContracts';
+import { workRepository } from '../main/ets/models/WorkRepository';
 
 export default function mockWorkStoreTest() {
   describe('MockWorkStore', () => {
@@ -9,6 +10,7 @@ export default function mockWorkStoreTest() {
 
     beforeEach(() => {
       // 每个测试用例创建独立实例，避免单例状态污染
+      workRepository.clearForTesting();
       store = new MockWorkStore();
       store.init();
     });
@@ -197,6 +199,17 @@ export default function mockWorkStoreTest() {
       expect(updated.createdAt).assertEqual(originalCreatedAt);
     });
 
+    it('upsert creates work when id is non-empty but does not exist in store', 0, () => {
+      const record = new WorkRecord();
+      record.id = 'MOCK-NEW-ID';
+      record.title = '全新卷宗';
+      record.status = WorkStatus.Draft;
+      const upserted = store.upsert(record);
+      expect(upserted.id).assertEqual('MOCK-NEW-ID');
+      expect(store.findById('MOCK-NEW-ID') !== null).assertTrue();
+      expect(store.findById('MOCK-NEW-ID')!.title).assertEqual('全新卷宗');
+    });
+
     it('defaults adjustments to all zeros', 0, () => {
       const draft = new WorkRecord();
       draft.title = '默认参数';
@@ -266,6 +279,21 @@ export default function mockWorkStoreTest() {
       const item = list.find((w: WorkRecord) => w.id === created.id);
       expect(item !== undefined).assertTrue();
       expect(item!.lastTool).assertEqual('border');
+    });
+
+    it('deletes work by id and returns true, returns false if not found', 0, () => {
+      const draft = new WorkRecord();
+      draft.title = '待删作品';
+      draft.status = WorkStatus.Draft;
+      const created = store.create(draft);
+      expect(store.findById(created.id) !== null).assertTrue();
+
+      const ok = store.delete(created.id);
+      expect(ok).assertTrue();
+      expect(store.findById(created.id)).assertNull();
+
+      const notFound = store.delete('NON_EXISTENT_ID');
+      expect(notFound).assertFalse();
     });
 
   });

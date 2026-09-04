@@ -89,6 +89,11 @@ int main() {
     Expect(std::fabs(lut16.data[Lut3D::Index(16, 16, 16)].r - 0.5f) < 0.0001f,
            "resampled 16^3 LUT keeps the midpoint");
 
+    const Lut3D lut2 = CubeParser::Parse(IdentityCube(2));
+    Expect(lut2.data.size() == 35937U, "2^3 LUTs are resampled to 33^3");
+    Expect(std::fabs(lut2.data[Lut3D::Index(16, 16, 16)].r - 0.5f) < 0.0001f,
+           "resampled 2^3 LUT keeps the midpoint");
+
     const Lut3D extended = CubeParser::Parse(ExtendedRangeCube16());
     Expect(std::fabs(extended.data.front().r + 0.1f) < 0.0001f,
            "finite LUT output below zero is preserved");

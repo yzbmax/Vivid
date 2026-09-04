@@ -15,12 +15,19 @@ import thumbnailPipelineTest from './ThumbnailPipeline.test';
 import photoPickerServiceTest from './PhotoPickerService.test';
 import editorSnapshotTest from './EditorSnapshot.test';
 import editorCompositionModelsTest from './EditorCompositionModels.test';
+import draftStoreTest from './DraftStore.test';
+import workRepositoryTest from './WorkRepository.test';
+import stickerCustomTest from './StickerCustom.test';
+import borderWatermarkTest from './BorderWatermark.test';
+import filterLutUtilsTest from './FilterLutUtils.test';
 
 export default function testsuite() {
   localUnitTest();
   authValidatorsTest();
   mockAuthStoreTest();
   mockWorkStoreTest();
+  draftStoreTest();
+  workRepositoryTest();
   editModelsTest();
   sharedContractsTest();
   borderStateTest();
@@ -34,4 +41,7 @@ export default function testsuite() {
   photoPickerServiceTest();
   editorSnapshotTest();
   editorCompositionModelsTest();
+  stickerCustomTest();
+  borderWatermarkTest();
+  filterLutUtilsTest();
 }

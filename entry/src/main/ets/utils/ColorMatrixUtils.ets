@@ -11,7 +11,7 @@
  *   [A']   [m15 m16 m17 m18 m19] [A]
  *                            [1 ]
  *
- * 其中 m4/m9/m14 是 RGB 通道的加性偏移（0-255 范围），m19=1 保持 alpha 不变。
+ * 其中 m4/m9/m14 是 RGB 通道的加性偏移（ArkUI 规范为 [-1.0, 1.0] 归一化范围，实际计算时底层自动乘以 255），m19=1 保持 alpha 不变。
  *
  * 纯函数，无 Kit 依赖，本地单测可加载。
  */
@@ -33,26 +33,30 @@ export function buildAdjustmentFilter(
   exposure: number,
   contrast: number,
   saturation: number,
-  warmth: number
+  warmth: number,
+  brightness: number = 0
 ): number[] {
   // 曝光：乘法因子
   const exposureFactor = 1 + exposure / 100;
 
-  // 对比度：乘法因子 + 偏移（围绕 128 中点）
+  // 亮度：RGB 通道加性明暗偏移（-100~100 映射至约 -0.25~+0.25 归一化偏移，对标 ImageRenderService）
+  const brightnessOffset = (brightness / 100) * 0.25;
+
+  // 对比度：乘法因子 + 偏移（围绕 0.5 归一化中点，非 0-255 空间的 128）
   const contrastFactor = 1 + contrast / 100;
-  const contrastOffset = 128 * (1 - contrastFactor);
+  const contrastOffset = 0.5 * (1 - contrastFactor);
 
   // 饱和度：Rec.709 亮度系数
   const saturationFactor = 1 + saturation / 100;
 
-  // 色温：R/B 通道加性偏移（warmth/300 * 255 ≈ ±85 最大偏移）
-  const warmthAmount = warmth / 300;
+  // 色温：R/B 通道加性偏移（-100~100 映射至 -0.12~+0.12，对标 ImageRenderService，正值暖调+R -B，负值冷调-R +B）
+  const warmthAmount = (warmth / 100) * 0.12;
 
-  // 曝光矩阵（对角线缩放）
+  // 曝光与亮度矩阵（对角线缩放 + 亮度加性偏移）
   const exposureMatrix: number[] = [
-    exposureFactor, 0, 0, 0, 0,
-    0, exposureFactor, 0, 0, 0,
-    0, 0, exposureFactor, 0, 0,
+    exposureFactor, 0, 0, 0, brightnessOffset,
+    0, exposureFactor, 0, 0, brightnessOffset,
+    0, 0, exposureFactor, 0, brightnessOffset,
     0, 0, 0, 1, 0
   ];
 
@@ -75,11 +79,11 @@ export function buildAdjustmentFilter(
     0, 0, 0, 1, 0
   ];
 
-  // 色温矩阵（R/B 通道加性偏移）
+  // 色温矩阵（R/B 通道加性偏移，归一化）
   const warmthMatrix: number[] = [
-    1, 0, 0, 0, warmthAmount * 255,
+    1, 0, 0, 0, warmthAmount,
     0, 1, 0, 0, 0,
-    0, 0, 1, 0, -warmthAmount * 255,
+    0, 0, 1, 0, -warmthAmount,
     0, 0, 0, 1, 0
   ];
 

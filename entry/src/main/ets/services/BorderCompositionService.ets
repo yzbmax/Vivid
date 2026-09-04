@@ -2,7 +2,7 @@ import { image } from '@kit.ImageKit';
 import { BorderState } from '../models/SharedContracts';
 import { LengthMetricsUnit } from '@kit.ArkUI';
 import { resolveBorderGeometry } from '../features/editor/border/BorderLayoutResolver';
-import { paintBorder } from '../features/editor/border/BorderPainter';
+import { paintBorder, drawRoundedRectPath } from '../features/editor/border/BorderPainter';
 
 /**
  * 边框外扩几何布局数据
@@ -146,8 +146,37 @@ export class BorderCompositionService {
     }
     const canvas = new OffscreenCanvasRenderingContext2D(geom.outputWidth, geom.outputHeight,
       new RenderingContextSettings(true), LengthMetricsUnit.PX);
+    if (geom.templateId === 'watermark_blur_pip') {
+      canvas.save();
+      try {
+        canvas.filter = 'blur(45px)';
+      } catch (_e) {}
+      const overflowX = Math.round(geom.outputWidth * 0.08);
+      const overflowY = Math.round(geom.outputHeight * 0.08);
+      canvas.drawImage(
+        basePixelMap,
+        -overflowX,
+        -overflowY,
+        geom.outputWidth + overflowX * 2,
+        geom.outputHeight + overflowY * 2
+      );
+      try {
+        canvas.filter = 'none';
+      } catch (_e) {}
+      canvas.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      canvas.fillRect(0, 0, geom.outputWidth, geom.outputHeight);
+      canvas.restore();
+    }
     paintBorder(canvas, geom, border);
-    canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+    if (geom.cornerRadius > 0) {
+      canvas.save();
+      drawRoundedRectPath(canvas, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height, geom.cornerRadius);
+      canvas.clip();
+      canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+      canvas.restore();
+    } else {
+      canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+    }
     // 失败必须上抛，不能把未装裱的原图当作成功结果。
     return canvas.getPixelMap(0, 0, geom.outputWidth, geom.outputHeight);
   }

@@ -1,66 +1,100 @@
-// 主视觉卡只负责展示并上报点击；选图、认证和路由由 HomePage 集中编排。
-
 import { Theme } from '../common/Theme';
 
+/**
+ * 主视觉卡（HeroCard）——「呈交新卷宗」
+ *
+ * 依据：Mask & Seal 设计规范（Canvas Hub 样板 _6）
+ * - 剔除生硬位移阴影，引入宣纸装裱与细线包边（1px Theme.PRIMARY_20）
+ * - 右上角装饰扇形印玺柔光水纹，左上嵌朱砂方印徽记
+ * - 具备文书呈报的动词化叙事与平滑按压微动效
+ */
 @Component
 export struct HeroCard {
   onImportClick: () => void = () => {};
 
+  @Styles
+  cardPressed() {
+    .scale({ x: 0.985, y: 0.985 })
+  }
+
   build() {
-    // 整张卡片可点击
     Column() {
-      // 顶栏：上传图标（左）+ COLOR LAB 标签（右）
-      Row() {
-        // 朱砂红方块 + 白色上传图标（图片+加号）
-        Stack({ alignContent: Alignment.Center }) {
-          Path()
-            .commands('M2 5 L14 5 L14 17 L2 17 Z M5 9 A1.5 1.5 0 1 0 5.01 9 M2 15 L6 11 L9 14 L13 10 M17 3 L17 7 M15 5 L19 5')
-            .width(20)
-            .height(20)
-            .fillOpacity(0)
-            .stroke('#FFFFFF')
-            .strokeWidth(1.5)
-            .strokeLineCap(LineCapStyle.Round)
-        }
-        .width(36)
-        .height(36)
-        .borderRadius(8)
-        .backgroundColor($r('app.color.ink_red'))
-
-        Blank()
-
-        Text($r('app.string.home_hero_kicker'))
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(11)
-          .letterSpacing(2)
-          .fontColor($r('app.color.ink_red'))
-      }
-      .width('100%')
-
-      // 主体区：标题 + 副标题
+      // 卡片主要内容
       Column() {
-        Text($r('app.string.home_hero_title'))
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.ink_dark'))
+        // 顶栏：朱砂方印徽标（左）+ 卷宗 KICKER（右）
+        Row() {
+          // 典雅金石朱文引首印（替代突兀的现代数码相册白色线框）
+          Stack({ alignContent: Alignment.Center }) {
+            // 内衬古典印规细边框
+            Row()
+              .width(26)
+              .height(26)
+              .border({ width: 0.8, color: 'rgba(242, 241, 237, 0.4)' })
+              .borderRadius(1)
 
-        Text($r('app.string.home_hero_subtitle'))
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(13)
-          .margin({ top: 8 })
-          .lineHeight(20)
-          .fontColor($r('app.color.stone_gray'))
+            // 金石印文：「呈」（与「呈交新卷宗」呼应，温润宣纸白，杜绝刺眼死白）
+            Text('呈')
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Theme.PAPER_SURFACE)
+              .letterSpacing(0)
+          }
+          .width(36)
+          .height(36)
+          .borderRadius(Theme.RADIUS_DEFAULT)
+          .backgroundColor(Theme.PRIMARY)
+          .shadow({ radius: 4, color: 'rgba(123, 23, 27, 0.25)', offsetY: 1 })
+
+          Blank()
+
+          // 卷宗签号
+          Text($r('app.string.home_hero_kicker'))
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(11)
+            .fontWeight(FontWeight.Bold)
+            .letterSpacing(1.5)
+            .fontColor(Theme.PRIMARY)
+        }
+        .width('100%')
+
+        // 标题与释义区
+        Column({ space: 8 }) {
+          Text($r('app.string.home_hero_title'))
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(25)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Theme.PRIMARY_CONTAINER)
+            .letterSpacing(2)
+
+          Text($r('app.string.home_hero_subtitle'))
+            .fontFamily(Theme.FONT_SANS)
+            .fontSize(Theme.FONT_SIZE_LABEL_MONO)
+            .lineHeight(20)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
+            .letterSpacing(0.5)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .margin({ top: 20, bottom: 8 })
       }
-      .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .margin({ top: 24 })
+      .padding({ left: 20, right: 20, top: 20, bottom: 20 })
+
+      // 卡片底缘：宣纸装裱细红金线
+      Row()
+        .width('100%')
+        .height(3)
+        .backgroundColor(Theme.PRIMARY_20)
     }
-    .margin({ left: 16, right: 16 })
-    .padding({ left: 24, right: 24, top: 24, bottom: 28 })
-    .backgroundColor($r('app.color.surface_container'))
-    .borderRadius(0)
-    .shadow({ radius: 1,fill:false,offsetX:20,offsetY: 20, color: $r('app.color.outline_variant') })
+    .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+    .backgroundColor(Theme.SURFACE_CONTAINER)
+    .border({ width: 1, color: Theme.PRIMARY_20 })
+    .borderRadius(Theme.RADIUS_DEFAULT)
+    .shadow({ radius: 8, color: 'rgba(139, 113, 111, 0.12)', offsetY: 2 })
+    .clip(true)
+    .stateStyles({ pressed: this.cardPressed })
+    .animation({ duration: 150, curve: Curve.EaseOut })
     .onClick(() => {
       this.onImportClick();
     })

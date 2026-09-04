@@ -16,6 +16,8 @@ import {
 } from '../main/ets/features/editor/border/BorderState';
 import {
   BorderState,
+  clampBorderRadiusRatio,
+  cloneBorderState,
   defaultBorderState
 } from '../main/ets/models/SharedContracts';
 import {
@@ -28,8 +30,8 @@ export default function borderStateTest() {
 
     // ───────────────── 目录（Catalog）测试 ─────────────────
 
-    it('registers 7 templates (none + 6 real) with unique ids', 0, () => {
-      expect(BORDER_TEMPLATES.length).assertEqual(7);
+    it('registers 23 templates (none + 6 real + 16 watermarks) with unique ids', 0, () => {
+      expect(BORDER_TEMPLATES.length).assertEqual(23);
       expect(BORDER_TEMPLATES[0].templateId).assertEqual('none');
       const ids: string[] = [];
       for (const tpl of BORDER_TEMPLATES) {
@@ -49,15 +51,22 @@ export default function borderStateTest() {
       expect(templateSupportsCapability('none', 'width')).assertFalse();
       expect(templateSupportsCapability('none', 'color')).assertFalse();
       expect(templateSupportsCapability('none', 'shadow')).assertFalse();
+      expect(templateSupportsCapability('none', 'radius')).assertFalse();
       expect(templateSupportsCapability('paper_white', 'width')).assertTrue();
       expect(templateSupportsCapability('paper_white', 'color')).assertTrue();
       expect(templateSupportsCapability('paper_white', 'shadow')).assertFalse();
+      expect(templateSupportsCapability('paper_white', 'radius')).assertTrue();
       expect(templateSupportsCapability('floating_shadow', 'shadow')).assertTrue();
+      expect(templateSupportsCapability('floating_shadow', 'radius')).assertTrue();
       expect(templateSupportsCapability('film_negative', 'width')).assertTrue();
       expect(templateSupportsCapability('film_negative', 'color')).assertFalse();
       expect(templateSupportsCapability('polaroid', 'width')).assertTrue();
       expect(templateSupportsCapability('polaroid', 'shadow')).assertFalse();
+      expect(templateSupportsCapability('polaroid', 'radius')).assertTrue();
       expect(templateSupportsCapability('scroll_mount', 'shadow')).assertTrue();
+      expect(templateSupportsCapability('scroll_mount', 'radius')).assertTrue();
+      expect(templateSupportsCapability('camera_watermark', 'radius')).assertTrue();
+      expect(templateSupportsCapability('watermark_blur_pip', 'radius')).assertTrue();
     });
 
     it('looks up templates by id and returns null for unknown', 0, () => {
@@ -311,6 +320,92 @@ export default function borderStateTest() {
       expect(g.templateId).assertEqual('none');
       expect(g.outputWidth).assertEqual(1000);
       expect(g.outputHeight).assertEqual(800);
+    });
+
+    it('clamps radiusRatio correctly and handles NaN / boundaries', 0, () => {
+      expect(clampBorderRadiusRatio(-0.5)).assertEqual(0);
+      expect(clampBorderRadiusRatio(NaN)).assertEqual(0);
+      expect(clampBorderRadiusRatio(1.5)).assertEqual(1);
+      expect(clampBorderRadiusRatio(0.42)).assertEqual(0.42);
+    });
+
+    it('clones and sanitizes radiusRatio with capability validation', 0, () => {
+      const src: BorderState = {
+        templateId: 'paper_white',
+        widthRatio: 0.1,
+        colorArgb: 0xFFFFFFFF,
+        shadowStrength: 0,
+        radiusRatio: 0.25
+      };
+      const cloned = cloneBorderState(src);
+      expect(cloned.radiusRatio).assertEqual(0.25);
+
+      // film_negative 不支持 radius 能力 → 强制置 0
+      const filmNegative: BorderState = {
+        templateId: 'film_negative',
+        widthRatio: 0.1,
+        colorArgb: 0xFF000000,
+        shadowStrength: 0,
+        radiusRatio: 0.25
+      };
+      const sanitizedFilm = sanitizeBorderState(filmNegative);
+      expect(sanitizedFilm.radiusRatio).assertEqual(0);
+
+      // none 模版 → 强制置 0
+      const noneState: BorderState = {
+        templateId: 'none',
+        widthRatio: 0,
+        colorArgb: 0xFFFFFFFF,
+        shadowStrength: 0,
+        radiusRatio: 0.5
+      };
+      const sanitizedNone = sanitizeBorderState(noneState);
+      expect(sanitizedNone.radiusRatio).assertEqual(0);
+    });
+
+    it('switches template and preserves radiusRatio when supported', 0, () => {
+      const src: BorderState = {
+        templateId: 'paper_white',
+        widthRatio: 0.1,
+        colorArgb: 0xFFFFFFFF,
+        shadowStrength: 0,
+        radiusRatio: 0.3
+      };
+      // 切换到同样支持 radius 的 camera_watermark
+      const switchedToWatermark = switchBorderTemplate(src, 'camera_watermark');
+      expect(switchedToWatermark.radiusRatio).assertEqual(0.3);
+
+      // 切换到不支持 radius 的 film_negative → 0
+      const switchedToFilm = switchBorderTemplate(src, 'film_negative');
+      expect(switchedToFilm.radiusRatio).assertEqual(0);
+    });
+
+    it('resolves cornerRadius proportionally based on short edge and radiusRatio', 0, () => {
+      // 1000 x 800 照片，短边为 800，最大短边半长为 400
+      // radiusRatio = 0.2 → cornerRadius = 400 * 0.2 = 80
+      const g = resolveBorderGeometry({
+        photoWidth: 1000,
+        photoHeight: 800,
+        border: { templateId: 'paper_white', widthRatio: 0.1, colorArgb: 0, shadowStrength: 0, radiusRatio: 0.2 }
+      });
+      expect(g.cornerRadius).assertEqual(80);
+
+      // watermark_blur_pip 支持 radius
+      const gBlur = resolveBorderGeometry({
+        photoWidth: 600,
+        photoHeight: 1200,
+        border: { templateId: 'watermark_blur_pip', widthRatio: 0.1, colorArgb: 0, shadowStrength: 0, radiusRatio: 0.5 }
+      });
+      // 短边 600，半长 300，radiusRatio 0.5 → 150
+      expect(gBlur.cornerRadius).assertEqual(150);
+
+      // 零圆角时 cornerRadius 为 0
+      const gZero = resolveBorderGeometry({
+        photoWidth: 1000,
+        photoHeight: 800,
+        border: { templateId: 'paper_white', widthRatio: 0.1, colorArgb: 0, shadowStrength: 0, radiusRatio: 0 }
+      });
+      expect(gZero.cornerRadius).assertEqual(0);
     });
   });
 }

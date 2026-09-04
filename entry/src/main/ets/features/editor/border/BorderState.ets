@@ -10,12 +10,19 @@
 
 import {
   BorderState,
+  clampBorderRadiusRatio,
   clampBorderShadow,
   clampBorderWidthRatio,
   cloneBorderState,
-  defaultBorderState
+  defaultBorderState,
+  cloneWatermarkConfig,
+  defaultWatermarkConfig
 } from '../../../models/SharedContracts';
-import { findBorderTemplate, templateSupportsCapability } from './BorderCatalog';
+import {
+  findBorderTemplate,
+  templateSupportsCapability,
+  isWatermarkTemplate
+} from './BorderCatalog';
 
 /** 未知 templateId 时的归一化目标。 */
 export const BORDER_FALLBACK_TEMPLATE_ID: string = 'none';
@@ -47,6 +54,7 @@ export function normalizeBorderTemplateId(templateId: string): string {
  * - widthRatio 始终钳制到 [0, 0.25]
  * - 模板不支持 color 时 → 回退到该模板的默认色
  * - 模板不支持 shadow 时 → shadowStrength 强制 0
+ * - 模板不支持 radius 时 → radiusRatio 强制 0
  *
  * 该函数保证任何输入都得到可被渲染器安全消费的合法状态。
  */
@@ -55,6 +63,7 @@ export function sanitizeBorderState(raw: BorderState): BorderState {
   const widthRatio = clampBorderWidthRatio(raw.widthRatio);
   let colorArgb = raw.colorArgb;
   let shadowStrength = clampBorderShadow(raw.shadowStrength);
+  let radiusRatio = clampBorderRadiusRatio(raw.radiusRatio ?? 0);
 
   if (!templateSupportsCapability(templateId, 'color')) {
     colorArgb = defaultColorForTemplate(templateId);
@@ -62,36 +71,76 @@ export function sanitizeBorderState(raw: BorderState): BorderState {
   if (!templateSupportsCapability(templateId, 'shadow')) {
     shadowStrength = 0;
   }
+  if (!templateSupportsCapability(templateId, 'radius')) {
+    radiusRatio = 0;
+  }
   if (templateId === BORDER_FALLBACK_TEMPLATE_ID) {
     // `none` 模板：所有装饰参数强制归零
     return {
       templateId: BORDER_FALLBACK_TEMPLATE_ID,
       widthRatio: 0,
       colorArgb: BORDER_DEFAULT_COLOR_PAPER_WHITE,
-      shadowStrength: 0
+      shadowStrength: 0,
+      radiusRatio: 0
     };
   }
-  return { templateId, widthRatio, colorArgb, shadowStrength };
+  const watermark = isWatermarkTemplate(templateId)
+    ? (raw.watermark ? cloneWatermarkConfig(raw.watermark) : defaultWatermarkConfig())
+    : (raw.watermark ? cloneWatermarkConfig(raw.watermark) : undefined);
+
+  return { templateId, widthRatio, colorArgb, shadowStrength, radiusRatio, watermark };
 }
 
 /** 模板不支持 color 时的默认色（按模板 id 返回合理的固定色）。 */
 export function defaultColorForTemplate(templateId: string): number {
-  if (templateId === 'ink_black' || templateId === 'film_negative') {
+  if (templateId === 'ink_black' || templateId === 'film_negative' || templateId === 'watermark_cinematic' ||
+      templateId === 'watermark_editorial_mag' || templateId === 'watermark_contact_sheet' ||
+      templateId === 'watermark_leather_badge') {
     return BORDER_DEFAULT_COLOR_INK;
   }
-  if (templateId === 'polaroid') {
+  if (templateId === 'polaroid' || templateId === 'watermark_retro_film') {
     return BORDER_DEFAULT_COLOR_POLAROID;
   }
-  // paper_white / floating_shadow / scroll_mount 默认纸白
+  if (templateId === 'watermark_oriental_seal') {
+    return 0xFFF7F4EB;
+  }
+  if (templateId === 'watermark_travel_postcard') {
+    return 0xFFE4ECF0;
+  }
+  if (templateId === 'watermark_travel_stamp') {
+    return 0xFFFBFBF9;
+  }
+  if (templateId === 'watermark_mint_film') {
+    return 0xFFA3E4D7;
+  }
+  // paper_white / floating_shadow / scroll_mount / camera_watermark / watermark_master_grid / watermark_blur_pip / watermark_overlay / watermark_nordic_gallery / watermark_gradient_frame / watermark_slim_white 默认纸白
   return BORDER_DEFAULT_COLOR_PAPER_WHITE;
 }
 
 /** 浅比较两个 BorderState 是否相等（用于跳过不必要的重渲染）。 */
 export function borderStateEquals(a: BorderState, b: BorderState): boolean {
-  return a.templateId === b.templateId &&
+  const baseEqual = a.templateId === b.templateId &&
     a.widthRatio === b.widthRatio &&
     a.colorArgb === b.colorArgb &&
-    a.shadowStrength === b.shadowStrength;
+    a.shadowStrength === b.shadowStrength &&
+    (a.radiusRatio ?? 0) === (b.radiusRatio ?? 0);
+  if (!baseEqual) {
+    return false;
+  }
+  if (!a.watermark && !b.watermark) {
+    return true;
+  }
+  if (!a.watermark || !b.watermark) {
+    return false;
+  }
+  return a.watermark.showDevice === b.watermark.showDevice &&
+    a.watermark.deviceModel === b.watermark.deviceModel &&
+    a.watermark.showLogo === b.watermark.showLogo &&
+    a.watermark.logo === b.watermark.logo &&
+    a.watermark.showParams === b.watermark.showParams &&
+    a.watermark.paramsText === b.watermark.paramsText &&
+    a.watermark.showTime === b.watermark.showTime &&
+    a.watermark.timeText === b.watermark.timeText;
 }
 
 /**
@@ -107,7 +156,11 @@ export function switchBorderTemplate(
     widthRatio: current.widthRatio > 0 ? current.widthRatio : 0.08,
     colorArgb: current.templateId === 'none' || current.colorArgb === defaultColorForTemplate(current.templateId)
       ? defaultColorForTemplate(nextTemplateId) : current.colorArgb,
-    shadowStrength: templateSupportsCapability(current.templateId, 'shadow') ? current.shadowStrength : 0.35
+    shadowStrength: templateSupportsCapability(current.templateId, 'shadow') ? current.shadowStrength : 0.35,
+    radiusRatio: templateSupportsCapability(nextTemplateId, 'radius') ? (current.radiusRatio ?? 0) : 0,
+    watermark: isWatermarkTemplate(nextTemplateId)
+      ? (current.watermark ? cloneWatermarkConfig(current.watermark) : defaultWatermarkConfig())
+      : current.watermark
   };
   return sanitizeBorderState(candidate);
 }

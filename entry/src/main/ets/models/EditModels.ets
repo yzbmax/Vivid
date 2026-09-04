@@ -15,10 +15,11 @@
 
 import { WorkRecord, WorkStatus } from './WorkRecord';
 
-/** 进入编辑页的来源：首页选图 或 作品续编。 */
+/** 进入编辑页的来源：首页选图 或 作品续编 或 恢复草稿。 */
 export enum EditEntrySource {
   Picker = 'picker',
-  Work = 'work'
+  Work = 'work',
+  Draft = 'draft'
 }
 
 /**
@@ -168,6 +169,18 @@ export function parseEditRouteParams(raw: RawEditRouteParams): EditRouteParams |
     }
     return result;
   }
+  if (raw.source === EditEntrySource.Draft) {
+    const result: EditRouteParams = {
+      source: EditEntrySource.Draft,
+      workId: raw.workId ?? '',
+      imageUri: raw.imageUri ?? ''
+    };
+    const tool = raw.initialTool;
+    if (tool !== undefined && tool !== '') {
+      result.initialTool = normalizeEditorToolKey(tool);
+    }
+    return result;
+  }
   return null;
 }
 
@@ -181,6 +194,9 @@ export function editRouteError(route: EditRouteParams | null): string {
   }
   if (route.source === EditEntrySource.Work && (route.workId ?? '') === '') {
     return '未获取到作品编号，请返回重试';
+  }
+  if (route.source === EditEntrySource.Draft) {
+    return '';
   }
   return '';
 }
@@ -283,7 +299,7 @@ export function buildSaveIntent(
   now: number
 ): SaveIntent {
   const clamped = clampAdjustments(params);
-  if (source === EditEntrySource.Work && workId !== '') {
+  if ((source === EditEntrySource.Work || source === EditEntrySource.Draft) && workId !== '') {
     const draft: WorkDraft = {
       id: workId,
       title: '未题新卷',
@@ -313,7 +329,7 @@ export function buildSaveIntent(
 
 /**
  * 构造草稿保存意图（放弃返回时自动调用）：
- * - source=Work 且有 workId → 续编更新，状态降为 Draft。
+ * - (source=Work 或 source=Draft) 且有 workId → 续编更新，状态降为 Draft。
  * - 否则 → 新建草稿，标题「未题草卷」。
  * now 由调用方传入，保证纯函数可单测。
  */
@@ -325,7 +341,7 @@ export function buildDraftIntent(
   now: number
 ): SaveIntent {
   const clamped = clampAdjustments(params);
-  if (source === EditEntrySource.Work && workId !== '') {
+  if ((source === EditEntrySource.Work || source === EditEntrySource.Draft) && workId !== '') {
     const draft: WorkDraft = {
       id: workId,
       title: '未题草卷',
@@ -441,7 +457,7 @@ export const REGION_ADJUST_TYPES: AdjustTypeDef[] = [
 // ───────────────────────── 贴纸（自由贴签）类型定义 ─────────────────────────
 
 /** 贴纸分类键。 */
-export type StickerCategory = 'seal' | 'corner' | 'label' | 'auspicious';
+export type StickerCategory = 'seal' | 'corner' | 'label' | 'auspicious' | 'custom';
 
 /** 贴纸渲染类型（决定 StickerLayer 如何绘制）。 */
 export enum StickerRenderType {
@@ -452,7 +468,9 @@ export enum StickerRenderType {
   /** 标签条：宣纸底+墨字，纯代码绘制。 */
   LabelStrip = 'label_strip',
   /** 吉祥图：SVG/PNG 图案。 */
-  AuspiciousIcon = 'auspicious_icon'
+  AuspiciousIcon = 'auspicious_icon',
+  /** 自定义图片：用户上传的透明背景 PNG/WebP 等。 */
+  CustomImage = 'custom_image'
 }
 
 /** 贴纸模板（从模板创建实例）。 */
@@ -467,6 +485,8 @@ export interface StickerTemplate {
   textContent: string;
   /** 默认显示尺寸（vp）。 */
   defaultSize: number;
+  /** 自定义图片文件 URI（沙箱本地路径）。 */
+  customUri?: string;
 }
 
 /** 贴纸实例（放置在预览区的一个贴纸）。 */
@@ -486,6 +506,8 @@ export interface StickerItem {
   opacity: number;
   /** 层级（越大越靠前）。 */
   zIndex: number;
+  /** 自定义图片文件 URI。 */
+  customUri?: string;
 }
 
 /** 贴纸分类定义。 */
@@ -499,7 +521,8 @@ export const STICKER_CATEGORIES: StickerCategoryDef[] = [
   { key: 'seal', label: '闲章' },
   { key: 'corner', label: '角花' },
   { key: 'label', label: '签条' },
-  { key: 'auspicious', label: '吉祥' }
+  { key: 'auspicious', label: '吉祥' },
+  { key: 'custom', label: '自定义' }
 ];
 
 /** 贴纸数量上限。 */
@@ -560,6 +583,25 @@ export function createStickerInstance(templateId: string, centerX: number, cente
     rotation: microRotate,
     opacity: 1.0,
     zIndex: Date.now()
+  };
+}
+
+/**
+ * 创建自定义图片贴纸实例（放置在预览区中心）。
+ * centerX / centerY 为预览区中心像素坐标。
+ */
+export function createCustomStickerInstance(customUri: string, centerX: number, centerY: number): StickerItem {
+  const defaultSize = 64;
+  return {
+    instanceId: 'sticker-custom-' + Date.now().toString() + '-' + Math.floor(Math.random() * 1000).toString(),
+    templateId: 'custom',
+    posX: centerX - defaultSize / 2,
+    posY: centerY - defaultSize / 2,
+    size: defaultSize,
+    rotation: 0,
+    opacity: 1.0,
+    zIndex: Date.now(),
+    customUri: customUri
   };
 }
 

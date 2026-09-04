@@ -7,6 +7,7 @@ import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
 import { EditEntrySource } from '../models/EditModels';
 import { PendingEditIntentStore } from '../models/PendingEditIntentStore';
+import { LoginUnavailableOverlay } from '../components/auth/LoginUnavailableOverlay';
 
 enum LoginMode {
   CODE,
@@ -362,6 +363,14 @@ struct LoginPage {
       }
       .width('100%')
       .height('100%');
+
+      // 登录未连接后端服务提示遮罩及赞赏加餐
+      LoginUnavailableOverlay({
+        onBack: () => this.goBack()
+      })
+        .width('100%')
+        .height('100%')
+        .zIndex(100);
     }
     .width('100%')
     .height('100%');

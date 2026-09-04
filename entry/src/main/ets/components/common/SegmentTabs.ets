@@ -63,7 +63,7 @@ export struct SegmentTabs {
             })
             .stateStyles({ pressed: this.chipPressed })
             .animation({ duration: 150, curve: Curve.EaseOut })
-          }, (item: SegmentItem) => item.key)
+          }, (item: SegmentItem) => item.key + '_' + item.label)
         }
         .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
       }
@@ -90,7 +90,7 @@ export struct SegmentTabs {
           .onClick(() => {
             this.onChange(item.key);
           })
-        }, (item: SegmentItem) => item.key)
+        }, (item: SegmentItem) => item.key + '_' + item.label)
       }
       .width('100%')
       .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })

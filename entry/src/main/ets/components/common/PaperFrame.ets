@@ -1,4 +1,5 @@
 import { Theme } from './Theme';
+import { resolveWorkImageSource } from '../../utils/WorkImageUtils';
 
 /**
  * 卷轴装裱画框（预留组件 F1 的详情页形态）：纸面装裱 + 图片 + 网格叠层 + 底部卷宗编号。
@@ -72,26 +73,14 @@ export struct PaperFrame {
       Column() {
         // 图片区
         Stack() {
-          if (this.image != null && this.hasImage()) {
-            Image(this.image)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover)
-          } else if (this.imageUri.length > 0) {
-            Image(this.imageUri)
-              .width('100%')
-              .height('100%')
-              .objectFit(ImageFit.Cover)
-          } else {
-            Column() {
-              Text('无预览')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontColor(Theme.ON_SURFACE_VARIANT)
-            }
+          Image(resolveWorkImageSource(
+            this.imageUri,
+            '',
+            this.image
+          ))
             .width('100%')
             .height('100%')
-            .justifyContent(FlexAlign.Center)
-          }
+            .objectFit(ImageFit.Cover)
           this.gridOverlay()
         }
         .width('100%')

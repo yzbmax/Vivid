@@ -40,7 +40,7 @@ export struct PreviewArea {
   @Prop imageSrc: string = '';
   @Link previewPixelMap: image.PixelMap | undefined;
   @Prop previewLoading: boolean = false;
-  @Prop originalPixelMap: image.PixelMap | undefined = undefined;
+  @Link originalPixelMap: image.PixelMap | undefined;
   @Prop @Watch('notifyDisplaySize') photoWidth: number = 0;
   @Prop @Watch('notifyDisplaySize') photoHeight: number = 0;
   @Prop @Watch('notifyDisplaySize') borderState: BorderState = defaultBorderState();
@@ -57,17 +57,21 @@ export struct PreviewArea {
   /** 原图对比模式：true 时隐藏所有效果。 */
   @Prop isComparing: boolean = false;
 
-  /** 底层原图 PixelMap（双图模式）。 */
-  @Prop baseImage: image.PixelMap | undefined = undefined;
-  /** 上层前景图 PixelMap（透明背景，双图模式）。 */
-  @Prop foregroundImage: image.PixelMap | undefined = undefined;
+  /** 底层原图 PixelMap（双图模式，使用 @Link 直传原生句柄）。 */
+  @Link baseImage: image.PixelMap | undefined;
+  /** 上层前景图 PixelMap（透明背景，双图模式，使用 @Link 直传原生句柄）。 */
+  @Link foregroundImage: image.PixelMap | undefined;
   /** 主体颜色矩阵（4x5 = 20 个数字）。 */
   @Prop subjectFilter: number[] = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
   /** 背景颜色矩阵（4x5 = 20 个数字）。 */
   @Prop baseFilter: number[] = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+  /** 是否处于主体/背景区域调色模式。 */
+  @Prop isRegionMode: boolean = false;
 
   /** 贴纸列表。 */
   @Prop stickers: StickerItem[] = [];
+  /** 自定义贴纸模板列表。 */
+  @Prop customTemplates: StickerTemplate[] = [];
   /** 贴纸模式（禁用按住对比）。 */
   @Prop stickerMode: boolean = false;
   /** 当前选中的贴纸 id。 */
@@ -94,13 +98,16 @@ export struct PreviewArea {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      if (this.previewLoading && this.foregroundImage === undefined) {
+      if (this.previewLoading && this.foregroundImage === undefined && this.baseImage === undefined && this.previewPixelMap === undefined) {
         Text('正在显影…')
           .fontFamily(Theme.FONT_SERIF)
           .fontColor(Theme.ON_SURFACE_VARIANT)
           .align(Alignment.Center)
-      } else if (hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined)) {
+      } else if (hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined || this.baseImage !== undefined)) {
         Stack({ alignContent: Alignment.TopStart }) {
+          if (!this.isComparing && this.borderState.templateId === 'watermark_blur_pip') {
+            this.blurredBackgroundLayer()
+          }
           if (!this.isComparing) {
             BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
           }
@@ -143,6 +150,7 @@ export struct PreviewArea {
           .height(this.layout().photoRect.height)
           .position({ x: this.layout().photoRect.x - this.layout().outputRect.x,
             y: this.layout().photoRect.y - this.layout().outputRect.y })
+          .borderRadius(this.photoCornerRadius())
           .clip(true)
         }
         .width(this.layout().outputRect.width)
@@ -179,18 +187,50 @@ export struct PreviewArea {
 
   @Builder
   private photoLayers() {
-    if (this.baseImage !== undefined && this.foregroundImage !== undefined && !this.isComparing) {
-      Image(this.baseImage)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
-        .colorFilter(this.baseFilter)
-      Image(this.foregroundImage)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
-        .colorFilter(this.subjectFilter)
-    } else if (this.isComparing && this.originalPixelMap !== undefined) {
-      Image(this.originalPixelMap)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
+    if (this.isComparing) {
+      if (this.originalPixelMap !== undefined) {
+        Image(this.originalPixelMap)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+      } else if (this.baseImage !== undefined) {
+        Image(this.baseImage)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+      } else if (this.previewPixelMap !== undefined) {
+        Image(this.previewPixelMap)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+      } else {
+        Image(this.imageSrc)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+      }
+    } else if (this.isRegionMode) {
+      if (this.baseImage !== undefined && this.foregroundImage !== undefined) {
+        Image(this.baseImage)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .colorFilter(this.baseFilter)
+        Image(this.foregroundImage)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .colorFilter(this.subjectFilter)
+      } else if (this.baseImage !== undefined) {
+        // 区域调色模式下，前景图尚未生成或无主体时展示 baseImage 并应用 baseFilter 杜绝白屏
+        Image(this.baseImage)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .colorFilter(this.baseFilter)
+      } else if (this.previewPixelMap !== undefined) {
+        Image(this.previewPixelMap)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .colorFilter(this.baseFilter)
+      } else {
+        Image(this.imageSrc)
+          .width('100%').height('100%').objectFit(ImageFit.Contain)
+          .colorFilter(this.baseFilter)
+          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+      }
     } else if (this.previewPixelMap !== undefined) {
       Image(this.previewPixelMap)
+        .width('100%').height('100%').objectFit(ImageFit.Contain)
+        .colorFilter(this.effects())
+    } else if (this.baseImage !== undefined) {
+      Image(this.baseImage)
         .width('100%').height('100%').objectFit(ImageFit.Contain)
         .colorFilter(this.effects())
     } else {
@@ -201,10 +241,65 @@ export struct PreviewArea {
     }
   }
 
+  @Builder
+  private blurredBackgroundLayer() {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.previewPixelMap !== undefined) {
+        Image(this.previewPixelMap)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(32)
+          .colorFilter(this.effects())
+      } else if (this.baseImage !== undefined) {
+        Image(this.baseImage)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(32)
+          .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+      } else if (this.imageSrc) {
+        Image(this.imageSrc)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(32)
+          .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+      }
+      // 适度半透明暗化罩层，保证白字铭牌与中心主图有清晰对比，同时与原图色调完全一致
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.28)')
+    }
+    .width(this.layout().outputRect.width)
+    .height(this.layout().outputRect.height)
+    .position({ x: 0, y: 0 })
+    .clip(true)
+  }
+
+  private cachedLayout: EditorPreviewLayout | null = null;
+  private lastLayoutKey: string = '';
+
+  private photoCornerRadius(): number {
+    const geom = this.layout().geometry;
+    if (!geom || geom.cornerRadius <= 0 || geom.photoRect.width <= 0) {
+      return 0;
+    }
+    const scale = this.layout().photoRect.width / geom.photoRect.width;
+    return Math.round(geom.cornerRadius * scale);
+  }
+
   private layout(): EditorPreviewLayout {
-    return resolveEditorPreviewLayout(this.containerW, this.containerH,
+    const key = `${this.containerW}_${this.containerH}_${this.photoWidth}_${this.photoHeight}_${this.imageNaturalW}_${this.imageNaturalH}_${this.borderState.templateId}_${this.borderState.widthRatio}_${this.borderState.radiusRatio ?? 0}`;
+    if (this.cachedLayout !== null && this.lastLayoutKey === key) {
+      return this.cachedLayout;
+    }
+    this.lastLayoutKey = key;
+    this.cachedLayout = resolveEditorPreviewLayout(this.containerW, this.containerH,
       this.photoWidth > 0 ? this.photoWidth : this.imageNaturalW,
       this.photoHeight > 0 ? this.photoHeight : this.imageNaturalH, this.borderState);
+    return this.cachedLayout;
   }
 
   private notifyDisplaySize(): void {
@@ -220,12 +315,18 @@ export struct PreviewArea {
       this.params.exposure,
       this.params.contrast,
       this.params.saturation,
-      this.params.temperature
+      this.params.temperature,
+      this.params.brightness
     );
   }
 
   /** 根据 templateId 查找贴纸模板。 */
   private findTpl(templateId: string): StickerTemplate | null {
+    for (let i = 0; i < this.customTemplates.length; i++) {
+      if (this.customTemplates[i].id === templateId) {
+        return this.customTemplates[i];
+      }
+    }
     return findStickerTemplate(templateId);
   }
 

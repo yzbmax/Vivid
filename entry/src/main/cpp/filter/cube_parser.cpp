@@ -149,8 +149,8 @@ Lut3D CubeParser::Parse(const std::string& text) {
                                          std::to_string(lineNumber));
             }
             EnsureNoExtraTokens(directive, "LUT_3D_SIZE");
-            if (size != 16 && size != Lut3D::SIZE) {
-                throw std::runtime_error("CubeParser: only LUT_3D_SIZE 16 or 33 is supported");
+            if (size != 2 && size != 16 && size != Lut3D::SIZE) {
+                throw std::runtime_error("CubeParser: only LUT_3D_SIZE 2, 16 or 33 is supported");
             }
             cubeSize = size;
             hasSize = true;

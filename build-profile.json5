@@ -1,6 +1,19 @@
 {
   "app": {
     "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/qiuhaiqin/.ohos/config/default_Vivid_ymmXA2lwzG5g_H5sm2uRXGjo4HGMKgGLb-pIAfvH5Kg=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B059B23F69B7FC399C11F7A404B715D07D9BC452CBDB3720C81DF67B7888079279C90FD27A5F499",
+          "profile": "/Users/qiuhaiqin/.ohos/config/default_Vivid_ymmXA2lwzG5g_H5sm2uRXGjo4HGMKgGLb-pIAfvH5Kg=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/qiuhaiqin/.ohos/config/default_Vivid_ymmXA2lwzG5g_H5sm2uRXGjo4HGMKgGLb-pIAfvH5Kg=.p12",
+          "storePassword": "0000001BE217A79C7B383CBB8CC512B78C832E183EC0D7B48F5E3473E3338422E2B040C69C22E3617D6B80"
+        }
+      }
     ],
     "products": [
       {

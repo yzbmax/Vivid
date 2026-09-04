@@ -8,6 +8,9 @@ import { WorkRecord } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';
 import { WorkSaveService } from '../services/WorkSaveService';
 import { PhotoExportService } from '../services/PhotoExportService';
+import { AppSettingsStore } from '../models/AppSettingsStore';
+import { AppExportSettings, ExportFormat, toExportProfile } from '../models/AppSettingsModels';
+import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
 import { common } from '@kit.AbilityKit';
 
 /**
@@ -24,13 +27,14 @@ struct WorkDetailPage {
   @State workId: string = '';
   @State work: WorkRecord | null = null;
   @State exporting: boolean = false;
+  @State showExportDialog: boolean = false;
 
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   aboutToAppear(): void {
     const params = this.getUIContext().getRouter().getParams() as Record<string, string>;
     this.workId = params?.workId ?? '';
-    mockWorkStore.init();
+    mockWorkStore.init(this.context);
     this.work = mockWorkStore.findById(this.workId);
   }
 
@@ -52,7 +56,7 @@ struct WorkDetailPage {
     const date = (w !== null) ? this.formatDate(w.date, w.createdAt) : '';
     return [
       { label: '分辨率', value: resolution },
-      { label: '呈报日期', value: date },
+      { label: '保存日期', value: date },
       { label: '封印', value: seal, valueColor: Theme.PRIMARY }
     ];
   }
@@ -102,7 +106,7 @@ struct WorkDetailPage {
           .width(20)
           .height(20)
           .fillColor(Theme.ON_PRIMARY)
-        Text('启封续编')
+        Text('继续编辑')
           .fontFamily(Theme.FONT_SERIF)
           .fontSize(18)
           .fontColor(Theme.ON_PRIMARY)
@@ -134,10 +138,26 @@ struct WorkDetailPage {
       return;
     }
 
+    const shouldPrompt = await AppSettingsStore.isPromptOnExport();
+    if (shouldPrompt) {
+      this.showExportDialog = true;
+      return;
+    }
+
+    const defaultSettings = await AppSettingsStore.getExportSettings();
+    await this.doExportToGallery(defaultSettings);
+  }
+
+  private async doExportToGallery(settings: AppExportSettings): Promise<void> {
+    this.showExportDialog = false;
+    if (this.exporting || this.work == null) {
+      return;
+    }
+
     this.exporting = true;
 
     try {
-      const result = await WorkSaveService.exportWork(this.context, this.work.id);
+      const result = await WorkSaveService.exportWork(this.context, this.work.id, settings);
 
       if (!result.success) {
         this.toast(result.errorMessage ?? '导出失败');
@@ -146,11 +166,12 @@ struct WorkDetailPage {
       }
 
       if (result.cacheFilePath) {
+        const ext = toExportProfile(settings, this.work?.sourceImageUri).extension.replace('.', '');
         const exportResult = await PhotoExportService.saveViaDialog(
           this.context,
           result.cacheFilePath,
           `Vivid_${this.work.id}`,
-          'jpg'
+          ext
         );
 
         if (exportResult.success) {
@@ -166,9 +187,9 @@ struct WorkDetailPage {
       }
     } catch (_err) {
       this.toast('导出失败');
+    } finally {
+      this.exporting = false;
     }
-
-    this.exporting = false;
   }
 
   private notesText(): string {
@@ -179,48 +200,67 @@ struct WorkDetailPage {
   }
 
   build() {
-    // @Entry 根节点必须是内置容器组件，故以 Column 作为外层，宣纸背景作为子层铺满
-    Column() {
-      PaperBackground() {
-        if (this.work == null) {
-          // 无效 workId：显示错误态
-          Column() {
-            PageHeader({ title: '卷宗详情', showBack: true,
-              onBack: () => this.getUIContext().getRouter().back(), topInset: true })
+    Stack({ alignContent: Alignment.Center }) {
+      // @Entry 根节点外层布局
+      Column() {
+        PaperBackground() {
+          if (this.work == null) {
+            // 无效 workId：显示错误态
             Column() {
-              Text('卷宗不存在')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(18)
-                .fontColor(Theme.ON_SURFACE_VARIANT)
-            }
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center)
-            .width('100%')
-          }
-          .width('100%')
-          .height('100%')
-        } else {
-          Scroll() {
-            Column() {
-              // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
-              PageHeader({ title: this.work!.title, showBack: true,
+              PageHeader({ title: '卷宗详情', showBack: true,
                 onBack: () => this.getUIContext().getRouter().back(), topInset: true })
-              PaperFrame({ image: this.work!.previewImage, imageUri: this.work!.previewImageUri, fileNo: this.work!.id })
-                .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-                .margin({ bottom: 32 })
-              MetadataBar({ columns: this.metadataItems() })
-                .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 24 })
-              NotesCard({ content: this.notesText() })
-                .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 32 })
-              this.actionArea()
+              Column() {
+                Text('卷宗不存在')
+                  .fontFamily(Theme.FONT_SERIF)
+                  .fontSize(18)
+                  .fontColor(Theme.ON_SURFACE_VARIANT)
+              }
+              .layoutWeight(1)
+              .justifyContent(FlexAlign.Center)
+              .width('100%')
             }
             .width('100%')
-            .padding({ bottom: 32 })
+            .height('100%')
+          } else {
+            Scroll() {
+              Column() {
+                // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
+                PageHeader({ title: this.work!.title, showBack: true,
+                  onBack: () => this.getUIContext().getRouter().back(), topInset: true })
+                PaperFrame({ image: this.work!.previewImage, imageUri: this.work!.previewImageUri, fileNo: this.work!.id })
+                  .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+                  .margin({ bottom: 32 })
+                MetadataBar({ columns: this.metadataItems() })
+                  .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 24 })
+                NotesCard({ content: this.notesText() })
+                  .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 32 })
+                this.actionArea()
+              }
+              .width('100%')
+              .padding({ bottom: 32 })
+            }
+            .width('100%')
+            .height('100%')
+            .scrollBar(BarState.Off)
           }
-          .width('100%')
-          .height('100%')
-          .scrollBar(BarState.Off)
         }
+      }
+      .width('100%')
+      .height('100%')
+
+      if (this.showExportDialog) {
+        ExportSettingsDialog({
+          isVisible: this.showExportDialog,
+          imageWidth: this.work?.width ?? 0,
+          imageHeight: this.work?.height ?? 0,
+          sourceUri: this.work?.sourceImageUri ?? '',
+          onConfirm: (settings: AppExportSettings) => {
+            this.doExportToGallery(settings);
+          },
+          onCancel: () => {
+            this.showExportDialog = false;
+          }
+        })
       }
     }
     .width('100%')

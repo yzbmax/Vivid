@@ -7,6 +7,7 @@ import {
 
 const QUALITY_KEY: string = 'vivid.app-settings.export-quality';
 const FORMAT_KEY: string = 'vivid.app-settings.export-format';
+const PROMPT_ON_EXPORT_KEY: string = 'vivid.app-settings.prompt-on-export';
 
 function normalizeExportQuality(value: string | undefined): ExportQuality {
   if (value === ExportQuality.High) {
@@ -19,8 +20,17 @@ function normalizeExportQuality(value: string | undefined): ExportQuality {
 }
 
 function normalizeExportFormat(value: string | undefined): ExportFormat {
+  if (value === ExportFormat.ORIGINAL) {
+    return ExportFormat.ORIGINAL;
+  }
   if (value === ExportFormat.PNG) {
     return ExportFormat.PNG;
+  }
+  if (value === ExportFormat.WEBP) {
+    return ExportFormat.WEBP;
+  }
+  if (value === ExportFormat.HEIF) {
+    return ExportFormat.HEIF;
   }
   return ExportFormat.JPEG;
 }
@@ -41,6 +51,7 @@ export class AppSettingsStore {
     try {
       PersistentStorage.persistProp<string>(QUALITY_KEY, DEFAULT_EXPORT_SETTINGS.quality);
       PersistentStorage.persistProp<string>(FORMAT_KEY, DEFAULT_EXPORT_SETTINGS.format);
+      PersistentStorage.persistProp<boolean>(PROMPT_ON_EXPORT_KEY, true);
     } catch (err) {
       // Unit-test and non-UI contexts may not expose PersistentStorage. Keep
       // the same AppStorage contract so callers still receive safe defaults.
@@ -49,6 +60,9 @@ export class AppSettingsStore {
       }
       if (!AppStorage.has(FORMAT_KEY)) {
         AppStorage.setOrCreate<string>(FORMAT_KEY, DEFAULT_EXPORT_SETTINGS.format);
+      }
+      if (!AppStorage.has(PROMPT_ON_EXPORT_KEY)) {
+        AppStorage.setOrCreate<boolean>(PROMPT_ON_EXPORT_KEY, true);
       }
     }
     AppSettingsStore.initialized = true;
@@ -74,16 +88,29 @@ export class AppSettingsStore {
     AppStorage.setOrCreate<string>(FORMAT_KEY, value);
   }
 
+  public static async isPromptOnExport(): Promise<boolean> {
+    AppSettingsStore.ensureInitialized();
+    const value: boolean | undefined = AppStorage.get<boolean>(PROMPT_ON_EXPORT_KEY);
+    return value ?? true;
+  }
+
+  public static async setPromptOnExport(value: boolean): Promise<void> {
+    AppSettingsStore.ensureInitialized();
+    AppStorage.setOrCreate<boolean>(PROMPT_ON_EXPORT_KEY, value);
+  }
+
   /** Test-only reset; production pages never call this method. */
   public static async resetForTesting(): Promise<void> {
     try {
       PersistentStorage.deleteProp(QUALITY_KEY);
       PersistentStorage.deleteProp(FORMAT_KEY);
+      PersistentStorage.deleteProp(PROMPT_ON_EXPORT_KEY);
     } catch (err) {
       // PersistentStorage can be unavailable in pure unit-test contexts.
     }
     AppStorage.delete(QUALITY_KEY);
     AppStorage.delete(FORMAT_KEY);
+    AppStorage.delete(PROMPT_ON_EXPORT_KEY);
     AppSettingsStore.initialized = false;
     AppSettingsStore.ensureInitialized();
   }

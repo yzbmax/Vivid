@@ -24,5 +24,7 @@ export async function renderThumbnailBatch<T>(
     } else {
       onUnavailable(preset);
     }
+    // 让出宏任务事件循环，确保 ArkUI 能及时渲染当前缩略图帧并流畅响应手势，防止界面卡死
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 }

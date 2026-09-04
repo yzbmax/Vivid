@@ -5,14 +5,15 @@ import { Theme } from '../common/Theme';
 @Component
 export struct CtaBlock {
   build() {
-    Column() {
+    Row() {
       Text($r('app.string.home_cta_note'))
-        .fontFamily(Theme.FONT_SERIF)
-        .fontSize(12)
-        .fontColor($r('app.color.stone_gray'))
+        .fontFamily(Theme.FONT_MONO)
+        .fontSize(11)
+        .fontColor(Theme.OUTLINE)
+        .letterSpacing(1.2)
     }
     .width('100%')
-    .padding({ top: 16, bottom: 8 })
-    .alignItems(HorizontalAlign.Center)
+    .padding({ top: 14, bottom: 6 })
+    .justifyContent(FlexAlign.Center)
   }
 }

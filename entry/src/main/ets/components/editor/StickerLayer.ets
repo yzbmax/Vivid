@@ -200,12 +200,24 @@ export struct StickerLayer {
   /** 根据渲染类型分支绘制贴纸内容。 */
   @Builder
   stickerContent() {
-    if (this.template === null) {
+    if (this.item.customUri !== undefined && this.item.customUri !== '') {
+      Image(this.item.customUri)
+        .width(this.localSize * this.pinchScale)
+        .height(this.localSize * this.pinchScale)
+        .objectFit(ImageFit.Contain)
+    } else if (this.template === null) {
       Column()
         .width(this.localSize * this.pinchScale * 0.8)
         .height(this.localSize * this.pinchScale * 0.8)
         .backgroundColor(Theme.OUTLINE_VARIANT)
         .borderRadius(Theme.RADIUS_DEFAULT)
+    } else if (this.template.renderType === StickerRenderType.CustomImage) {
+      if (this.template.customUri !== undefined && this.template.customUri !== '') {
+        Image(this.template.customUri)
+          .width(this.localSize * this.pinchScale)
+          .height(this.localSize * this.pinchScale)
+          .objectFit(ImageFit.Contain)
+      }
     } else if (this.template.renderType === StickerRenderType.SealStamp) {
       Stack({ alignContent: Alignment.Center }) {
         Text(this.template.textContent)

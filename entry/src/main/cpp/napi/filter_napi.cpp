@@ -4,6 +4,7 @@
 #include "pixel_buffer_layout.h"
 
 #include <multimedia/image_framework/image/pixelmap_native.h>
+#include <hilog/log.h>
 
 #include <algorithm>
 #include <cmath>
@@ -15,6 +16,9 @@
 #include <vector>
 
 namespace {
+
+constexpr uint32_t kLogDomain = 0xFF00;
+constexpr const char* kLogTag = "FilterNapi";
 
 FilterEngine g_engine;
 std::mutex g_engineMutex;
@@ -190,9 +194,15 @@ napi_value LoadLut(napi_env env, napi_callback_info info) {
         return Throw(env, "loadLut arguments must be strings");
     }
     bool loaded = false;
-    {
+    try {
         std::lock_guard<std::mutex> lock(g_engineMutex);
         loaded = g_engine.LoadLut(filterId, cubeText);
+    } catch (const std::exception& e) {
+        OH_LOG_Print(LOG_APP, LOG_ERROR, kLogDomain, kLogTag, "LoadLut failed for %{public}s: %{public}s", filterId.c_str(), e.what());
+        loaded = false;
+    } catch (...) {
+        OH_LOG_Print(LOG_APP, LOG_ERROR, kLogDomain, kLogTag, "LoadLut unknown error for %{public}s", filterId.c_str());
+        loaded = false;
     }
     napi_value result = nullptr;
     napi_get_boolean(env, loaded, &result);

@@ -22,8 +22,10 @@ export struct StickerPanel {
   @Prop stickers: StickerItem[] = [];
   @Prop selectedId: string = '';
   @Prop allTemplates: StickerTemplate[] = [];
+  @Prop customTemplates: StickerTemplate[] = [];
 
-  onAddSticker: (templateId: string) => void = () => {};
+  onAddSticker: (templateId: string, customUri?: string) => void = () => {};
+  onUploadCustomSticker: () => void = () => {};
   onSelectSticker: (instanceId: string) => void = () => {};
   onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => void = () => {};
   onRemoveSticker: (instanceId: string) => void = () => {};
@@ -51,6 +53,9 @@ export struct StickerPanel {
       // ── 中行：贴纸网格（横向滚动，固定高度）──
       Scroll() {
         Row({ space: 12 }) {
+          if (this.activeCategory === 'custom') {
+            this.uploadCustomCard()
+          }
           ForEach(this.filteredTemplates(), (tpl: StickerTemplate) => {
             this.stickerPreview(tpl)
           }, (tpl: StickerTemplate) => tpl.id)
@@ -93,6 +98,34 @@ export struct StickerPanel {
     })
   }
 
+  /** 上传自定义贴纸卡片。 */
+  @Builder
+  uploadCustomCard() {
+    Column({ space: 2 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Text('＋')
+          .fontSize(22)
+          .fontColor(Theme.SEAL_RED)
+          .fontWeight(FontWeight.Bold)
+      }
+      .width(44)
+      .height(44)
+      .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
+      .border({ width: 1, color: Theme.SEAL_RED, style: BorderStyle.Dashed })
+      .borderRadius(Theme.RADIUS_LG)
+
+      Text('上传')
+        .fontFamily(Theme.FONT_MONO)
+        .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
+        .fontColor(Theme.SEAL_RED)
+        .maxLines(1)
+    }
+    .width(52)
+    .onClick(() => {
+      this.onUploadCustomSticker();
+    })
+  }
+
   /** 单个贴纸预览（可点击添加）。 */
   @Builder
   stickerPreview(tpl: StickerTemplate) {
@@ -100,22 +133,45 @@ export struct StickerPanel {
       // 预览区
       Stack({ alignContent: Alignment.Center }) {
         if (tpl.renderType === StickerRenderType.SealStamp) {
-          Text(tpl.textContent)
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(16)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(Theme.ON_PRIMARY)
+          Stack({ alignContent: Alignment.Center }) {
+            Text(tpl.textContent)
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Theme.ON_PRIMARY)
+          }
+          .width(32)
+          .height(32)
+          .backgroundColor(Theme.SEAL_RED)
+          .borderRadius(2)
+          .shadow({ radius: 3, color: Theme.SHADOW_SM, offsetY: 1 })
         } else if (tpl.renderType === StickerRenderType.LabelStrip) {
-          Text(tpl.textContent)
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(11)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(Theme.ON_SURFACE)
+          Column() {
+            Text(tpl.textContent)
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Theme.ON_SURFACE)
+              .letterSpacing(1)
+          }
+          .width(36)
+          .height(18)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(Theme.PAPER_SURFACE)
+          .border({ width: 1, color: Theme.OUTLINE_VARIANT })
+          .shadow({ radius: 2, color: Theme.SHADOW_SM, offsetY: 1 })
+        } else if (tpl.renderType === StickerRenderType.CustomImage || (tpl.customUri !== undefined && tpl.customUri !== '')) {
+          if (tpl.customUri !== undefined && tpl.customUri !== '') {
+            Image(tpl.customUri)
+              .width(34)
+              .height(34)
+              .objectFit(ImageFit.Contain)
+          }
         } else {
           if (tpl.resource !== null) {
             Image(tpl.resource)
-              .width(24)
-              .height(24)
+              .width(28)
+              .height(28)
               .objectFit(ImageFit.Contain)
           }
         }
@@ -139,7 +195,7 @@ export struct StickerPanel {
       if (this.stickers.length >= STICKER_MAX_COUNT) {
         return;
       }
-      this.onAddSticker(tpl.id);
+      this.onAddSticker(tpl.id, tpl.customUri);
     })
   }
 
@@ -311,6 +367,9 @@ export struct StickerPanel {
   // ── 辅助方法 ──
 
   private filteredTemplates(): StickerTemplate[] {
+    if (this.activeCategory === 'custom') {
+      return this.customTemplates;
+    }
     return filterTemplatesByCategory(this.activeCategory);
   }
 

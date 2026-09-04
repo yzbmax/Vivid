@@ -1,143 +1,195 @@
-// 近作横滑区：展示近期作品的横向滚动列表。
-// 卡片显示作品缩略图 + 底部半透明信息栏（标题与日期）。
-// 无作品时显示空状态提示。
-// 由 HomePage 通过 @Prop 传入 WorkRecord[] 数据。
-
-import { WorkRecord } from '../../models/WorkRecord';
+import { WorkRecord, WorkStatus } from '../../models/WorkRecord';
 import { Theme } from '../common/Theme';
+import { resolveWorkImageSource } from '../../utils/WorkImageUtils';
 
+/**
+ * 案头近辑（RecentWorkSection）
+ *
+ * 依据：Mask & Seal 设计规范（Canvas Hub 样板 _6）
+ * - 3:4 比例画廊装裱卡（含 4px 宣纸衬边装裱），分离照片与底部批注
+ * - 右上角快速通达「全部卷宗 ›」
+ * - 独立文书元数据区：宋体题名、等宽纪年与微型朱红钤印
+ */
 @Component
 export struct RecentWorkSection {
   @Prop works: WorkRecord[] = [];
   onCardClick: (id: string) => void = () => {};
+  onViewAllClick: () => void = () => {};
+
+  @Styles
+  cardPressed() {
+    .scale({ x: 0.97, y: 0.97 })
+  }
+
+  private formatDate(createdAt: number): string {
+    if (!createdAt || createdAt <= 0) {
+      return '甲辰年';
+    }
+    const d = new Date(createdAt);
+    const y = d.getFullYear().toString();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${y}.${m}.${day}`;
+  }
 
   build() {
     Column() {
-      // 区块标题：中文"近作" + 英文"RECENT WORKS"
+      // 区块标题：中文"案头近辑" + 英文"RECENT ARCHIVES" + 右侧"全部卷宗 ›"
       Row() {
-        Text($r('app.string.home_work_cn'))
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(16)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.ink_dark'))
+        Row() {
+          Text($r('app.string.home_work_cn'))
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Theme.ON_SURFACE)
+            .letterSpacing(1.5)
 
-        Text($r('app.string.home_work_en'))
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(11)
-          .letterSpacing(2)
-          .margin({ left: 8 })
-          .fontColor($r('app.color.ink_red'))
+          Text($r('app.string.home_work_en'))
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .letterSpacing(1.5)
+            .margin({ left: 8 })
+            .fontColor(Theme.PRIMARY)
+        }
+
+        Blank()
+
+        // 全部卷宗入口
+        Row({ space: 2 }) {
+          Text('全部卷宗')
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(11)
+            .fontColor(Theme.PRIMARY)
+            .letterSpacing(1)
+          Text('›')
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Theme.PRIMARY)
+        }
+        .onClick(() => this.onViewAllClick())
       }
       .width('100%')
-      .margin({ bottom: 16 })
-      .padding({ left: 24, right: 24 })
+      .margin({ bottom: 14 })
+      .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
 
       if (this.works.length === 0) {
-        // 空状态提示
-        Column() {
-          Text('暂无近作')
+        // 雅致空状态
+        Column({ space: 6 }) {
+          Text('案头尚无归档 · 待呈佳作')
             .fontFamily(Theme.FONT_SERIF)
-            .fontSize(14)
-            .fontColor($r('app.color.stone_gray'))
-          Text('去编辑一张吧')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(12)
-            .margin({ top: 4 })
-            .fontColor($r('app.color.stone_gray'))
+            .fontSize(13)
+            .fontColor(Theme.OUTLINE)
+            .letterSpacing(1)
+          Text('轻触上方「呈交新卷宗」启幕')
+            .fontFamily(Theme.FONT_SANS)
+            .fontSize(11)
+            .fontColor(Theme.OUTLINE_VARIANT)
         }
         .width('100%')
-        .height(140)
+        .height(160)
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
+        .border({ width: 1, color: Theme.OUTLINE_VARIANT, style: BorderStyle.Dashed })
+        .borderRadius(Theme.RADIUS_DEFAULT)
+        .margin({ left: 20, right: 20 })
       } else {
-        // 横向滚动列表
-        List({ space: 12 }) {
-          ForEach(this.works, (item: WorkRecord, index: number) => {
+        // 横向滚动画廊
+        List({ space: 14 }) {
+          ForEach(this.works, (item: WorkRecord) => {
             ListItem() {
-              this.WorkCard(item)
+              this.ScrollCard(item)
             }
           }, (item: WorkRecord) => item.id)
         }
         .width('100%')
-        .height(180)
+        .height(224)
         .listDirection(Axis.Horizontal)
         .scrollBar(BarState.Off)
-        .padding({ left: 24, right: 24 })
+        .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
       }
     }
     .width('100%')
-    .padding({ top: 24, bottom: 8 })
+    .padding({ top: 20, bottom: 8 })
   }
 
+  // 3:4 比例宣纸装裱展卷卡
   @Builder
-  WorkCard(item: WorkRecord) {
+  ScrollCard(item: WorkRecord) {
     Column() {
-      // 上方图片区
+      // 宣纸装裱画芯区（四周带 4px 纸白装裱衬垫）
       Stack({ alignContent: Alignment.BottomStart }) {
-        if (item.previewImage !== null) {
-          // 种子作品：使用 Resource 预览图
-          Image(item.previewImage)
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-        } else if (item.previewImageUri.length > 0) {
-          // 用户保存作品：使用沙箱 URI 预览图
-          Image(item.previewImageUri)
-            .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-        } else {
-          // 无预览图：显示占位
-          Column() {
-            Text($r('app.string.home_seal'))
-              .fontFamily(Theme.FONT_SERIF)
-              .fontSize(26)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.ink_red'))
-              .width(48)
-              .height(48)
-              .borderRadius(24)
-              .border({ width: 1.5, color: $r('app.color.ink_red') })
-              .textAlign(TextAlign.Center)
-          }
+        Image(resolveWorkImageSource(
+          item.previewImageUri,
+          item.sourceImageUri,
+          item.previewImage
+        ))
           .width('100%')
           .height('100%')
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .backgroundColor($r('app.color.paper_white'))
-        }
+          .objectFit(ImageFit.Cover)
+          .borderRadius(2)
 
-        // 底部半透明信息栏
-        Row() {
-          Column() {
-            Text(item.title)
-              .fontFamily(Theme.FONT_SERIF)
-              .fontSize(13)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(Color.White)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(item.date)
-              .fontFamily(Theme.FONT_SERIF)
-              .fontSize(10)
-              .margin({ top: 2 })
-              .fontColor('#CCFFFFFF')
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
+        // 状态微角标
+        if (item.status === WorkStatus.Draft) {
+          Text('草稿')
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(9)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
+            .backgroundColor(Theme.PAPER_SURFACE_80)
+            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+            .borderRadius(2)
+            .margin({ left: 6, bottom: 6 })
         }
-        .width('100%')
-        .padding({ left: 8, right: 8, top: 6, bottom: 6 })
-        .backgroundColor('#66000000')
       }
       .width('100%')
-      .height('100%')
-      .borderRadius(12)
+      .height(154)
+      .padding(4)
+      .backgroundColor(Theme.PAPER_SURFACE)
+      .borderRadius(Theme.RADIUS_DEFAULT)
       .clip(true)
+
+      // 独立元数据区（不盖在画面上）
+      Column({ space: 4 }) {
+        Text(item.title)
+          .width('100%')
+          .fontFamily(Theme.FONT_SERIF)
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Theme.ON_SURFACE)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Row() {
+          Text(item.date && item.date.length > 0 ? item.date : this.formatDate(item.createdAt))
+            .fontFamily(Theme.FONT_MONO)
+            .fontSize(10)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
+            .letterSpacing(0.5)
+
+          Blank()
+
+          Image(item.status === WorkStatus.Draft ? $r('app.media.icon_edit') : $r('app.media.icon_archive'))
+            .width(13)
+            .height(13)
+            .fillColor(item.status === WorkStatus.Draft ? Theme.ON_SURFACE_VARIANT : Theme.PRIMARY)
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding({ left: 8, right: 8, top: 6, bottom: 8 })
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
     }
-    .width(140)
-    .height(180)
-    .borderRadius(12)
+    .width(152)
+    .height(220)
+    .backgroundColor(Theme.SURFACE_CONTAINER_LOW)
+    .border({ width: 1, color: Theme.OUTLINE_VARIANT })
+    .borderRadius(Theme.RADIUS_DEFAULT)
+    .shadow({ radius: 3, color: Theme.SHADOW_SM, offsetY: 1 })
+    .clip(true)
+    .stateStyles({ pressed: this.cardPressed })
+    .animation({ duration: 150, curve: Curve.EaseOut })
     .onClick(() => {
       this.onCardClick(item.id);
     })

@@ -86,7 +86,16 @@ export class PhotoPickerService {
     context: common.UIAbilityContext,
     sourceUri: string
   ): Promise<string> {
-    const cachePath = `${context.cacheDir}/vivid_import_${Date.now()}.image`;
+    let ext = '.jpg';
+    const lower = sourceUri.toLowerCase();
+    if (lower.includes('.png')) {
+      ext = '.png';
+    } else if (lower.includes('.webp')) {
+      ext = '.webp';
+    } else if (lower.includes('.jpeg')) {
+      ext = '.jpeg';
+    }
+    const cachePath = `${context.cacheDir}/vivid_import_${Date.now()}${ext}`;
     let sourceFd: number = -1;
     let destinationFd: number = -1;
     try {

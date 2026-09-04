@@ -178,6 +178,54 @@ export function cloneTextLayers(layers?: TextLayer[] | null): TextLayer[] {
 
 // ───────────────────────── 边框状态 ─────────────────────────
 
+/** 水印 Logo 预设类型 */
+export type WatermarkLogoType =
+  'zeiss' | 'leica' | 'hasselblad' | 'xmage' | 'apple' | 'sony' | 'canon' | 'nikon' |
+  'fujifilm' | 'xiaomi' | 'huawei' | 'samsung' | 'vivo' | 'oppo' | 'honor' | 'master' | 'none';
+
+/** 相机水印边框配置 */
+export interface WatermarkConfig {
+  showDevice: boolean;
+  deviceModel: string;
+  showLogo: boolean;
+  logo: WatermarkLogoType;
+  showParams: boolean;
+  paramsText: string;
+  showTime: boolean;
+  timeText: string;
+}
+
+/** 默认相机水印配置 */
+export function defaultWatermarkConfig(): WatermarkConfig {
+  return {
+    showDevice: true,
+    deviceModel: 'vivo X300 Pro',
+    showLogo: true,
+    logo: 'zeiss',
+    showParams: true,
+    paramsText: '85mm f/2.67 1/10s ISO10492',
+    showTime: true,
+    timeText: '2026.09.03 16:30'
+  };
+}
+
+/** 深拷贝相机水印配置 */
+export function cloneWatermarkConfig(cfg?: WatermarkConfig | null): WatermarkConfig {
+  if (!cfg) {
+    return defaultWatermarkConfig();
+  }
+  return {
+    showDevice: cfg.showDevice ?? true,
+    deviceModel: cfg.deviceModel ?? 'vivo X300 Pro',
+    showLogo: cfg.showLogo ?? true,
+    logo: cfg.logo ?? 'zeiss',
+    showParams: cfg.showParams ?? true,
+    paramsText: cfg.paramsText ?? '',
+    showTime: cfg.showTime ?? true,
+    timeText: cfg.timeText ?? ''
+  };
+}
+
 /** 边框状态（一张作品最多启用一款模板）。 */
 export interface BorderState {
   /** 边框模板 id，未知 id 由调用方回退 'none'。 */
@@ -188,6 +236,10 @@ export interface BorderState {
   colorArgb: number;
   /** 投影强度，0…1。 */
   shadowStrength: number;
+  /** 圆角比例，0…1（相对于照片短边的一半，0 为直角，1 为全圆角/胶囊）。 */
+  radiusRatio?: number;
+  /** 相机水印专属配置 */
+  watermark?: WatermarkConfig;
 }
 
 /** 边宽比例下界。 */
@@ -198,6 +250,10 @@ export const BORDER_WIDTH_RATIO_MAX: number = 0.25;
 export const BORDER_SHADOW_MIN: number = 0;
 /** 投影强度上界。 */
 export const BORDER_SHADOW_MAX: number = 1;
+/** 圆角比例下界。 */
+export const BORDER_RADIUS_RATIO_MIN: number = 0;
+/** 圆角比例上界。 */
+export const BORDER_RADIUS_RATIO_MAX: number = 1;
 
 /** 钳制边宽比例。 */
 export function clampBorderWidthRatio(value: number): number {
@@ -215,9 +271,17 @@ export function clampBorderShadow(value: number): number {
   return Math.min(BORDER_SHADOW_MAX, Math.max(BORDER_SHADOW_MIN, value));
 }
 
+/** 钳制圆角比例。 */
+export function clampBorderRadiusRatio(value: number): number {
+  if (Number.isNaN(value) || typeof value !== 'number') {
+    return 0;
+  }
+  return Math.min(BORDER_RADIUS_RATIO_MAX, Math.max(BORDER_RADIUS_RATIO_MIN, value));
+}
+
 /** 无装裱默认边框。 */
 export function defaultBorderState(): BorderState {
-  return { templateId: 'none', widthRatio: 0, colorArgb: 0xFFFFFFFF, shadowStrength: 0 };
+  return { templateId: 'none', widthRatio: 0, colorArgb: 0xFFFFFFFF, shadowStrength: 0, radiusRatio: 0 };
 }
 
 /** 深拷贝 BorderState。 */
@@ -233,7 +297,11 @@ export function cloneBorderState(border?: BorderState | null): BorderState {
     colorArgb: typeof border.colorArgb === 'number' ? border.colorArgb : 0xFFFFFFFF,
     shadowStrength: typeof border.shadowStrength === 'number' && !isNaN(border.shadowStrength)
       ? Math.max(0, Math.min(1, border.shadowStrength))
-      : 0
+      : 0,
+    radiusRatio: typeof border.radiusRatio === 'number' && !isNaN(border.radiusRatio)
+      ? Math.max(0, Math.min(1, border.radiusRatio))
+      : 0,
+    watermark: border.watermark ? cloneWatermarkConfig(border.watermark) : undefined
   };
 }
 
@@ -246,11 +314,25 @@ export function cloneBorderState(border?: BorderState | null): BorderState {
  * - textLayers: []
  * - border: defaultBorderState()
  */
+/** 贴纸快照项（与 StickerItem 结构保持对齐）。 */
+export interface StickerSnapshotItem {
+  instanceId: string;
+  templateId: string;
+  posX: number;
+  posY: number;
+  size: number;
+  rotation: number;
+  opacity: number;
+  zIndex: number;
+  customUri?: string;
+}
+
 export interface EditorSnapshot {
   schemaVersion: number;
   filter: FilterSnapshot;
   textLayers: TextLayer[];
   border: BorderState;
+  stickers?: StickerSnapshotItem[];
 }
 
 /** 0.1.9 的 schema 版本。 */
@@ -262,7 +344,8 @@ export function defaultEditorSnapshot(): EditorSnapshot {
     schemaVersion: EDITOR_SNAPSHOT_SCHEMA_VERSION,
     filter: defaultFilterSnapshot(),
     textLayers: [],
-    border: defaultBorderState()
+    border: defaultBorderState(),
+    stickers: []
   };
 }
 
@@ -275,7 +358,21 @@ export function cloneEditorSnapshot(snapshot?: EditorSnapshot | null): EditorSna
     schemaVersion: EDITOR_SNAPSHOT_SCHEMA_VERSION,
     filter: cloneFilterSnapshot(snapshot.filter),
     textLayers: cloneTextLayers(snapshot.textLayers),
-    border: cloneBorderState(snapshot.border)
+    border: cloneBorderState(snapshot.border),
+    stickers: snapshot.stickers ? snapshot.stickers.map((s: StickerSnapshotItem): StickerSnapshotItem => {
+      const item: StickerSnapshotItem = {
+        instanceId: s.instanceId ?? '',
+        templateId: s.templateId ?? '',
+        posX: typeof s.posX === 'number' && !isNaN(s.posX) ? s.posX : 0,
+        posY: typeof s.posY === 'number' && !isNaN(s.posY) ? s.posY : 0,
+        size: typeof s.size === 'number' && !isNaN(s.size) ? Math.max(1, s.size) : 64,
+        rotation: typeof s.rotation === 'number' && !isNaN(s.rotation) ? s.rotation : 0,
+        opacity: typeof s.opacity === 'number' && !isNaN(s.opacity) ? Math.max(0.1, Math.min(1.0, s.opacity)) : 1.0,
+        zIndex: typeof s.zIndex === 'number' && !isNaN(s.zIndex) ? s.zIndex : 0,
+        customUri: s.customUri
+      };
+      return item;
+    }) : []
   };
 }
 
