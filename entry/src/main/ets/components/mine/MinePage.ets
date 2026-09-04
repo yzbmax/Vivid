@@ -156,20 +156,20 @@ export struct MinePage {
           }
 
           Column() {
-            Text('法律依据')
+            Text('服务条款与隐私政策')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
               .letterSpacing(1.5)
               .width('100%')
               .padding({ bottom: 8 });
-            SettingRow({ title: '用户协议', detail: '界面示例文案', interactive: true,
+            SettingRow({ title: '用户协议', detail: '微霏服务条款与知识产权声明', interactive: true,
               onTap: () => this.openPage('pages/UserAgreementPage') });
-            SettingRow({ title: '隐私政策', detail: '界面示例文案', interactive: true,
+            SettingRow({ title: '隐私政策', detail: '个人信息保护与设备权限说明', interactive: true,
               onTap: () => this.openPage('pages/PrivacyPolicyPage') });
           }
 
-          Text(this.isAuthenticated() ? '演示档册 · 仅当前进程有效' : '未注册档册')
+          Text('微霏 V1.0 · 纯本地离线创作工具')
             .fontFamily(Theme.FONT_MONO)
             .fontSize(10)
             .fontColor('#8a5c57')
