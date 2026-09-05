@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- 莲花角花：简笔莲花+莲叶 -->
+  <g fill="none" stroke="#7B171B" stroke-width="2">
+    <!-- 莲叶（大圆） -->
+    <path d="M30 100 Q30 60 70 50 Q110 40 130 70 Q140 90 120 110 Q90 130 50 120 Q30 115 30 100 Z" stroke-width="2.5"/>
+    <!-- 叶脉 -->
+    <path d="M75 85 L75 55" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M75 85 L55 65" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M75 85 L95 60" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M75 85 L50 90" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M75 85 L100 85" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- 莲花瓣 -->
+    <path d="M110 45 Q115 20 125 15 Q135 20 130 45" fill="#B23B2F" stroke="none"/>
+    <path d="M100 50 Q95 28 105 18 Q115 25 115 50" fill="#B23B2F" stroke="none" opacity="0.7"/>
+    <path d="M125 50 Q130 28 140 22 Q145 35 135 55" fill="#B23B2F" stroke="none" opacity="0.7"/>
+    <!-- 莲蓬 -->
+    <circle cx="120" cy="48" r="6" fill="#7B171B"/>
+    <circle cx="118" cy="46" r="1.5" fill="#F2F1ED"/>
+    <circle cx="122" cy="46" r="1.5" fill="#F2F1ED"/>
+    <circle cx="120" cy="50" r="1.5" fill="#F2F1ED"/>
+  </g>
+</svg>

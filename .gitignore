@@ -13,3 +13,10 @@
 # 本地配置与预览缓存
 .claude/settings.local.json
 **/.preview
+
+# 签名证书与私钥安全文件（严禁提交到代码仓库）
+*.p12
+*.csr
+*.cer
+*.p7b
+*.jks

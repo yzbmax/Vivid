@@ -1,6 +1,20 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "/Users/qiuhaiqin/key/vivid_key.p12",
+          "storePassword": "0000001910F37B1648EAB291DFCE5E3FA0EACA48D6A8B06A8BDFD9F0542AA412409A9D0730E03BAF50",
+          "keyAlias": "vivid",
+          "keyPassword": "0000001936F96D144C83C347752120E480D2419F4462EA9E3A29512C1B10F82B48B69037560E7E50E1",
+          "signAlg": "SHA256withECDSA",
+          "profile": "/Users/qiuhaiqin/key/vivid_releaseRelease.p7b",
+          "certpath": "/Users/qiuhaiqin/key/vivid.cer"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
@@ -18,10 +32,10 @@
     ],
     "buildModeSet": [
       {
-        "name": "debug",
+        "name": "release"
       },
       {
-        "name": "release"
+        "name": "debug"
       }
     ]
   },

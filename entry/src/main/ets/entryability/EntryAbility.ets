@@ -1,6 +1,8 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { window } from '@kit.ArkUI';
+import { window, display } from '@kit.ArkUI';
+import { mockWorkStore } from '../models/MockWorkStore';
+import { draftStore } from '../models/DraftStore';
 
 const DOMAIN = 0x0000;
 
@@ -11,6 +13,10 @@ export default class EntryAbility extends UIAbility {
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
+    AppStorage.setOrCreate('appContext', this.context);
+    // 进程启动或冷启动时立即从沙箱持久化存储载入作品与草稿
+    mockWorkStore.init(this.context);
+    draftStore.init(this.context);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
 
@@ -22,6 +28,26 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
+    try {
+      const win = windowStage.getMainWindowSync();
+      // 沉浸式布局：窗口全屏，页面背景可延伸至状态栏 / 导航栏之外
+      win.setWindowLayoutFullScreen(true).then(() => {
+        // 全屏生效后读取系统安全区高度（px），换算为 vp 后写入 AppStorage，供页面内容上下避让
+        const avoid = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+        const density: number = display.getDefaultDisplaySync().densityPixels;
+        const toVp = (px: number): number => density > 0 ? px / density : 0;
+        AppStorage.setOrCreate('statusBarHeight', toVp(avoid.topRect.height));
+        AppStorage.setOrCreate('navBarHeight', toVp(avoid.bottomRect.height));
+      }).catch((err: Error) => {
+        hilog.error(DOMAIN, 'testTag', 'Failed to set full screen. Cause: %{public}s', JSON.stringify(err));
+      });
+      // 宣纸底色：过渡动画与安全区缺口处与页面 paper-base 一致（设计令牌 paper_base）
+      win.setWindowBackgroundColor('#DEDDD7');
+    } catch (err) {
+      hilog.error(DOMAIN, 'testTag', 'Failed to configure window. Cause: %{public}s', JSON.stringify(err));
+    }
+
+    // 主框架 MainTabs（pages/Index）为启动页；WorksPage 作为「作品」Tab 挂载于 Index。
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));

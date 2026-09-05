@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vivid 0.1.9 placeholder: floating_shadow border preview -->
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <rect x="10" y="12" width="76" height="74" fill="#000" opacity="0.15"/>
+  <rect x="8" y="8" width="76" height="74" fill="#F5F0E3"/>
+  <rect x="14" y="14" width="64" height="62" fill="#9AA0A6" opacity="0.3"/>
+</svg>

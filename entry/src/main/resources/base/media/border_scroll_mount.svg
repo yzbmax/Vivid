@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vivid 0.1.9 placeholder: scroll_mount border preview -->
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <rect x="0" y="0" width="96" height="96" fill="#E8E2D4"/>
+  <!-- cinnabar inner line -->
+  <rect x="7" y="7" width="82" height="82" fill="none" stroke="#B23B2F" stroke-width="1"/>
+  <rect x="12" y="12" width="72" height="72" fill="#F5F0E3"/>
+  <rect x="16" y="16" width="64" height="64" fill="#9AA0A6" opacity="0.3"/>
+  <!-- corner marks -->
+  <rect x="2" y="2" width="4" height="4" fill="#B23B2F"/>
+  <rect x="90" y="2" width="4" height="4" fill="#B23B2F"/>
+  <rect x="2" y="90" width="4" height="4" fill="#B23B2F"/>
+  <rect x="90" y="90" width="4" height="4" fill="#B23B2F"/>
+</svg>

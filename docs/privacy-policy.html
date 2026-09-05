@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微霏 - 个人信息保护与隐私政策</title>
+  <style>
+    :root {
+      --primary: #7B171B;
+      --bg: #FAF9F6;
+      --paper: #FFFFFF;
+      --text: #241918;
+      --text-muted: #665654;
+      --border: #E0D5D2;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Noto Serif SC", STSong, serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+      margin: 0;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 40px 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    }
+    h1 {
+      font-size: 26px;
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 12px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 18px;
+      color: var(--text);
+      margin-top: 32px;
+      border-left: 4px solid var(--primary);
+      padding-left: 10px;
+    }
+    p, li {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+    .meta {
+      font-size: 13px;
+      color: var(--primary);
+      margin-bottom: 24px;
+      background: #FDF3F2;
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid #F3CECA;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 11px;
+      border-radius: 2px;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span class="badge">合规</span>微霏个人信息保护与隐私政策</h1>
+    <div class="meta">
+      <strong>生效及更新日期：</strong>2026 年 09 月 04 日 | <strong>开发者团队：</strong>微霏团队
+    </div>
+
+    <p><strong>引言：</strong>微霏（以下简称“我们”）深知个人信息对您的重要性，并承诺严格遵守《中华人民共和国个人信息保护法》等相关法律法规。我们始终贯彻“数据收集最小必要”与“端侧本地计算安全”原则，竭力守护每位创作者的数字资产与个人隐私安全。</p>
+
+    <h2>一、我们如何收集与使用信息</h2>
+    <p><strong>1. 零个人身份信息收集：</strong>微霏在当前版本中不收集您的真实姓名、身份证号、银行账户、通讯录、精准地理位置、短信及设备唯一硬件标识符（IMEI/MAC等）等任何个人敏感身份数据。</p>
+    <p><strong>2. 照片与图像处理机制：</strong></p>
+    <ul>
+      <li>当您在应用内点击“从相册选择”或导入图片时，微霏严格通过 HarmonyOS 官方提供的系统级安全控件（<code>PhotoViewPicker</code>）发起选图流程。</li>
+      <li>该机制仅在您主动授权并选定某一张特定照片时，将该单张照片的副本导入至微霏的应用私有沙箱目录中供您编辑。微霏无法、亦绝不会扫描、遍历或读取您设备系统相册中的任何其他照片或文件。</li>
+    </ul>
+    <p><strong>3. 纯端侧离线运算承诺：</strong></p>
+    <ul>
+      <li>全部的图像色彩滤镜 LUT 插值渲染、色彩矩阵调整、文字图层排印及相机 EXIF 水印边框合成，均 100% 在您本机的 CPU 与 GPU（Vulkan）中实时计算处理。</li>
+      <li><strong>我们承诺：绝不会将您的原始图像素材、调色过程草稿或最终作品上传至任何远程服务器或云存储。</strong>您的创作数据始终安全停留在您的手机内。</li>
+    </ul>
+
+    <h2>二、设备权限调用与最小化原则</h2>
+    <p>微霏秉持权限最小化原则，在运行过程中不索取任何系统多余危险权限：</p>
+    <ul>
+      <li><strong>媒体文件读取：</strong>通过系统 PhotoViewPicker 独立控件实现，完全不申请全局读取相册权限。</li>
+      <li><strong>媒体文件保存：</strong>当您在编辑完成后选择“导出到相册”时，应用调用系统相册保存通道将合成图片写入系统相册，除此之外不进行任何后台多余文件读写。</li>
+      <li><strong>网络与通信权限：</strong>微霏核心的全部调色装裱功能支持完全离线运行，在无网络连接或飞行模式下所有功能均可正常使用。</li>
+    </ul>
+
+    <h2>三、第三方 SDK 与数据共享声明</h2>
+    <p><strong>1. 零第三方 SDK 嵌入：</strong>微霏当前版本未集成任何第三方的商业广告推送 SDK、用户行为分析统计 SDK、账号联合登录 SDK 或跨平台数据追踪插件。</p>
+    <p><strong>2. 零数据共享与披露：</strong>我们不会向任何第三方公司、商业机构或个人提供、出租、共享或公开披露任何关于您的使用数据或图像内容。</p>
+
+    <h2>四、数据存储与自主控制权</h2>
+    <p><strong>1. 存储位置：</strong>您的未完草稿与历史保存作品完全保存在您本地设备分配给微霏的应用私有目录（filesDir）及首选项（Preferences）中。</p>
+    <p><strong>2. 自主删除：</strong>您可随时在“作品”列表中长按单项作品进行彻底删除；当您通过 HarmonyOS 系统设置卸载微霏时，应用占用的全部私有沙箱数据将被设备系统自动彻底清除。</p>
+
+    <h2>五、未成年人信息保护</h2>
+    <p>我们高度重视对未成年人隐私的保护。微霏为纯工具类图像美化软件，不面向未成年人展示不当内容，亦不收集未成年人的任何个人信息。如监护人对被监护人的软件使用有任何疑问，可通过下文渠道与我们联系。</p>
+
+    <h2>六、政策更新与联系我们</h2>
+    <p>若因产品功能重大演变或法律法规变更，我们可能会适时修订本隐私政策，并在应用内发布最新生效版本。</p>
+    <p>如您对本隐私政策有任何疑问、意见或投诉建议，您可通过以下官方渠道与开发者团队取得联系：</p>
+    <ul>
+      <li><strong>个人信息保护负责人邮箱：</strong><code>vivid_support@163.com</code></li>
+      <li>我们承诺在收到您的反馈邮件后 15 个工作日内完成核查与妥善回复。</li>
+    </ul>
+  </div>
+</body>
+</html>

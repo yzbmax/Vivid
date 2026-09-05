@@ -10,7 +10,167 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "微霏"
+    },
+    {
+      "name": "home_brand",
+      "value": "VIVID"
+    },
+    {
+      "name": "home_archive_no",
+      "value": "COLOR LAB Nº 001"
+    },
+    {
+      "name": "home_hero_kicker",
+      "value": "COLOR LAB Nº 001 · 卷宗呈报"
+    },
+    {
+      "name": "home_hero_date",
+      "value": "2026 · 08"
+    },
+    {
+      "name": "home_hero_title",
+      "value": "呈交新卷宗"
+    },
+    {
+      "name": "home_hero_subtitle",
+      "value": "从相册挑选佳作，开启调色与印章装裱。"
+    },
+    {
+      "name": "home_seal",
+      "value": "印"
+    },
+    {
+      "name": "home_cta",
+      "value": "从相册选择"
+    },
+    {
+      "name": "home_cta_note",
+      "value": "◆ 机内离线运算 · 图像全域隐密 ◆"
+    },
+    {
+      "name": "home_cta_selected",
+      "value": "已选择图片：%s"
+    },
+    {
+      "name": "home_cta_canceled",
+      "value": "未选择图片"
+    },
+    {
+      "name": "home_cta_failed",
+      "value": "选图失败，请重试"
+    },
+    {
+      "name": "home_section_cn",
+      "value": "创作三序"
+    },
+    {
+      "name": "home_section_en",
+      "value": "RITES"
+    },
+    {
+      "name": "home_f1_title",
+      "value": "一 · 调色立意"
+    },
+    {
+      "name": "home_f1_desc",
+      "value": "智能识别主体景深，分层敷色明暗呼应"
+    },
+    {
+      "name": "home_f2_title",
+      "value": "二 · 长卷题签"
+    },
+    {
+      "name": "home_f2_desc",
+      "value": "典雅衬线双语题记，金石印章画龙点睛"
+    },
+    {
+      "name": "home_f3_title",
+      "value": "三 · 落印成画"
+    },
+    {
+      "name": "home_f3_desc",
+      "value": "画幅外扩相机水印，宣纸装裱归档封存"
+    },
+    {
+      "name": "home_footer",
+      "value": "炎国艺术档案复核 · 卷宗第409号"
+    },
+    {
+      "name": "home_work_cn",
+      "value": "案头近辑"
+    },
+    {
+      "name": "home_work_en",
+      "value": "RECENT ARCHIVES"
+    },
+    {
+      "name": "home_work1_title",
+      "value": "远山"
+    },
+    {
+      "name": "home_work1_date",
+      "value": "2026 · 07"
+    },
+    {
+      "name": "home_work2_title",
+      "value": "残荷"
+    },
+    {
+      "name": "home_work2_date",
+      "value": "2026 · 07"
+    },
+    {
+      "name": "home_work3_title",
+      "value": "秋水"
+    },
+    {
+      "name": "home_work3_date",
+      "value": "2026 · 06"
+    },
+    {
+      "name": "home_tools_cn",
+      "value": "格物八法"
+    },
+    {
+      "name": "home_tools_en",
+      "value": "QUICK INSTRUMENTS"
+    },
+    {
+      "name": "home_tool1",
+      "value": "AI智能抠图"
+    },
+    {
+      "name": "home_tool2",
+      "value": "滤镜"
+    },
+    {
+      "name": "home_tool3",
+      "value": "背景"
+    },
+    {
+      "name": "home_tool4",
+      "value": "调节"
+    },
+    {
+      "name": "home_tool5",
+      "value": "主体"
+    },
+    {
+      "name": "home_tool6",
+      "value": "贴纸"
+    },
+    {
+      "name": "home_tool7",
+      "value": "文字"
+    },
+    {
+      "name": "home_tool8",
+      "value": "模板"
+    },
+    {
+      "name": "home_tool_hot",
+      "value": "热"
     }
   ]
 }

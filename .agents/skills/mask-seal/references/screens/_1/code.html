@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="zh-CN" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&amp;family=Noto+Sans+SC:wght@400;500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'paper-base': '#deddd7', 'inverse-surface': '#3a2d2c', 'tertiary-fixed-dim': '#8ad3d0', 'surface-tint': '#a73837', 'background': '#fff8f7', 'on-secondary-container': '#626564', 'surface-container-high': '#f9e3e1', 'secondary': '#5c5f5e', 'secondary-container': '#e1e3e1', 'on-secondary': '#ffffff', 'surface-container-highest': '#f3dedc', 'inverse-primary': '#ffb3ae', 'surface': '#fff8f7', 'surface-container-low': '#fff0ef', 'on-primary-fixed-variant': '#862022', 'inverse-on-surface': '#ffedeb', 'surface-container-lowest': '#ffffff', 'on-error': '#ffffff', 'on-surface': '#241918', 'on-tertiary-container': '#8ed8d5', 'on-background': '#241918', 'tertiary-container': '#00605e', 'secondary-fixed-dim': '#c5c7c5', 'on-tertiary-fixed': '#00201f', 'paper-surface': '#f2f1ed', 'surface-dim': '#ebd5d3', 'on-tertiary': '#ffffff', 'tertiary': '#004645', 'outline-variant': '#debfbd', 'primary-fixed-dim': '#ffb3ae', 'on-primary-fixed': '#410005', 'on-secondary-fixed-variant': '#444746', 'on-secondary-fixed': '#191c1b', 'error-container': '#ffdad6', 'on-error-container': '#93000a', 'surface-variant': '#f3dedc', 'secondary-fixed': '#e1e3e1', 'on-tertiary-fixed-variant': '#00504e', 'tertiary-fixed': '#a5f0ec', 'primary': '#7b171b', 'on-primary': '#ffffff', 'surface-container': '#ffe9e7', 'primary-fixed': '#ffdad7', 'outline': '#8b716f', 'error': '#ba1a1a', 'on-surface-variant': '#574140', 'seal-red': '#b23b2f', 'surface-bright': '#fff8f7', 'primary-container': '#9b2f2f', 'on-primary-container': '#ffbab5' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'annotation-margin': '4rem', 'grid-unit': '5.4rem', 'lab-arrive-x': '0.85rem', 'gutter': '1rem', 'margin-mobile': '1.25rem' }, fontFamily: { 'headline-md': ['Noto Serif SC'], 'headline-lg': ['Noto Serif SC'], 'body-md': ['Noto Sans SC'], 'label-mono': ['monospace'], 'headline-lg-mobile': ['Noto Serif SC'] }, fontSize: { 'headline-md': ['24px', { lineHeight: '32px', fontWeight: '600' }], 'headline-lg': ['32px', { lineHeight: '40px', fontWeight: '700' }], 'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-mono': ['13px', { lineHeight: '16px', letterSpacing: '0.05em', fontWeight: '500' }], 'headline-lg-mobile': ['28px', { lineHeight: '36px', fontWeight: '700' }] } } } }</script><style>@layer base { body { background-color: #deddd7; background-image: linear-gradient(to right, rgba(123,23,27,0.05) 1px, transparent 1px); background-size: 5.4rem 100%; overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } } ::-webkit-scrollbar { display: none; } .radial-glow { background: radial-gradient(circle at top, rgba(155,47,47,0.05) 0%, transparent 70%); } </style></head><body class="font-body-md text-on-surface"><div class="fixed inset-0 radial-glow pointer-events-none"></div><header class="fixed top-0 inset-x-0 z-50 bg-paper-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin-mobile flex items-center justify-between relative"><div class="w-10"></div><h1 class="absolute left-1/2 -translate-x-1/2 font-headline-md text-headline-md text-on-surface whitespace-nowrap">Seal Services</h1><div class="flex items-center gap-4"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative w-full pt-14 min-h-screen pb-40"><div class="flex flex-col w-full h-full">
+<div class="px-gutter pt-6 pb-4">
+<div class="flex items-center gap-2 mb-4">
+<div class="w-1.5 h-6 bg-primary"></div>
+<h2 class="font-headline-md text-headline-md text-on-surface">证件照智能生成</h2>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">上传人像，系统将自动抠图并应用所选底色。请确保光线均匀，面部无大面积遮挡。</p>
+<div class="relative w-full aspect-[3/4] bg-white rounded-xl overflow-hidden shadow-md mb-6 border border-primary/10 group">
+  <div class="absolute inset-0 flex items-center justify-center bg-[#cc0000]">
+    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVXBg_Akacf5Cu50hWP00dN4soRW-yuofTX1ZzETThkwCQ86XXfNb3IRaRGo_eHitClKAyO7HAxsyLQPc2iorQCzt-eocBjRy4Cf9tkGzV1JqFWBvosaYK70g50xRGPFTRnsskoNDXFDxznHlZWzTDTDMrJqrob6hh6yikGDhZoRRB8bgQkUEyBEKZrWENje5FDNxbqHpaFa_rjWDsIrobRjetdF67wr5AKuDKC1eJIT2ZaoKyDfOT" alt="Portrait Preview" class="h-full w-full object-contain">
+  </div>
+  <div class="absolute inset-0 pointer-events-none border-[12px] border-white/10"></div>
+  <div class="absolute bottom-4 inset-x-4 bg-paper-surface/90 backdrop-blur-md px-3 py-2 rounded-lg flex items-center justify-between border border-primary/20 shadow-sm">
+    <div class="flex flex-col">
+      <span class="font-label-mono text-[10px] text-primary/40 uppercase tracking-widest mb-0.5">预览生成完毕</span>
+      <span class="font-label-mono text-[11px] text-on-surface font-bold uppercase tracking-wider">当前尺寸: 2寸 (3.5×5.3cm)</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+    </div>
+  </div>
+</div>
+</div>
+<div class="px-gutter py-4 bg-surface-container-low mt-2 rounded-t-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.02)] border-t border-primary/5 flex-grow relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[18px]">palette</span>
+<h3 class="font-label-mono text-label-mono text-on-surface font-bold">标准底色</h3>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
+<button class="flex-none snap-start group outline-none">
+<div class="w-16 h-16 rounded-lg bg-[#cc0000] shadow-sm mb-2 relative overflow-hidden ring-2 ring-offset-2 ring-primary">
+<div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white">check</span>
+</div>
+<span class="block text-center font-label-mono text-[11px] text-on-surface">标准红</span>
+</button>
+<button class="flex-none snap-start group outline-none">
+<div class="w-16 h-16 rounded-lg bg-[#0055ff] shadow-sm mb-2 relative overflow-hidden">
+<div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="block text-center font-label-mono text-[11px] text-on-surface-variant">标准蓝</span>
+</button>
+<button class="flex-none snap-start group outline-none">
+<div class="w-16 h-16 rounded-lg bg-white shadow-sm mb-2 relative overflow-hidden">
+<div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="block text-center font-label-mono text-[11px] text-on-surface-variant">标准白</span>
+</button>
+<button class="flex-none snap-start group outline-none">
+<div class="w-16 h-16 rounded-lg bg-[#cccccc] shadow-sm mb-2 relative overflow-hidden">
+<div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="block text-center font-label-mono text-[11px] text-on-surface-variant">高级灰</span>
+</button>
+</div>
+<div class="mt-6">
+<button class="w-full bg-primary text-on-primary font-headline-md text-[18px] py-4 rounded-lg shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">auto_fix_high</span>
+        执行置换
+      </button>
+<p class="text-center font-label-mono text-[10px] text-on-surface-variant/60 mt-3 uppercase tracking-widest">扣除1点印信积分</p>
+</div>
+</div>
+</div></main><footer class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-paper-base/90 backdrop-blur-md border-t border-primary/5"><div class="px-margin-mobile py-2 flex justify-center"><div class="px-3 py-0.5 border border-primary/10 bg-primary/5"><span class="font-label-mono text-[10px] text-primary/60 uppercase tracking-widest">炎国跨署呈报复核 · 卷宗第肆零玖号</span></div></div><nav class="flex justify-around items-center h-16" data-active-classes="text-primary-container font-bold"><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="canvas-hub" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-[10px] font-label-mono uppercase tracking-tighter">卷轴</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="seal-lab" href="#"><span class="material-symbols-outlined">palette</span><span class="text-[10px] font-label-mono uppercase tracking-tighter">调色</span></a><a aria-current="page" class="flex flex-col items-center justify-center gap-1 w-20 transition-colors text-primary-container font-bold" data-path="seal-services" href="#"><span class="material-symbols-outlined">verified_user</span><span class="text-[10px] font-label-mono uppercase tracking-tighter">印信</span></a><a class="flex flex-col items-center justify-center gap-1 w-20 text-on-surface-variant/60 hover:text-primary transition-colors" data-path="archive" href="#"><span class="material-symbols-outlined">history_edu</span><span class="text-[10px] font-label-mono uppercase tracking-tighter">档存</span></a></nav></footer></body></html>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vivid 0.1.9 placeholder: film_negative border preview -->
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <rect x="0" y="0" width="96" height="96" fill="#1A1A1A"/>
+  <rect x="14" y="8" width="68" height="80" fill="#9AA0A6" opacity="0.3"/>
+  <!-- sprocket holes left -->
+  <circle cx="7" cy="24" r="2.5" fill="#F5F0E3"/>
+  <circle cx="7" cy="48" r="2.5" fill="#F5F0E3"/>
+  <circle cx="7" cy="72" r="2.5" fill="#F5F0E3"/>
+  <!-- sprocket holes right -->
+  <circle cx="89" cy="24" r="2.5" fill="#F5F0E3"/>
+  <circle cx="89" cy="48" r="2.5" fill="#F5F0E3"/>
+  <circle cx="89" cy="72" r="2.5" fill="#F5F0E3"/>
+</svg>
