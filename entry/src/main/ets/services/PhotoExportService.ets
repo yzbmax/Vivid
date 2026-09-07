@@ -80,11 +80,13 @@ export class PhotoExportService {
    *
    * @param context 应用上下文
    * @param cacheFilePath 编码后的临时文件路径
+   * @param cleanUpOnError 失败时是否清理临时文件，默认为 true；若后续需要降级为弹窗重试可传 false
    * @returns 导出结果
    */
   static async saveViaSaveButton(
     context: common.UIAbilityContext,
-    cacheFilePath: string
+    cacheFilePath: string,
+    cleanUpOnError: boolean = true
   ): Promise<ExportResult> {
     try {
       if (!fs.accessSync(cacheFilePath)) {
@@ -118,8 +120,10 @@ export class PhotoExportService {
       const error = err as BusinessError;
       console.error(`Save via SaveButton failed: ${error.code} - ${error.message}`);
 
-      // 清理临时文件
-      PhotoExportService.safeUnlink(cacheFilePath);
+      if (cleanUpOnError) {
+        // 清理临时文件
+        PhotoExportService.safeUnlink(cacheFilePath);
+      }
 
       return {
         success: false,

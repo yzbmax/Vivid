@@ -32,7 +32,7 @@ export struct ExportSettingsDialog {
   @State selectedFormat: ExportFormat = ExportFormat.JPEG;
   @State realWidth: number = 0;
   @State realHeight: number = 0;
-  onConfirm: (settings: AppExportSettings) => void = () => {};
+  onConfirm: (settings: AppExportSettings, useSaveButton?: boolean) => void = () => {};
   onCancel: () => void = () => {};
 
   aboutToAppear(): void {
@@ -60,7 +60,7 @@ export struct ExportSettingsDialog {
         imageSource.release();
       }
     } catch (_e) {
-      // 容错降级
+      // 容错保持 0
     }
   }
 
@@ -74,7 +74,7 @@ export struct ExportSettingsDialog {
     }
   }
 
-  private async handleConfirm(): Promise<void> {
+  private async handleConfirm(useSaveButton: boolean = false): Promise<void> {
     const settings: AppExportSettings = {
       quality: this.selectedQuality,
       format: this.selectedFormat
@@ -85,7 +85,7 @@ export struct ExportSettingsDialog {
     } catch (_e) {
       // 容错不阻断导出
     }
-    this.onConfirm(settings);
+    this.onConfirm(settings, useSaveButton);
   }
 
   build() {
@@ -309,17 +309,25 @@ export struct ExportSettingsDialog {
                 .borderRadius(Theme.RADIUS_DEFAULT)
                 .onClick(() => this.onCancel())
 
-              Button('确认落印导出')
-                .layoutWeight(2)
-                .height(42)
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(14)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(Theme.ON_PRIMARY)
-                .backgroundColor(Theme.PRIMARY)
-                .borderRadius(Theme.RADIUS_DEFAULT)
-                .shadow({ radius: 4, color: 'rgba(123, 23, 27, 0.3)', offsetY: 1 })
-                .onClick(() => this.handleConfirm())
+              Stack() {
+                SaveButton({
+                  text: SaveDescription.EXPORT_TO_GALLERY,
+                  buttonType: ButtonType.Normal
+                })
+                  .width('100%')
+                  .height(42)
+                  .fontFamily(Theme.FONT_SERIF)
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.ON_PRIMARY)
+                  .backgroundColor(Theme.PRIMARY)
+                  .borderRadius(Theme.RADIUS_DEFAULT)
+                  .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
+                    this.handleConfirm(result === SaveButtonOnClickResult.SUCCESS);
+                  })
+              }
+              .layoutWeight(2)
+              .shadow({ radius: 4, color: 'rgba(123, 23, 27, 0.3)', offsetY: 1 })
             }
             .width('100%')
             .margin({ top: 4 })

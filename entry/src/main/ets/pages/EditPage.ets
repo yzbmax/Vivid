@@ -613,8 +613,8 @@ struct EditPage {
           imageWidth: this.imageWidth,
           imageHeight: this.imageHeight,
           sourceUri: this.imageSrc,
-          onConfirm: (settings: AppExportSettings) => {
-            this.executeSave(settings);
+          onConfirm: (settings: AppExportSettings, useSaveButton?: boolean) => {
+            this.executeSave(settings, useSaveButton ?? false);
           },
           onCancel: () => {
             this.showExportDialog = false;
@@ -640,7 +640,10 @@ struct EditPage {
 
           Blank().layoutWeight(1)
 
-          Text('导出')
+          SaveButton({
+            text: SaveDescription.SAVE,
+            buttonType: ButtonType.Normal
+          })
             .fontFamily(Theme.FONT_SANS)
             .fontSize(Theme.FONT_SIZE_BODY_MD)
             .fontWeight(FontWeight.Medium)
@@ -648,7 +651,9 @@ struct EditPage {
             .padding({ left: 14, right: 14, top: 6, bottom: 6 })
             .backgroundColor(Theme.SEAL_RED)
             .borderRadius(Theme.RADIUS_DEFAULT)
-            .onClick(() => this.save())
+            .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
+              this.onSaveButtonClick(result);
+            })
         }
         .width('100%')
         .height(Theme.HEADER_HEIGHT)
@@ -1589,7 +1594,7 @@ struct EditPage {
 
   // ── 保存与导出 ──
 
-  private async save(): Promise<void> {
+  private async onSaveButtonClick(result: SaveButtonOnClickResult): Promise<void> {
     if (this.saving) {
       return;
     }
@@ -1599,6 +1604,8 @@ struct EditPage {
       return;
     }
 
+    const useSaveButton = (result === SaveButtonOnClickResult.SUCCESS);
+
     const shouldPrompt = await AppSettingsStore.isPromptOnExport();
     if (shouldPrompt) {
       this.showExportDialog = true;
@@ -1606,10 +1613,14 @@ struct EditPage {
     }
 
     const defaultSettings = await AppSettingsStore.getExportSettings();
-    await this.executeSave(defaultSettings);
+    await this.executeSave(defaultSettings, useSaveButton);
   }
 
-  private async executeSave(exportSettings: AppExportSettings): Promise<void> {
+  private async save(): Promise<void> {
+    await this.onSaveButtonClick(SaveButtonOnClickResult.SUCCESS);
+  }
+
+  private async executeSave(exportSettings: AppExportSettings, useSaveButton: boolean = false): Promise<void> {
     this.showExportDialog = false;
     const snapshot: EditorSnapshot = defaultEditorSnapshot();
     snapshot.filter = { filterId: this.editState.filter.filterId, strength: this.editState.filter.strength };
@@ -1724,10 +1735,21 @@ struct EditPage {
       }
       record.previewImageUri = previewUri;
 
-      // 写入系统相册（内部在完成或取消时会 safeUnlink cacheFilePath）
+      // 写入系统相册（SaveButton 免弹窗静默直存优先，容错降级至授权弹窗）
       const fileName = `Vivid_${Date.now()}`;
       const ext = exportProfile.extension.replace('.', '');
-      const exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+      let exportResult: ExportResult;
+
+      if (useSaveButton) {
+        hilog.info(0x0000, 'EditPage', 'Using SaveButton for silent export');
+        exportResult = await PhotoExportService.saveViaSaveButton(context, cacheFilePath, false);
+        if (!exportResult.success) {
+          hilog.warn(0x0000, 'EditPage', 'SaveButton save failed (%{public}s), falling back to dialog', exportResult.errorMessage ?? '');
+          exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+        }
+      } else {
+        exportResult = await PhotoExportService.saveViaDialog(context, cacheFilePath, fileName, ext);
+      }
 
       if (exportResult.success) {
         this.toast('已保存到系统相册「图片」');

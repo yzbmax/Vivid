@@ -129,7 +129,7 @@ export struct WorksPage {
                         }
                         .layoutWeight(1)
                         .scrollBar(BarState.Off)
-                        .edgeEffect(EdgeEffect.Spring)
+                        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
                         // 底部：卷宗落款（底部导航由 Index 的 Tabs 提供，本页不再预留占位）
                         Column() {
                             Column() {
@@ -156,8 +156,8 @@ export struct WorksPage {
                     imageWidth: mockWorkStore.findById(this.pendingExportId)?.width ?? 0,
                     imageHeight: mockWorkStore.findById(this.pendingExportId)?.height ?? 0,
                     sourceUri: mockWorkStore.findById(this.pendingExportId)?.sourceImageUri ?? '',
-                    onConfirm: (settings: AppExportSettings) => {
-                        this.doExportToGallery(this.pendingExportId, settings);
+                    onConfirm: (settings: AppExportSettings, useSaveButton?: boolean) => {
+                        this.doExportToGallery(this.pendingExportId, settings, useSaveButton ?? false);
                     },
                     onCancel: () => {
                         this.showExportDialog = false;
@@ -330,7 +330,7 @@ export struct WorksPage {
         await this.doExportToGallery(id, defaultSettings);
     }
 
-    private async doExportToGallery(id: string, settings: AppExportSettings): Promise<void> {
+    private async doExportToGallery(id: string, settings: AppExportSettings, useSaveButton: boolean = false): Promise<void> {
         this.showExportDialog = false;
         if (this.exportingWorkId.length > 0) {
             this.toast('正在导出中，请稍候');
@@ -350,13 +350,28 @@ export struct WorksPage {
 
             if (result.cacheFilePath) {
                 const work = mockWorkStore.findById(id);
-                const ext = toExportProfile(settings, work?.sourceImageUri).extension.replace('.', '');
-                const exportResult = await PhotoExportService.saveViaDialog(
-                    this.context,
-                    result.cacheFilePath,
-                    `Vivid_${id}`,
-                    ext
-                );
+                let exportResult: ExportResult;
+
+                if (useSaveButton) {
+                    exportResult = await PhotoExportService.saveViaSaveButton(this.context, result.cacheFilePath, false);
+                    if (!exportResult.success) {
+                        const ext = toExportProfile(settings, work?.sourceImageUri).extension.replace('.', '');
+                        exportResult = await PhotoExportService.saveViaDialog(
+                            this.context,
+                            result.cacheFilePath,
+                            `Vivid_${id}`,
+                            ext
+                        );
+                    }
+                } else {
+                    const ext = toExportProfile(settings, work?.sourceImageUri).extension.replace('.', '');
+                    exportResult = await PhotoExportService.saveViaDialog(
+                        this.context,
+                        result.cacheFilePath,
+                        `Vivid_${id}`,
+                        ext
+                    );
+                }
 
                 if (exportResult.success) {
                     this.toast('已保存到系统相册「图片」');

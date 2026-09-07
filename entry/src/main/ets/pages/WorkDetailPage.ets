@@ -148,7 +148,7 @@ struct WorkDetailPage {
     await this.doExportToGallery(defaultSettings);
   }
 
-  private async doExportToGallery(settings: AppExportSettings): Promise<void> {
+  private async doExportToGallery(settings: AppExportSettings, useSaveButton: boolean = false): Promise<void> {
     this.showExportDialog = false;
     if (this.exporting || this.work == null) {
       return;
@@ -166,13 +166,27 @@ struct WorkDetailPage {
       }
 
       if (result.cacheFilePath) {
-        const ext = toExportProfile(settings, this.work?.sourceImageUri).extension.replace('.', '');
-        const exportResult = await PhotoExportService.saveViaDialog(
-          this.context,
-          result.cacheFilePath,
-          `Vivid_${this.work.id}`,
-          ext
-        );
+        let exportResult: ExportResult;
+        if (useSaveButton) {
+          exportResult = await PhotoExportService.saveViaSaveButton(this.context, result.cacheFilePath, false);
+          if (!exportResult.success) {
+            const ext = toExportProfile(settings, this.work?.sourceImageUri).extension.replace('.', '');
+            exportResult = await PhotoExportService.saveViaDialog(
+              this.context,
+              result.cacheFilePath,
+              `Vivid_${this.work.id}`,
+              ext
+            );
+          }
+        } else {
+          const ext = toExportProfile(settings, this.work?.sourceImageUri).extension.replace('.', '');
+          exportResult = await PhotoExportService.saveViaDialog(
+            this.context,
+            result.cacheFilePath,
+            `Vivid_${this.work.id}`,
+            ext
+          );
+        }
 
         if (exportResult.success) {
           this.toast('已保存到系统相册「图片」');
@@ -242,6 +256,7 @@ struct WorkDetailPage {
             .width('100%')
             .height('100%')
             .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           }
         }
       }
@@ -254,8 +269,8 @@ struct WorkDetailPage {
           imageWidth: this.work?.width ?? 0,
           imageHeight: this.work?.height ?? 0,
           sourceUri: this.work?.sourceImageUri ?? '',
-          onConfirm: (settings: AppExportSettings) => {
-            this.doExportToGallery(settings);
+          onConfirm: (settings: AppExportSettings, useSaveButton?: boolean) => {
+            this.doExportToGallery(settings, useSaveButton ?? false);
           },
           onCancel: () => {
             this.showExportDialog = false;
