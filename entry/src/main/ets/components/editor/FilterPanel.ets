@@ -18,10 +18,12 @@ export struct FilterPanel {
   @Prop unavailableFilterIds: string[] = [];
   onSelectFilter: (filterId: string) => void = () => {};
   onStrengthChange: (value: number) => void = () => {};
+  onSlidingComplete: () => void = () => {};
 
   private resetStrength(): void {
     HapticService.triggerImpact();
     this.onStrengthChange(1.0);
+    this.onSlidingComplete();
   }
 
   build() {
@@ -63,6 +65,9 @@ export struct FilterPanel {
           .onChange((value: number, mode: SliderChangeMode) => {
             if (mode !== SliderChangeMode.Begin) {
               this.onStrengthChange(value);
+            }
+            if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+              this.onSlidingComplete();
             }
           })
         Text(`${Math.round(this.editState.filter.strength * 100)}`)

@@ -11,6 +11,7 @@ import { PhotoExportService, ExportResult } from '../services/PhotoExportService
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { AppExportSettings, ExportFormat, toExportProfile } from '../models/AppSettingsModels';
 import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
+import { ColorRecipeStore } from '../services/ColorRecipeStore';
 import { common } from '@kit.AbilityKit';
 
 /**
@@ -76,10 +77,10 @@ struct WorkDetailPage {
     return y + '.' + m + '.' + day;
   }
 
-  /** 操作区：导出（ghost）+ 启封续编（primary） */
+  /** 操作区：导出（ghost）+ 复制配方（ghost）+ 启封续编（primary） */
   @Builder
   actionArea() {
-    Row({ space: 16 }) {
+    Row({ space: 12 }) {
       // 导出到相册按钮
       Stack({ alignContent: Alignment.Center }) {
         if (this.exporting) {
@@ -94,11 +95,25 @@ struct WorkDetailPage {
             .fillColor(Theme.ON_SURFACE_VARIANT)
         }
       }
-      .width(64)
+      .width(52)
       .height(56)
       .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
       .onClick(() => {
         this.exportToGallery();
+      })
+
+      // 复制此卷配方按钮
+      Stack({ alignContent: Alignment.Center }) {
+        Image($r('app.media.icon_copy'))
+          .width(20)
+          .height(20)
+          .fillColor(Theme.ON_SURFACE_VARIANT)
+      }
+      .width(52)
+      .height(56)
+      .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+      .onClick(() => {
+        this.copyWorkRecipe();
       })
 
       Row({ space: 8 }) {
@@ -130,6 +145,23 @@ struct WorkDetailPage {
     }
     .width('100%')
     .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+  }
+
+  /** 复制此卷调色配方到剪贴板 */
+  private copyWorkRecipe(): void {
+    if (this.work == null) {
+      return;
+    }
+    const filterId = this.work.editorSnapshot?.filter?.filterId ?? 'original';
+    const filterStrength = this.work.editorSnapshot?.filter?.strength ?? 1.0;
+    ColorRecipeStore.copyRecipe(
+      this.work.adjustments,
+      filterId,
+      filterStrength,
+      this.work.regionAdjustments,
+      this.work.title || '卷宗配方'
+    );
+    this.toast('调色配方已复制');
   }
 
   /** 导出到相册 */

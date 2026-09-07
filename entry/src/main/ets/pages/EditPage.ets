@@ -38,6 +38,9 @@ import { StickerPanel } from '../components/editor/StickerPanel';
 import { FilterPanel } from '../components/editor/FilterPanel';
 import { BorderPanel } from '../components/editor/BorderPanel';
 import { BorderTemplatePickerModal } from '../components/editor/BorderTemplatePickerModal';
+import { ColorRecipeStore } from '../services/ColorRecipeStore';
+import { EditHistoryManager, EditHistorySnapshot } from '../models/EditHistoryManager';
+import { HapticService } from '../services/HapticService';
 import { isWatermarkTemplate } from '../features/editor/border/BorderCatalog';
 import { sanitizeBorderState, switchBorderTemplate } from '../features/editor/border/BorderState';
 import { EditorCompositionService } from '../services/EditorCompositionService';
@@ -148,6 +151,12 @@ struct EditPage {
   @State activeTool: EditorToolKey = 'adjust';
   @State saving: boolean = false;
   @State dirty: boolean = false;
+  // ── 撤销/重做与调色配方 ──
+  @State canUndo: boolean = false;
+  @State canRedo: boolean = false;
+  @StorageLink('vivid_has_recipe') hasRecipeInStore: boolean = false;
+  private historyManager: EditHistoryManager = new EditHistoryManager(20);
+  private sliderBeforeSnapshot: EditHistorySnapshot | null = null;
   @State imageWidth: number = 0;
   @State imageHeight: number = 0;
   // ── V2 区域调色状态 ──
@@ -465,7 +474,10 @@ struct EditPage {
     }
   }
 
-  private async applyFilterSelection(filterId: string): Promise<void> {
+  private async applyFilterSelection(filterId: string, skipHistory: boolean = false): Promise<void> {
+    if (!skipHistory && this.editState.filter.filterId !== filterId) {
+      this.recordCurrentHistorySnapshot('切换滤镜');
+    }
     const preset: FilterPreset | undefined = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
     if (preset === undefined) {
       return;
@@ -631,29 +643,69 @@ struct EditPage {
     Column() {
       Stack({ alignContent: Alignment.Center }) {
         Row() {
-          Image($r('app.media.icon_back'))
-            .width(20)
-            .height(20)
-            .objectFit(ImageFit.Contain)
-            .fillColor(Theme.PRIMARY)
-            .onClick(() => this.tryBack())
+          // 左侧：返回 + 撤销 + 重做
+          Row({ space: 14 }) {
+            Image($r('app.media.icon_back'))
+              .width(20)
+              .height(20)
+              .objectFit(ImageFit.Contain)
+              .fillColor(Theme.PRIMARY)
+              .onClick(() => this.tryBack())
+
+            Image($r('app.media.icon_undo'))
+              .width(20)
+              .height(20)
+              .objectFit(ImageFit.Contain)
+              .fillColor(this.canUndo ? Theme.PRIMARY : Theme.OUTLINE)
+              .opacity(this.canUndo ? 1.0 : 0.35)
+              .enabled(this.canUndo)
+              .onClick(() => this.performUndo())
+
+            Image($r('app.media.icon_redo'))
+              .width(20)
+              .height(20)
+              .objectFit(ImageFit.Contain)
+              .fillColor(this.canRedo ? Theme.PRIMARY : Theme.OUTLINE)
+              .opacity(this.canRedo ? 1.0 : 0.35)
+              .enabled(this.canRedo)
+              .onClick(() => this.performRedo())
+          }
 
           Blank().layoutWeight(1)
 
-          SaveButton({
-            text: SaveDescription.SAVE,
-            buttonType: ButtonType.Normal
-          })
-            .fontFamily(Theme.FONT_SANS)
-            .fontSize(Theme.FONT_SIZE_BODY_MD)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(Theme.ON_PRIMARY)
-            .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-            .backgroundColor(Theme.SEAL_RED)
+          // 右侧：配方入口 + 保存按钮
+          Row({ space: 10 }) {
+            Row() {
+              Image($r('app.media.icon_copy'))
+                .width(18)
+                .height(18)
+                .objectFit(ImageFit.Contain)
+                .fillColor(this.hasRecipeInStore ? Theme.PRIMARY : Theme.ON_SURFACE_VARIANT)
+            }
+            .width(36)
+            .height(36)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
             .borderRadius(Theme.RADIUS_DEFAULT)
-            .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
-              this.onSaveButtonClick(result);
+            .onClick(() => {
+              this.showRecipeMenu();
             })
+
+            SaveButton({
+              text: SaveDescription.SAVE,
+              buttonType: ButtonType.Normal
+            })
+              .fontFamily(Theme.FONT_SANS)
+              .fontSize(Theme.FONT_SIZE_BODY_MD)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Theme.ON_PRIMARY)
+              .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+              .backgroundColor(Theme.SEAL_RED)
+              .borderRadius(Theme.RADIUS_DEFAULT)
+              .onClick((event: ClickEvent, result: SaveButtonOnClickResult) => {
+                this.onSaveButtonClick(result);
+              })
+          }
         }
         .width('100%')
         .height(Theme.HEADER_HEIGHT)
@@ -824,6 +876,9 @@ struct EditPage {
           onReset: () => this.showResetOptions(),
           onCompareChange: (down: boolean) => {
             this.isComparing = down;
+          },
+          onSlidingComplete: () => {
+            this.onAdjustSlidingComplete();
           }
         })
       } else if (this.isRegionMode() && this.segStatus === 'ready') {
@@ -840,6 +895,9 @@ struct EditPage {
           onReset: () => this.showRegionResetOptions(),
           onCompareChange: (down: boolean) => {
             this.isComparing = down;
+          },
+          onSlidingComplete: () => {
+            this.onAdjustSlidingComplete();
           }
         })
       } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
@@ -884,9 +942,15 @@ struct EditPage {
             this.applyFilterSelection(filterId);
           },
           onStrengthChange: (value: number) => {
+            if (this.sliderBeforeSnapshot === null) {
+              this.sliderBeforeSnapshot = this.getCurrentSnapshot();
+            }
             this.editState = this.filterController.setStrength(value);
             this.dirty = true;
             this.schedulePreviewRender();
+          },
+          onSlidingComplete: () => {
+            this.onAdjustSlidingComplete();
           }
         })
       } else if (this.activeTool === 'sticker') {
@@ -1193,6 +1257,9 @@ struct EditPage {
   // ── 参数更新 ──
 
   private updateParam(key: string, value: number): void {
+    if (this.sliderBeforeSnapshot === null) {
+      this.sliderBeforeSnapshot = this.getCurrentSnapshot();
+    }
     const next = cloneAdjustments(this.params);
     if (key === 'exposure') {
       next.exposure = value;
@@ -1210,6 +1277,9 @@ struct EditPage {
   }
 
   private updateRegionParam(key: string, value: number): void {
+    if (this.sliderBeforeSnapshot === null) {
+      this.sliderBeforeSnapshot = this.getCurrentSnapshot();
+    }
     const next = cloneRegionAdjustments(this.regionAdjustments);
     const target = this.activeRegion === 'subject' ? next.subject : next.background;
     if (key === 'brightness') {
@@ -1225,7 +1295,17 @@ struct EditPage {
     this.dirty = true;
   }
 
+  private onAdjustSlidingComplete(): void {
+    if (this.sliderBeforeSnapshot !== null) {
+      this.historyManager.pushSnapshot(this.sliderBeforeSnapshot);
+      this.sliderBeforeSnapshot = null;
+      this.canUndo = this.historyManager.canUndo();
+      this.canRedo = this.historyManager.canRedo();
+    }
+  }
+
   private resetCurrentSlider(): void {
+    this.recordCurrentHistorySnapshot('重置当前参数');
     const next = cloneAdjustments(this.params);
     if (this.selectedType === 'exposure') {
       next.exposure = 0;
@@ -1243,21 +1323,26 @@ struct EditPage {
   }
 
   private resetAllSliders(): void {
+    this.recordCurrentHistorySnapshot('全部重置');
     this.params = createDefaultAdjustments();
     this.isComparing = false;
     this.dirty = false;
   }
 
   private showResetOptions(): void {
+    const sheets: Array<{ title: string; action: () => void }> = [
+      { title: '重置当前参数', action: () => this.resetCurrentSlider() },
+      { title: '全部重置', action: () => this.resetAllSliders() },
+      { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
+    ];
+    if (ColorRecipeStore.hasRecipe()) {
+      sheets.push({ title: '粘贴调色配方', action: () => this.pasteRecipe() });
+    }
     this.getUIContext().showActionSheet({
-      title: '重置',
-      message: '选择重置范围',
-      sheets: [
-        { title: '重置当前区域', action: () => this.resetCurrentSlider() },
-        { title: '全部重置', action: () => this.resetAllSliders() }
-      ],
-      cancel: () => {
-      }
+      title: '调节选项',
+      message: '重置参数或管理配方',
+      sheets: sheets,
+      cancel: () => {}
     });
   }
 
@@ -1275,6 +1360,7 @@ struct EditPage {
   }
 
   private resetCurrentRegionSlider(): void {
+    this.recordCurrentHistorySnapshot('重置当前区域滑块');
     const next = cloneRegionAdjustments(this.regionAdjustments);
     const target = this.activeRegion === 'subject' ? next.subject : next.background;
     if (this.selectedType === 'brightness') {
@@ -1291,8 +1377,164 @@ struct EditPage {
   }
 
   private resetAllRegionSliders(): void {
+    this.recordCurrentHistorySnapshot('重置双区域参数');
     this.regionAdjustments = createDefaultRegionAdjustments();
     this.dirty = true;
+  }
+
+  // ── 调色配方管理 ──
+
+  private copyCurrentRecipe(): void {
+    HapticService.triggerImpact();
+    ColorRecipeStore.copyRecipe(
+      this.params,
+      this.editState.filter.filterId,
+      this.editState.filter.strength,
+      this.regionAdjustments,
+      '当前调色'
+    );
+    this.toast('调色配方已复制');
+  }
+
+  copyRecipe(): void {
+    this.copyCurrentRecipe();
+  }
+
+  private pasteRecipe(): void {
+    const recipe = ColorRecipeStore.getRecipe();
+    if (!recipe) {
+      this.toast('暂无已复制的调色配方');
+      return;
+    }
+    HapticService.triggerImpact();
+    this.recordCurrentHistorySnapshot('粘贴调色配方');
+
+    this.params = {
+      exposure: recipe.adjustments.exposure,
+      brightness: recipe.adjustments.brightness,
+      contrast: recipe.adjustments.contrast,
+      saturation: recipe.adjustments.saturation,
+      temperature: recipe.adjustments.temperature
+    };
+    if (recipe.filterId && recipe.filterId !== 'original') {
+      this.applyFilterSelection(recipe.filterId, true);
+      if (recipe.filterStrength !== undefined) {
+        this.editState = this.filterController.setStrength(recipe.filterStrength);
+        this.schedulePreviewRender();
+      }
+    }
+    if (recipe.regionAdjustments) {
+      this.regionAdjustments = cloneRegionAdjustments(recipe.regionAdjustments);
+    }
+    this.dirty = true;
+    this.toast('已应用调色配方');
+  }
+
+  private showRecipeMenu(): void {
+    const has = ColorRecipeStore.hasRecipe();
+    const sheets: Array<{ title: string; action: () => void }> = [
+      { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
+    ];
+    if (has) {
+      sheets.push({ title: '粘贴调色配方', action: () => this.pasteRecipe() });
+    }
+    this.getUIContext().showActionSheet({
+      title: '调色配方',
+      message: has ? '剪贴板已有配方可用' : '可将当前滤镜与参数复制复用',
+      sheets: sheets,
+      cancel: () => {}
+    });
+  }
+
+  // ── 撤销 / 重做 (Undo / Redo) ──
+
+  private recordCurrentHistorySnapshot(description?: string): void {
+    const snapshot: EditHistorySnapshot = {
+      adjustments: {
+        exposure: this.params.exposure,
+        brightness: this.params.brightness,
+        contrast: this.params.contrast,
+        saturation: this.params.saturation,
+        temperature: this.params.temperature
+      },
+      filterId: this.editState.filter.filterId,
+      filterStrength: this.editState.filter.strength,
+      regionAdjustments: cloneRegionAdjustments(this.regionAdjustments),
+      description
+    };
+    this.historyManager.pushSnapshot(snapshot);
+    this.canUndo = this.historyManager.canUndo();
+    this.canRedo = this.historyManager.canRedo();
+  }
+
+  private getCurrentSnapshot(): EditHistorySnapshot {
+    return {
+      adjustments: {
+        exposure: this.params.exposure,
+        brightness: this.params.brightness,
+        contrast: this.params.contrast,
+        saturation: this.params.saturation,
+        temperature: this.params.temperature
+      },
+      filterId: this.editState.filter.filterId,
+      filterStrength: this.editState.filter.strength,
+      regionAdjustments: cloneRegionAdjustments(this.regionAdjustments)
+    };
+  }
+
+  private applyHistorySnapshot(snapshot: EditHistorySnapshot): void {
+    this.params = {
+      exposure: snapshot.adjustments.exposure,
+      brightness: snapshot.adjustments.brightness,
+      contrast: snapshot.adjustments.contrast,
+      saturation: snapshot.adjustments.saturation,
+      temperature: snapshot.adjustments.temperature
+    };
+    if (snapshot.filterId !== this.editState.filter.filterId) {
+      this.applyFilterSelection(snapshot.filterId, true);
+    }
+    if (snapshot.filterStrength !== this.editState.filter.strength) {
+      this.editState = this.filterController.setStrength(snapshot.filterStrength);
+      this.schedulePreviewRender();
+    }
+    if (snapshot.regionAdjustments) {
+      this.regionAdjustments = cloneRegionAdjustments(snapshot.regionAdjustments);
+    }
+    this.dirty = true;
+  }
+
+  private performUndo(): void {
+    if (!this.canUndo) {
+      return;
+    }
+    HapticService.triggerTick();
+    const prev = this.historyManager.undo(this.getCurrentSnapshot());
+    if (prev) {
+      this.applyHistorySnapshot(prev);
+    }
+    this.canUndo = this.historyManager.canUndo();
+    this.canRedo = this.historyManager.canRedo();
+  }
+
+  undo(): void {
+    this.performUndo();
+  }
+
+  private performRedo(): void {
+    if (!this.canRedo) {
+      return;
+    }
+    HapticService.triggerTick();
+    const next = this.historyManager.redo(this.getCurrentSnapshot());
+    if (next) {
+      this.applyHistorySnapshot(next);
+    }
+    this.canUndo = this.historyManager.canUndo();
+    this.canRedo = this.historyManager.canRedo();
+  }
+
+  redo(): void {
+    this.performRedo();
   }
 
   // ── 贴纸操作 ──

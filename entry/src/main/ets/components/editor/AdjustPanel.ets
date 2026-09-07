@@ -24,11 +24,13 @@ export struct AdjustPanel {
   onSelectType: (key: string) => void = () => {};
   onReset: () => void = () => {};
   onCompareChange: (down: boolean) => void = () => {};
+  onSlidingComplete: () => void = () => {};
 
   private resetCurrentParam(): void {
     if (this.selectedValue() !== 0) {
       HapticService.triggerImpact();
       this.onChange(this.selectedType, 0);
+      this.onSlidingComplete();
     }
   }
 
@@ -107,6 +109,9 @@ export struct AdjustPanel {
                   HapticService.triggerTick();
                 }
                 this.onChange(this.selectedType, value);
+              }
+              if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.onSlidingComplete();
               }
             })
         }
