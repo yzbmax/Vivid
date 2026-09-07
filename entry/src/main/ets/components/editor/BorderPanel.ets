@@ -176,6 +176,7 @@ export struct BorderPanel {
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       .height(72)
 
@@ -267,6 +268,7 @@ export struct BorderPanel {
           }
           .scrollable(ScrollDirection.Horizontal)
           .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .width('100%')
 
           // Logo 标识选择
@@ -306,6 +308,7 @@ export struct BorderPanel {
             .layoutWeight(1)
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
@@ -466,6 +469,7 @@ export struct BorderPanel {
             .layoutWeight(1)
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           }
           .width('100%')
           .height(30)
@@ -591,6 +595,7 @@ export struct BorderPanel {
         .layoutWeight(1)
         .scrollable(ScrollDirection.Horizontal)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       }
       .width('100%')
       .height(30)

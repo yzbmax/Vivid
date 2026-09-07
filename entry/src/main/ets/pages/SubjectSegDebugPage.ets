@@ -12,21 +12,9 @@ import { AI_WORK_MAX_EDGE, SegmentationStatus,
 const TAG = 'SubjectSegDebugPage';
 
 
-
-const aa:ESObject=1
-/**
- * Debug Mask Viewer（V2 §9 强制要求的四视图调试页，Phase 1 验收工具）。
- *
- * 每次识别必须能查看：
- *   A. Original        原始输入图
- *   B. Subject Rect    红色 Bounding Box（仅证明 AI 判定的大致位置）
- *   C. Raw Mask        mattingList 直读灰度（不经过 MaskProcessor）
- *   D. Mask Overlay    按真实权重混色的朱砂红/青绿叠加
- *
  * 本页仅用于开发期判断异常归属（矩形误用/读取错误/尺寸映射/方向/fullSubject 合并/
  * Core Vision 本身不准），不进正式路由入口；验收前从 main_pages.json 首位移除。
  */
-@Entry
 @Component
 struct SubjectSegDebugPage {
   @State phase: SegmentationStatus = 'idle';
@@ -136,6 +124,7 @@ struct SubjectSegDebugPage {
       }
       .height(84)
       .align(Alignment.TopStart)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.SPACE_MD })
 
       // 错误重试按钮

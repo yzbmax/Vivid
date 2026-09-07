@@ -66,6 +66,7 @@ export struct StickerPanel {
       .height(72)
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
 
       // ── 下行：选中贴纸参数（无选中时显示贴纸计数提示）──
       if (this.selectedId !== '' && this.selectedSticker() !== null) {
@@ -357,7 +358,7 @@ export struct StickerPanel {
       Text(this.stickers.length >= STICKER_MAX_COUNT ? '贴纸已满（上限 12 枚）' : '点击上方贴纸添加到画面')
         .fontFamily(Theme.FONT_MONO)
         .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
-        .fontColor(Theme.ON_SURFACE_VARIANT_70)
+        .fontColor(Theme.ON_SURFACE_VARIANT)
     }
     .width('100%')
     .height(48)

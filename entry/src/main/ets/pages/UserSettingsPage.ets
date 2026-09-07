@@ -26,10 +26,6 @@ struct UserSettingsPage {
     }
   }
 
-  private async openLogin(): Promise<void> {
-    await this.openPage('pages/LoginPage');
-  }
-
   private async openPage(url: string): Promise<void> {
     try {
       await this.getUIContext().getRouter().pushUrl({ url: url });
@@ -45,37 +41,12 @@ struct UserSettingsPage {
     return MockAuthStore.getSession();
   }
 
-  private isAuthenticated(): boolean {
-    return this.currentSession().status === 'authenticated';
-  }
-
   private currentUser(): MockUser | undefined {
     return this.currentSession().user;
   }
 
   private currentAvatarUri(): string {
     return MockAuthStore.getCurrentAvatarUri() ?? '';
-  }
-
-  private async confirmLogout(): Promise<void> {
-    try {
-      const response = await this.getUIContext().getPromptAction().showDialog({
-        title: '确认退出登录',
-        message: '退出后仍会保留当前进程内的 Mock 账号资料。',
-        buttons: [
-          { text: '取消', color: MASK_SEAL.inkMuted },
-          { text: '退出登录', color: MASK_SEAL.primary }
-        ]
-      });
-      if (response.index !== 1) {
-        return;
-      }
-      MockAuthStore.logout();
-      AuthUiState.bumpRevision();
-      this.showToast('已退出登录');
-    } catch (err) {
-      console.error(`Failed to confirm logout: ${JSON.stringify(err)}`);
-    }
   }
 
   build() {
@@ -93,7 +64,7 @@ struct UserSettingsPage {
               .letterSpacing(1.5)
               .width('100%');
             Row({ space: 14 }) {
-              if (this.isAuthenticated() && this.currentAvatarUri().length > 0) {
+              if (this.currentAvatarUri().length > 0) {
                 Image(this.currentAvatarUri())
                   .width(58)
                   .height(58)
@@ -101,7 +72,7 @@ struct UserSettingsPage {
                   .border({ width: 1, color: '#d2a5a0' })
                   .borderRadius(29);
               } else {
-                Text(this.currentUser()?.avatarGlyph ?? '未')
+                Text(this.currentUser()?.avatarGlyph ?? '印')
                   .fontFamily(Theme.FONT_SERIF)
                   .fontSize(22)
                   .fontWeight(FontWeight.Bold)
@@ -115,9 +86,9 @@ struct UserSettingsPage {
                   .borderRadius(29);
               }
               Column({ space: 4 }) {
-                Text(this.isAuthenticated() ? (this.currentUser()?.nickname ?? '个人称谓') : '个人称谓')
+                Text(this.currentUser()?.nickname ?? '雅集墨客')
                   .fontSize(16).fontColor(MASK_SEAL.ink);
-                Text(this.isAuthenticated() ? (this.currentUser()?.maskedPhone ?? '暂未登记在册') : '暂未登记在册')
+                Text('本地创作者档案 · 私密存储')
                   .fontSize(13).fontColor(MASK_SEAL.inkMuted);
               }
               .layoutWeight(1)
@@ -131,24 +102,12 @@ struct UserSettingsPage {
             .backgroundColor(MASK_SEAL.paperSurface)
             .border({ width: 1, color: '#d9c4c0' })
             .onClick(() => {
-              if (!this.isAuthenticated()) {
-                this.openLogin();
-              } else {
-                this.openPage('pages/ProfileEditPage');
-              }
+              this.openPage('pages/ProfileEditPage');
             });
-            if (this.isAuthenticated()) {
-              Text('演示数据 · 当前进程会话')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(12)
-                .fontColor(MASK_SEAL.primary)
-                .padding({ left: 18, right: 18 });
-              SealButton({ text: '退出登录', secondary: true, onTap: () => this.confirmLogout() });
-            }
           }
 
           Column() {
-            Text('账号说明')
+            Text('存储与运行说明')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(12)
               .fontColor(MASK_SEAL.primary)
@@ -156,25 +115,32 @@ struct UserSettingsPage {
               .width('100%')
               .padding({ bottom: 8 });
             SettingRow({
-              title: '手机号与登录安全',
-              detail: this.isAuthenticated() ? (this.currentUser()?.maskedPhone ?? '未登录') : '未登录',
-              interactive: true,
-              onTap: () => this.isAuthenticated()
-                ? this.openPage('pages/AccountSecurityPage')
-                : this.openLogin()
+              title: '运行模式',
+              detail: '纯本地离线创作 · 端侧图像处理',
+              interactive: false,
+              onTap: () => {}
+            });
+            SettingRow({
+              title: '数据存储',
+              detail: '作品与偏好完全保存在本机私有沙箱',
+              interactive: false,
+              onTap: () => {}
             });
           }
 
-          Text('本页资料为演示数据，仅在当前应用进程内保留。')
+          Text('微霏恪守端侧隐私安全，无需绑定手机号或注册账号，所有作品与创作设置完全保存在设备本地。')
             .fontFamily(Theme.FONT_SERIF)
             .fontSize(12)
             .fontColor(MASK_SEAL.inkMuted)
+            .lineHeight(18)
             .padding({ top: 8 });
         }
         .width('100%')
         .padding(20);
       }
-      .layoutWeight(1);
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');

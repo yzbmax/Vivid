@@ -74,12 +74,12 @@ export class MockAuthStore {
       accountId: 'MOCK-ACCOUNT-1',
       phone: MockAuthStore.DEMO_PHONE,
       password: MockAuthStore.DEMO_PASSWORD,
-      nickname: '用户8000',
+      nickname: '雅集墨客',
       avatarGlyph: '印'
     }
   ];
   private static nextAccountNumber: number = 2;
-  private static currentAccountId: string = '';
+  private static currentAccountId: string = 'MOCK-ACCOUNT-1';
   private static challenges: MockCodeChallenge[] = [];
   private static closureAuthorization: AccountClosureAuthorization | undefined = undefined;
 

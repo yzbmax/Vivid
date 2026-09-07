@@ -38,7 +38,7 @@ export class Theme {
   // ─────────────── 派生（带 alpha 的合成色，用途见命名）───────────────
   static readonly PAPER_SURFACE_80: string = '#CCF2F1ED';    // 顶栏 paper-surface/80
   static readonly PAPER_BASE_90: string = '#E6DEDDD7';       // 底部落款条 paper-base/90
-  static readonly PRIMARY_60: string = '#996B171B';          // primary/60
+  static readonly PRIMARY_60: string = '#997B171B';          // primary/60
   static readonly PRIMARY_20: string = '#337B171B';          // primary/20（落款边框）
   static readonly PRIMARY_05: string = '#0D7B171B';          // primary/5（落款底）
   static readonly ON_SURFACE_VARIANT_70: string = '#B2574140'; // on-surface-variant/70（未激活 chip 文字）

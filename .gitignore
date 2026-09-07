@@ -20,3 +20,4 @@
 *.cer
 *.p7b
 *.jks
+.DS_Store

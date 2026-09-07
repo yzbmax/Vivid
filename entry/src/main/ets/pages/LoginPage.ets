@@ -7,7 +7,6 @@ import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
 import { EditEntrySource } from '../models/EditModels';
 import { PendingEditIntentStore } from '../models/PendingEditIntentStore';
-import { LoginUnavailableOverlay } from '../components/auth/LoginUnavailableOverlay';
 
 enum LoginMode {
   CODE,
@@ -33,6 +32,10 @@ struct LoginPage {
   private codeTimer: number = -1;
 
   aboutToAppear(): void {
+    try {
+      this.getUIContext().getRouter().back();
+      return;
+    } catch (_e) {}
     const uiContext = this.getUIContext();
     this.previousKeyboardAvoidMode = uiContext.getKeyboardAvoidMode();
     uiContext.setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE_WITH_CARET);
@@ -230,7 +233,7 @@ struct LoginPage {
             .showPasswordIcon(false)
             .fontSize(16)
             .fontColor(MASK_SEAL.ink)
-            .placeholderColor('#957d7a')
+            .placeholderColor(MASK_SEAL.inkMuted)
             .backgroundColor(Color.Transparent)
             .border({ width: 1, color: this.passwordError ? MASK_SEAL.error : MASK_SEAL.outlineLight })
             .borderRadius(4)
@@ -289,7 +292,7 @@ struct LoginPage {
               Text('验证码登录')
                 .fontFamily(Theme.FONT_SERIF)
                 .fontSize(17)
-                .fontColor(this.mode === LoginMode.CODE ? MASK_SEAL.ink : '#987f7b')
+                .fontColor(this.mode === LoginMode.CODE ? MASK_SEAL.ink : MASK_SEAL.inkMuted)
                 .fontWeight(this.mode === LoginMode.CODE ? FontWeight.Bold : FontWeight.Normal)
                 .layoutWeight(1)
                 .textAlign(TextAlign.Center)
@@ -299,7 +302,7 @@ struct LoginPage {
               Text('密码登录')
                 .fontFamily(Theme.FONT_SERIF)
                 .fontSize(17)
-                .fontColor(this.mode === LoginMode.PASSWORD ? MASK_SEAL.ink : '#987f7b')
+                .fontColor(this.mode === LoginMode.PASSWORD ? MASK_SEAL.ink : MASK_SEAL.inkMuted)
                 .fontWeight(this.mode === LoginMode.PASSWORD ? FontWeight.Bold : FontWeight.Normal)
                 .layoutWeight(1)
                 .textAlign(TextAlign.Center)
@@ -327,7 +330,7 @@ struct LoginPage {
                     .onClick(() => this.requestCode());
                 }
                 if (this.demoCode.length > 0) {
-                  Text(`演示数据：验证码 ${this.demoCode}`)
+                  Text(`验证码：${this.demoCode}`)
                     .fontFamily(Theme.FONT_SERIF)
                     .fontSize(12)
                     .fontColor(MASK_SEAL.primary)
@@ -359,18 +362,12 @@ struct LoginPage {
         .padding(20);
       }
       .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .onAreaChange((oldArea: Area, newArea: Area) => this.handleViewportChange(oldArea, newArea));
       }
       .width('100%')
       .height('100%');
-
-      // 登录未连接后端服务提示遮罩及赞赏加餐
-      LoginUnavailableOverlay({
-        onBack: () => this.goBack()
-      })
-        .width('100%')
-        .height('100%')
-        .zIndex(100);
     }
     .width('100%')
     .height('100%');

@@ -46,7 +46,7 @@ export struct SegmentTabs {
                 .fontFamily(Theme.FONT_MONO)
                 .fontSize(Theme.FONT_SIZE_LABEL_MONO)
                 .fontWeight(500)
-                .fontColor(item.key === this.selected ? Theme.ON_PRIMARY : Theme.ON_SURFACE_VARIANT_70)
+                .fontColor(item.key === this.selected ? Theme.ON_PRIMARY : Theme.ON_SURFACE_VARIANT)
               if (this.selected === item.key && this.cornerMark) {
                 Row()
                   .width(8)
@@ -69,6 +69,7 @@ export struct SegmentTabs {
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       .padding({ top: 24, bottom: 24 })
     } else {
@@ -79,7 +80,7 @@ export struct SegmentTabs {
               .fontFamily(Theme.FONT_SERIF)
               .fontSize(Theme.FONT_SIZE_HEADLINE_MD)
               .fontWeight(600)
-              .fontColor(item.key === this.selected ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT_70)
+              .fontColor(item.key === this.selected ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT)
             Row()
               .width('100%')
               .height(3)

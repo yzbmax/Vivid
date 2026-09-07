@@ -15,7 +15,7 @@ export struct FooterSealBar {
         .fontFamily(Theme.FONT_MONO)
         .fontSize(Theme.FONT_SIZE_LABEL_MONO)
         .fontWeight(500)
-        .fontColor(Theme.PRIMARY_60)
+        .fontColor(Theme.PRIMARY)
         .letterSpacing(1.3)
     }
     .padding({ left: 12, right: 12, top: 4, bottom: 4 })

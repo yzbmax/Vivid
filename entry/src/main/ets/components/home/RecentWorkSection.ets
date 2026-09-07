@@ -80,12 +80,12 @@ export struct RecentWorkSection {
           Text('案头尚无归档 · 待呈佳作')
             .fontFamily(Theme.FONT_SERIF)
             .fontSize(13)
-            .fontColor(Theme.OUTLINE)
+            .fontColor(Theme.ON_SURFACE)
             .letterSpacing(1)
           Text('轻触上方「呈交新卷宗」启幕')
             .fontFamily(Theme.FONT_SANS)
             .fontSize(11)
-            .fontColor(Theme.OUTLINE_VARIANT)
+            .fontColor(Theme.ON_SURFACE_VARIANT)
         }
         .width('100%')
         .height(160)
@@ -107,6 +107,7 @@ export struct RecentWorkSection {
         .height(224)
         .listDirection(Axis.Horizontal)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
       }
     }

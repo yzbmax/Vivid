@@ -6,7 +6,6 @@ import { AuthErrorCode, MockAuthStore } from '../models/MockAuthStore';
 import { AuthUiState } from '../models/AuthUiState';
 import { EditEntrySource } from '../models/EditModels';
 import { PendingEditIntentStore } from '../models/PendingEditIntentStore';
-import { LoginUnavailableOverlay } from '../components/auth/LoginUnavailableOverlay';
 
 @Entry
 @Component
@@ -25,6 +24,13 @@ struct RegisterPage {
   @State codeCountdown: number = 0;
 
   private codeTimer: number = -1;
+
+  aboutToAppear(): void {
+    try {
+      this.getUIContext().getRouter().back();
+      return;
+    } catch (_e) {}
+  }
 
   aboutToDisappear(): void {
     this.clearCodeTimer();
@@ -171,7 +177,7 @@ struct RegisterPage {
           .showPasswordIcon(false)
           .fontSize(16)
           .fontColor(MASK_SEAL.ink)
-          .placeholderColor('#957d7a')
+          .placeholderColor(MASK_SEAL.inkMuted)
           .backgroundColor(Color.Transparent)
           .border({ width: 1, color: error ? MASK_SEAL.error : MASK_SEAL.outlineLight })
           .borderRadius(4)
@@ -231,7 +237,7 @@ struct RegisterPage {
                 .onClick(() => this.requestCode());
             }
             if (this.demoCode.length > 0) {
-              Text(`演示数据：验证码 ${this.demoCode}`)
+              Text(`验证码：${this.demoCode}`)
                 .fontFamily(Theme.FONT_SERIF)
                 .fontSize(12)
                 .fontColor(MASK_SEAL.primary)
@@ -279,20 +285,12 @@ struct RegisterPage {
         .width('100%')
         .padding(20);
       }
-      .layoutWeight(1);
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');
-
-      // 注册功能暂不可用提示遮罩及赞赏加餐
-      LoginUnavailableOverlay({
-        title: '注册功能暂未开启',
-        message: '因开发者付不起服务器钱所以登陆与注册功能暂不可用，想加速上线登陆功能和云存储功能可以给我加个餐',
-        onBack: () => this.goBack()
-      })
-        .width('100%')
-        .height('100%')
-        .zIndex(100);
     }
     .width('100%')
     .height('100%');

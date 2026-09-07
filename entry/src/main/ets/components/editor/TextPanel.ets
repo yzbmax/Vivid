@@ -84,6 +84,7 @@ export struct TextPanel {
             }
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .width('100%')
             .height(36)
           }
@@ -127,6 +128,7 @@ export struct TextPanel {
       .width('100%')
       .constraintSize({ maxHeight: Math.max(40, this.maxPanelHeight - 58) })
       .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .align(Alignment.Top)
     }
     .width('100%')

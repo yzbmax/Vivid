@@ -419,7 +419,11 @@ function paintLogoBadge(
     context.textAlign = 'left';
     context.fillText('HASSELBLAD', x + dotR * 2 + 3, centerY);
   } else if (logo === 'xmage') {
-    context.fillStyle = '#C49A5B';
+    const isDarkBg = defaultTextColor.toLowerCase() === '#ffffff' ||
+      defaultTextColor.toLowerCase() === '#fff' ||
+      defaultTextColor.toLowerCase().startsWith('#e') ||
+      defaultTextColor.toLowerCase().startsWith('#f');
+    context.fillStyle = isDarkBg ? '#C49A5B' : '#9A7432';
     context.font = `800 ${Math.round(size * 0.9)}px sans-serif`;
     context.textAlign = 'left';
     context.fillText('XMAGE', x, centerY);
@@ -552,7 +556,7 @@ function paintMasterGridWatermark(
   const isDark = (0.299 * r + 0.587 * g + 0.114 * b) < 140;
 
   const textColor = isDark ? '#FFFFFF' : '#111111';
-  const labelColor = isDark ? '#888888' : '#777777';
+  const labelColor = isDark ? '#888888' : '#666666';
   const dividerColor = isDark ? '#333333' : '#E5E5E5';
 
   // 1. 上半部：艺术手写签或所选 Logo
@@ -1391,7 +1395,7 @@ function paintTravelStampWatermark(
   context.font = `600 ${Math.max(9, Math.round(bannerH * 0.18))}px sans-serif`;
   context.fillText(line1, textX, centerY - bannerH * 0.14);
 
-  context.fillStyle = '#7C756B';
+  context.fillStyle = '#666666';
   context.font = `400 ${Math.max(8, Math.round(bannerH * 0.14))}px monospace, sans-serif`;
   context.fillText(line2, textX, centerY + bannerH * 0.16);
 
@@ -1452,7 +1456,7 @@ function paintTravelPostcardWatermark(
 
   const subline = [device, params || time].filter((s: string) => s.length > 0).join('  ·  ');
   if (subline) {
-    context.fillStyle = '#5A7382';
+    context.fillStyle = '#476375';
     context.font = `400 ${Math.max(8, Math.round(bannerH * 0.15))}px sans-serif`;
     context.fillText(subline, px, centerY + bannerH * 0.16);
   }
@@ -1750,10 +1754,9 @@ function paintSlimWhiteWatermark(
   // 右侧：微缩参数与年份
   const rightText = [params, time].filter((s: string) => s.length > 0).join('   ');
   if (rightText) {
-    context.fillStyle = '#777777';
+    context.fillStyle = '#666666';
     context.font = `400 ${Math.max(7, Math.round(bannerH * 0.28))}px monospace, sans-serif`;
     context.textAlign = 'right';
     context.fillText(rightText, w - marginX, centerY);
   }
 }
-

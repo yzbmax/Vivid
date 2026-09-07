@@ -93,7 +93,7 @@ export struct PaperFrame {
             Text('FILE . NO')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
-              .fontColor(Theme.OUTLINE)
+              .fontColor(Theme.ON_SURFACE_VARIANT)
               .letterSpacing(1.3)
             Text(this.fileNo)
               .fontFamily(Theme.FONT_MONO)

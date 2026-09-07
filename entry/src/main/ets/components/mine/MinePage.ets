@@ -31,37 +31,12 @@ export struct MinePage {
     return MockAuthStore.getSession();
   }
 
-  private isAuthenticated(): boolean {
-    return this.currentSession().status === 'authenticated';
-  }
-
   private currentUser(): MockUser | undefined {
     return this.currentSession().user;
   }
 
   private currentAvatarUri(): string {
     return MockAuthStore.getCurrentAvatarUri() ?? '';
-  }
-
-  private async confirmLogout(): Promise<void> {
-    try {
-      const response = await this.getUIContext().getPromptAction().showDialog({
-        title: '确认退出登录',
-        message: '退出后仍会保留当前进程内的 Mock 账号资料。',
-        buttons: [
-          { text: '取消', color: MASK_SEAL.inkMuted },
-          { text: '退出登录', color: MASK_SEAL.primary }
-        ]
-      });
-      if (response.index !== 1) {
-        return;
-      }
-      MockAuthStore.logout();
-      AuthUiState.bumpRevision();
-      this.getUIContext().getPromptAction().showToast({ message: '已退出登录' });
-    } catch (err) {
-      console.error(`Failed to confirm logout: ${JSON.stringify(err)}`);
-    }
   }
 
   build() {
@@ -73,7 +48,7 @@ export struct MinePage {
         Column({ space: 20 }) {
           Column({ space: 10 }) {
             Stack({ alignContent: Alignment.Center }) {
-              if (this.isAuthenticated() && this.currentAvatarUri().length > 0) {
+              if (this.currentAvatarUri().length > 0) {
                 Image(this.currentAvatarUri())
                   .width(78)
                   .height(78)
@@ -92,48 +67,27 @@ export struct MinePage {
             .border({ width: 1, color: '#ba7770' })
             .backgroundColor('#f8e4e1')
             .rotate({ angle: -4 });
-            if (this.isAuthenticated()) {
-              Text(this.currentUser()?.nickname ?? '个人称谓')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(22)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(MASK_SEAL.ink);
-              Text(this.currentUser()?.maskedPhone ?? '暂未登记在册')
-                .fontFamily(Theme.FONT_MONO)
-                .fontSize(14)
-                .fontColor(MASK_SEAL.inkMuted);
-              Text('演示数据 · 当前进程会话')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(12)
-                .fontColor(MASK_SEAL.primary);
-              SealButton({ text: '退出登录', secondary: true, onTap: () => this.confirmLogout() });
-            } else {
-              Text('未登录')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(22)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(MASK_SEAL.ink);
-              Text('登录后可管理您的个人档册与设置')
-                .fontFamily(Theme.FONT_SERIF)
-                .fontSize(14)
-                .fontColor(MASK_SEAL.inkMuted);
-              Row({ space: 12 }) {
-                Column() {
-                  SealButton({ text: '登录', secondary: false, onTap: () => this.openPage('pages/LoginPage') });
-                }
-                .layoutWeight(1);
-                Column() {
-                  SealButton({
-                    text: '注册',
-                    secondary: true,
-                    onTap: () => this.openPage('pages/RegisterPage')
-                  });
-                }
-                .layoutWeight(1);
-              }
-              .width('100%')
-              .margin({ top: 12 });
+
+            Text(this.currentUser()?.nickname ?? '雅集墨客')
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(MASK_SEAL.ink);
+
+            Text('本地创作档案 · 私密存储')
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(12)
+              .fontColor(MASK_SEAL.primary);
+
+            Row() {
+              SealButton({
+                text: '编辑资料',
+                secondary: false,
+                onTap: () => this.openPage('pages/ProfileEditPage')
+              });
             }
+            .width(140)
+            .margin({ top: 4 });
           }
           .width('100%')
           .alignItems(HorizontalAlign.Center)
@@ -149,7 +103,7 @@ export struct MinePage {
               .letterSpacing(1.5)
               .width('100%')
               .padding({ bottom: 8 });
-            SettingRow({ title: '用户设置', detail: '头像、昵称与登录安全', interactive: true,
+            SettingRow({ title: '用户设置', detail: '头像、雅号与存储说明', interactive: true,
               onTap: () => this.openPage('pages/UserSettingsPage') });
             SettingRow({ title: '应用设置', detail: '外观、语言与本地说明', interactive: true,
               onTap: () => this.openPage('pages/AppSettingsPage') });
@@ -169,10 +123,10 @@ export struct MinePage {
               onTap: () => this.openPage('pages/PrivacyPolicyPage') });
           }
 
-          Text('微霏 V1.0 · 纯本地离线创作工具')
+          Text('微霏 V1.0.2 · 纯本地离线创作工具')
             .fontFamily(Theme.FONT_MONO)
             .fontSize(10)
-            .fontColor('#8a5c57')
+            .fontColor(MASK_SEAL.inkMuted)
             .letterSpacing(1)
             .padding({ top: 4, bottom: 28 });
         }
@@ -180,7 +134,9 @@ export struct MinePage {
         .alignItems(HorizontalAlign.Center)
         .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: 20, bottom: 28 });
       }
-      .layoutWeight(1);
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');

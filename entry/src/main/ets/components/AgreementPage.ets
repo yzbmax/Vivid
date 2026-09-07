@@ -93,14 +93,16 @@ export struct AgreementPage {
             Text('微霏 · 尊重并守护您的创作隐私与合法权益')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(10)
-              .fontColor('#8a5c57')
+              .fontColor(MASK_SEAL.inkMuted)
               .letterSpacing(1)
               .padding({ top: 8, bottom: 36 });
           }
           .width('100%')
           .padding(20);
         }
-        .layoutWeight(1);
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');

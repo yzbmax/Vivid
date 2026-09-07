@@ -35,6 +35,10 @@ struct AccountSecurityPage {
   private closureTimer: number = -1;
 
   aboutToAppear(): void {
+    try {
+      this.getUIContext().getRouter().back();
+      return;
+    } catch (_e) {}
     this.refreshSnapshot();
   }
 
@@ -215,7 +219,7 @@ struct AccountSecurityPage {
     try {
       const response = await this.getUIContext().getPromptAction().showDialog({
         title: '确认注销账号',
-        message: '注销后将删除当前进程内的 Mock 账号与个人资料，且无法在本次运行中恢复。',
+        message: '注销后将重置本地创作者档案与个人资料。',
         buttons: [
           { text: '取消', color: MASK_SEAL.inkMuted },
           { text: '确认注销', color: MASK_SEAL.primary }
@@ -256,7 +260,7 @@ struct AccountSecurityPage {
       case 'SAME_PHONE':
         return '新手机号不能与当前手机号相同';
       case 'PHONE_ALREADY_BOUND':
-        return '该手机号已绑定其他 Mock 账号';
+        return '该手机号已绑定其他账号';
       case 'INVALID_CODE':
         return '验证码不正确';
       case 'CODE_NOT_REQUESTED':
@@ -360,7 +364,7 @@ struct AccountSecurityPage {
         .showPasswordIcon(false)
         .fontSize(16)
         .fontColor(MASK_SEAL.ink)
-        .placeholderColor('#957d7a')
+        .placeholderColor(MASK_SEAL.inkMuted)
         .backgroundColor(Color.Transparent)
         .border({ width: 1, color: error.length > 0 ? MASK_SEAL.error : MASK_SEAL.outlineLight })
         .borderRadius(4)
@@ -432,7 +436,7 @@ struct AccountSecurityPage {
                 .width('100%')
                 .alignItems(VerticalAlign.Top);
                 if (this.phoneDemoCode.length > 0) {
-                  Text(`演示数据：验证码 ${this.phoneDemoCode}`)
+                  Text(`验证码：${this.phoneDemoCode}`)
                     .fontFamily(Theme.FONT_SERIF)
                     .fontSize(12)
                     .fontColor(MASK_SEAL.primary)
@@ -473,7 +477,7 @@ struct AccountSecurityPage {
                   .width('100%')
                   .alignItems(VerticalAlign.Top);
                   if (this.passwordDemoCode.length > 0) {
-                    Text(`演示数据：验证码 ${this.passwordDemoCode}`)
+                    Text(`验证码：${this.passwordDemoCode}`)
                       .fontFamily(Theme.FONT_SERIF)
                       .fontSize(12)
                       .fontColor(MASK_SEAL.primary)
@@ -522,7 +526,7 @@ struct AccountSecurityPage {
                   .width('100%')
                   .alignItems(VerticalAlign.Top);
                   if (this.closureDemoCode.length > 0) {
-                    Text(`演示数据：验证码 ${this.closureDemoCode}`)
+                    Text(`验证码：${this.closureDemoCode}`)
                       .fontFamily(Theme.FONT_SERIF)
                       .fontSize(12)
                       .fontColor(MASK_SEAL.primary)
@@ -543,7 +547,9 @@ struct AccountSecurityPage {
           .width('100%')
           .padding(20);
         }
-        .layoutWeight(1);
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');

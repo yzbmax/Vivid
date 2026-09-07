@@ -9,7 +9,7 @@ export struct CtaBlock {
       Text($r('app.string.home_cta_note'))
         .fontFamily(Theme.FONT_MONO)
         .fontSize(11)
-        .fontColor(Theme.OUTLINE)
+        .fontColor(Theme.ON_SURFACE_VARIANT)
         .letterSpacing(1.2)
     }
     .width('100%')

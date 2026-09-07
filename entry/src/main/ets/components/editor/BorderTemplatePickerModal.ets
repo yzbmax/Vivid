@@ -134,6 +134,7 @@ export struct BorderTemplatePickerModal {
         }
         .scrollable(ScrollDirection.Horizontal)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .width('100%')
       }
       .width('100%')
@@ -176,6 +177,7 @@ export struct BorderTemplatePickerModal {
       .padding({ left: 14, right: 14, top: 12, bottom: 40 })
       .layoutWeight(1)
       .width('100%')
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .backgroundColor(Theme.PAPER_BASE)
     }
     .width('100%')
@@ -723,7 +725,7 @@ export struct BorderTemplatePickerModal {
           Text('No.24')
             .fontFamily(Theme.FONT_MONO)
             .fontSize(7)
-            .fontColor('#888888')
+            .fontColor('#666666')
         }
         .width('100%')
         .height(26)

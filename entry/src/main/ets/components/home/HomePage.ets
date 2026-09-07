@@ -433,6 +433,7 @@ export struct HomePage {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .align(Alignment.Top)
       }
       .width('100%')

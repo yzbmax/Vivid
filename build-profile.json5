@@ -5,12 +5,12 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "storeFile": "/Users/qiuhaiqin/key/vivid_key.p12",
-          "storePassword": "0000001910F37B1648EAB291DFCE5E3FA0EACA48D6A8B06A8BDFD9F0542AA412409A9D0730E03BAF50",
-          "keyAlias": "vivid",
-          "keyPassword": "0000001936F96D144C83C347752120E480D2419F4462EA9E3A29512C1B10F82B48B69037560E7E50E1",
+          "storeFile": "/Users/qiuhaiqin/key/vivid.p12",
+          "storePassword": "00000019750C732D785516C6DAA247115B1C10ACB35DEC5859C23EC54BEFF96F05C7D2E72F7DEDE20B",
+          "keyAlias": "weifei",
+          "keyPassword": "00000019230C6518112C03A06797D1E0607C2A728C57D76A91D75D6DF5334CBF61607C31E99DD2FDE7",
           "signAlg": "SHA256withECDSA",
-          "profile": "/Users/qiuhaiqin/key/vivid_releaseRelease.p7b",
+          "profile": "/Users/qiuhaiqin/key/vivid_weifeiRelease.p7b",
           "certpath": "/Users/qiuhaiqin/key/vivid.cer"
         }
       }

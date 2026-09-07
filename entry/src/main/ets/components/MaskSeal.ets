@@ -136,7 +136,7 @@ export function FloatingInput($$: FloatingInputParams) {
         .height(50)
         .fontSize(16)
         .fontColor(MaskSealPalette.ink)
-        .placeholderColor('#957d7a')
+        .placeholderColor(MaskSealPalette.inkMuted)
         .backgroundColor(Color.Transparent)
         .border({ width: 1, color: $$.error ? MaskSealPalette.error : MaskSealPalette.outlineLight })
         .borderRadius(4)
@@ -158,8 +158,8 @@ export function FloatingInput($$: FloatingInputParams) {
 export class SettingRowParams {
   title: string = '';
   detail: string = '';
-  interactive: boolean = true;
-  onTap: () => void = () => {};
+  interactive?: boolean = true;
+  onTap?: () => void = () => {};
 }
 
 @Builder
@@ -188,5 +188,9 @@ export function SettingRow($$: SettingRowParams) {
   .padding({ left: 18, right: 16, top: 15, bottom: 15 })
   .backgroundColor(MaskSealPalette.paperSurface)
   .border({ width: { bottom: 1 }, color: '#eadbd7' })
-  .onClick(() => $$.onTap());
+  .onClick(() => {
+    if ($$.onTap) {
+      $$.onTap();
+    }
+  });
 }

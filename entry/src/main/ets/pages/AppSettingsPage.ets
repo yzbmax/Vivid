@@ -242,8 +242,8 @@ struct AppSettingsPage {
                   interactive: false,
                   onTap: () => {}
                 });
-                SettingRow({ title: '关于蒙版调色', detail: 'V1.0 · Mask & Seal 界面示例', interactive: false, onTap: () => {} });
-                SettingRow({ title: '版本号', detail: '0.1.9', interactive: false, onTap: () => {} });
+                SettingRow({ title: '关于微霏', detail: 'V1.0.2 · 东方美学数字画卷工坊', interactive: false, onTap: () => {} });
+                SettingRow({ title: '版本号', detail: '1.0.2', interactive: false, onTap: () => {} });
               }
               .border({ width: 1, color: '#d9c4c0' });
             }
@@ -251,7 +251,9 @@ struct AppSettingsPage {
           .width('100%')
           .padding(20);
         }
-        .layoutWeight(1);
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');

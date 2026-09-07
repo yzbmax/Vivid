@@ -17,7 +17,7 @@ export struct Footer {
           .fontFamily(Theme.FONT_MONO)
           .fontSize(10)
           .fontWeight(FontWeight.Bold)
-          .fontColor(Theme.PRIMARY_60)
+          .fontColor(Theme.PRIMARY)
           .letterSpacing(1.8)
       }
       .padding({ left: 14, right: 14, top: 4, bottom: 4 })
@@ -30,7 +30,7 @@ export struct Footer {
         .fontFamily(Theme.FONT_MONO)
         .fontSize(10)
         .letterSpacing(2)
-        .fontColor(Theme.OUTLINE)
+        .fontColor(Theme.ON_SURFACE_VARIANT)
     }
     .width('100%')
     .padding({ top: 20, bottom: 36 })

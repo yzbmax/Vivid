@@ -75,7 +75,7 @@ export struct QuickToolsSection {
       .height(80)
       .listDirection(Axis.Horizontal)
       .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
       .onScrollIndex((start: number, _end: number) => {
         const maxStart = Math.max(1, this.tools.length - 4);

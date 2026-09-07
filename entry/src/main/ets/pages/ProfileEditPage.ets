@@ -27,7 +27,7 @@ struct ProfileEditPage {
   private refreshProfile(): void {
     const user = MockAuthStore.getCurrentUser();
     if (user === undefined) {
-      this.nickname = '';
+      this.nickname = '雅集墨客';
       this.avatarGlyph = '印';
       this.avatarUri = '';
       return;
@@ -66,27 +66,12 @@ struct ProfileEditPage {
     }
   }
 
-  private async openLogin(): Promise<void> {
-    try {
-      await this.getUIContext().getRouter().pushUrl({ url: 'pages/LoginPage' });
-    } catch (err) {
-      console.error(`Failed to open login page: ${JSON.stringify(err)}`);
-    }
-  }
-
   private showToast(message: string): void {
     try {
       this.getUIContext().getPromptAction().showToast({ message: message });
     } catch (err) {
       console.error(`Failed to show toast: ${JSON.stringify(err)}`);
     }
-  }
-
-  private isAuthenticated(): boolean {
-    if (this.authRevision < 0) {
-      return false;
-    }
-    return MockAuthStore.getCurrentUser() !== undefined;
   }
 
   private save(): void {
@@ -115,7 +100,7 @@ struct ProfileEditPage {
       case 'INVALID_AVATAR_URI':
         return '相册头像地址无效，请重新选择';
       case 'NOT_AUTHENTICATED':
-        return '请先登录后再编辑个人册页';
+        return '资料保存异常，请重试';
       default:
         return '个人册页暂时无法保存';
     }
@@ -128,27 +113,8 @@ struct ProfileEditPage {
         PageHeader({ title: '编辑个人册页', showBack: true, onBack: () => this.goBack(), topInset: true });
         Scroll() {
           Column({ space: 20 }) {
-            if (!this.isAuthenticated()) {
-              Column({ space: 14 }) {
-                Text('请先登录')
-                  .fontFamily(Theme.FONT_SERIF)
-                  .fontSize(24)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor(MASK_SEAL.ink);
-                Text('登录后才能编辑个人册页')
-                  .fontFamily(Theme.FONT_SERIF)
-                  .fontSize(14)
-                  .fontColor(MASK_SEAL.inkMuted);
-                SealButton({ text: '前往登录', secondary: false, onTap: () => this.openLogin() });
-              }
-              .width('100%')
-              .alignItems(HorizontalAlign.Center)
-              .padding(24)
-              .backgroundColor(MASK_SEAL.paperSurface)
-              .border({ width: 1, color: '#d9c4c0' });
-            } else {
-              Column({ space: 14 }) {
-                Text('个人册页')
+            Column({ space: 14 }) {
+              Text('个人册页')
                   .fontFamily(Theme.FONT_MONO)
                   .fontSize(12)
                   .fontColor(MASK_SEAL.primary)
@@ -224,7 +190,7 @@ struct ProfileEditPage {
                   .height(50)
                   .fontSize(16)
                   .fontColor(MASK_SEAL.ink)
-                  .placeholderColor('#957d7a')
+                  .placeholderColor(MASK_SEAL.inkMuted)
                   .backgroundColor(Color.Transparent)
                   .border({ width: 1, color: this.profileError.length > 0 ? MASK_SEAL.error : MASK_SEAL.outlineLight })
                   .borderRadius(4)
@@ -246,12 +212,13 @@ struct ProfileEditPage {
               .padding(24)
               .backgroundColor(MASK_SEAL.paperSurface)
               .border({ width: 1, color: '#d9c4c0' });
-            }
           }
           .width('100%')
           .padding(20);
         }
-        .layoutWeight(1);
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true });
       }
       .width('100%')
       .height('100%');
