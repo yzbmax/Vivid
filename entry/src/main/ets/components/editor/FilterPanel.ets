@@ -7,6 +7,7 @@ import {
   ThumbnailItem,
   canUseSourceThumbnailFallback
 } from '../../services/ThumbnailPipeline';
+import { HapticService } from '../../services/HapticService';
 
 /** Filter selection strip and non-destructive strength control. */
 @Component
@@ -17,6 +18,11 @@ export struct FilterPanel {
   @Prop unavailableFilterIds: string[] = [];
   onSelectFilter: (filterId: string) => void = () => {};
   onStrengthChange: (value: number) => void = () => {};
+
+  private resetStrength(): void {
+    HapticService.triggerImpact();
+    this.onStrengthChange(1.0);
+  }
 
   build() {
     Column({ space: 8 }) {
@@ -39,6 +45,10 @@ export struct FilterPanel {
           .fontFamily(Theme.FONT_SANS)
           .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
           .fontColor(Theme.ON_SURFACE_VARIANT)
+          .gesture(
+            TapGesture({ count: 2 })
+              .onAction(() => this.resetStrength())
+          )
         Slider({
           value: this.editState.filter.strength,
           min: 0,
@@ -61,6 +71,10 @@ export struct FilterPanel {
           .fontColor(Theme.PRIMARY)
           .width(32)
           .textAlign(TextAlign.End)
+          .gesture(
+            TapGesture({ count: 2 })
+              .onAction(() => this.resetStrength())
+          )
       }
       .width('100%')
       .height(40)

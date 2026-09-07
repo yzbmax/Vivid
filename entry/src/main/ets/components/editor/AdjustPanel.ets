@@ -7,6 +7,7 @@ import {
   formatAdjustValue
 } from '../../models/EditModels';
 import { Theme } from '../common/Theme';
+import { HapticService } from '../../services/HapticService';
 
 /**
  * 调节面板（「调节」工具内容）：上下两行。
@@ -23,6 +24,13 @@ export struct AdjustPanel {
   onSelectType: (key: string) => void = () => {};
   onReset: () => void = () => {};
   onCompareChange: (down: boolean) => void = () => {};
+
+  private resetCurrentParam(): void {
+    if (this.selectedValue() !== 0) {
+      HapticService.triggerImpact();
+      this.onChange(this.selectedType, 0);
+    }
+  }
 
   build() {
     Column() {
@@ -41,7 +49,10 @@ export struct AdjustPanel {
         .justifyContent(FlexAlign.Center)
         .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
         .borderRadius(Theme.RADIUS_DEFAULT)
-        .onClick(() => this.onReset())
+        .onClick(() => {
+          HapticService.triggerImpact();
+          this.onReset();
+        })
 
         // 滑块块：类型标签 + 数值 + 滑块
         Column({ space: 4 }) {
@@ -65,6 +76,12 @@ export struct AdjustPanel {
               .textAlign(TextAlign.End)
           }
           .width('100%')
+          .gesture(
+            TapGesture({ count: 2 })
+              .onAction(() => {
+                this.resetCurrentParam();
+              })
+          )
 
           Slider({
             value: this.selectedValue(),
@@ -85,6 +102,10 @@ export struct AdjustPanel {
             .width('100%')
             .onChange((value: number, mode: SliderChangeMode) => {
               if (mode !== SliderChangeMode.Begin) {
+                const prev = this.selectedValue();
+                if ((prev !== 0 && value === 0) || (prev < 0 && value > 0) || (prev > 0 && value < 0)) {
+                  HapticService.triggerTick();
+                }
                 this.onChange(this.selectedType, value);
               }
             })
