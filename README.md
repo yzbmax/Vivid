@@ -1,262 +1,257 @@
-<div align="center">
+# Vivid (微霏)
 
-# 微霏 · Vivid
-
-**「山河入卷 · 文书钤印」—— 专为 HarmonyOS NEXT 打造的东方美学图像调色与长卷装裱工坊**
-
-*An Oriental Aesthetic Image Color Grading & Colophon Mounting Studio on HarmonyOS NEXT.*
-
-[![Platform](https://img.shields.io/badge/Platform-HarmonyOS%20NEXT-critical?style=flat-square&logo=huawei)](https://developer.huawei.com/consumer/cn/)
-[![Language](https://img.shields.io/badge/Language-ArkTS%20%7C%20C%2B%2B20-blue?style=flat-square)](https://developer.huawei.com/)
-[![Rendering](https://img.shields.io/badge/Graphics-Vulkan%20%7C%20Canvas2D-red?style=flat-square)](https://www.vulkan.org/)
-[![Design](https://img.shields.io/badge/Design%20System-Mask%20%26%20Seal-8A1C14?style=flat-square)](#-设计哲学--mask--seal-风格规范)
-[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline%20%2F%20Zero--Cloud-success?style=flat-square)](#-端侧隐私与安全规范)
-[![Tests](https://img.shields.io/badge/Tests-14%20Suites%20Passing-brightgreen?style=flat-square)](#-自动化测试与工程质量保证)
-[![License](https://img.shields.io/badge/License-Apache%202.0-orange?style=flat-square)](LICENSE)
-
-[功能特性](#-核心特性亮点) • [设计哲学](#-设计哲学--mask--seal-风格规范) • [系统架构](#-系统架构) • [工程目录](#-工程目录导览) • [快速上手](#-快速上手与工程构建) • [测试套件](#-自动化测试与工程质量保证)
-
-</div>
+HarmonyOS NEXT 原生图像调色与立轴装裱工具。基于 ArkTS、Native C++ 与 Vulkan Compute 构建。
 
 ---
 
-## 📖 简介
+## 概述
 
-**微霏（Vivid）** 是一款运行在华为 **HarmonyOS NEXT** 上的专业级摄影调色与东方装裱应用。
+Vivid 是面向 HarmonyOS NEXT 开发的原生摄影后制与画卷装裱应用。应用以纯端侧、全离线架构为基石，不申请网络访问权限，不集成任何第三方数据统计或广告 SDK，所有图像解码、3D LUT 滤镜渲染、直方图采样诊断与立轴海报合成均在设备内部完成。
 
-我们将现代数码摄影的“选片、调色、滤镜、装裱、归档”流程，与古代书画鉴藏中的**文书呈报、御批复核、天头题签、金石钤印、题跋长卷**深度融合，构建出独具东方雅韵的 **「炎国卷轴 · 文书钤印（Mask & Seal）」** 交互体验。
-
-应用坚持**纯本地、全离线、端侧隐私优先**原则，无需联网、零商业广告追踪，所有的色彩运算、直方图诊断与海报装裱均在设备内部完成。
+视觉与交互层遵循「文书钤印 · 案卷批注」（Mask & Seal）设计规范，将数码后期的选片、校色、加框与归档映射为文书呈报、御批复核、天头题签与金石落印。
 
 ---
 
-## ✨ 核心特性亮点
+## 核心特性与技术实现
 
-### 📜 1. 东方立轴【题跋长卷】装裱导出
-- **立轴全卷合成**：采用离线 Canvas（`OffscreenCanvasRenderingContext2D`）高性能光栅化，将摄影画心、天头题签、干支纪年、EXIF 光学参数、中国传统五色谱带、案卷智能评注与文人朱砂大印一次性无缝熔铸为全景立轴海报。
-- **中国传统五色谱带**：从画作中提取优势色，映射至中国传统国色（如远山黛、朱砂、素宣、玄天、缃叶），呈现极具收藏价值的东方画谱。
-- **品第钤印鉴赏**：提供「神、逸、妙、阅、甲」五品文人朱砂方印，随心品鉴钤盖。
+### 1. 3D LUT 胶片滤镜引擎（Native C++ / Vulkan Compute）
+- 解析 16³ 与 33³ 规格的 `.cube` 查找表文件。16³ 规格在 Native 层通过三线性插值重采样升维至 33³。
+- 渲染管线优先调度 Vulkan Compute 执行 GPU 并行计算；在无 Vulkan 支持或驱动异常环境下，自动平滑降级至 CPU 三线性插值多线程计算，确保跨设备渲染结果一致。
+- 编辑器预览采用异步代次控制（Generation Token），快速切换预设时丢弃并释放过期帧的中间 PixelMap，避免内存堆积与界面卡顿。
+- 支持 0%–100% 滤镜强度线性调节。
 
-### 🎨 2. 专业胶片 3D LUT 与影调调节
-- **双引擎硬件加速**：Native C++ 高性能解析 16³ 与 33³ `.cube` 文件，优先调度 **Vulkan Compute GPU** 加速渲染，并具备自适应 CPU 三线性插值保底。
-- **全参数微调**：亮度（LUM）、对比度（CON）、饱和度（SAT）、色温（TMP）精密滑块控制，支持触感马达精准点火反馈（`HapticService`）与双击数值快速归零。
-- **调色配方即时流转**：支持将当前作品的色彩配方与滤镜参数一键「复制配方」，并无缝跨卷复用。
+### 2. 直方图明暗采样与智能题跋生成
+- 像素级采样亮度分布，构建 256 阶灰度直方图。
+- 算法识别四类主导影调：
+  - 双峰大光比（阴阳错落）
+  - 高调空灵（极目高明）
+  - 低调沉郁（玄冥深致）
+  - 均衡温润（素宣中正）
+- 极端曝光诊断：对高光溢出、暗部死黑或灰蒙低对比场景生成官署校勘便签，输出针对性曝光与对比度修正建议。
+- EXIF 全要素融合：解析拍摄时间戳（转译干支与四季节气节律）、焦距、光圈、快门（清洗厂商专有单位如 `sec.`，规范化为紧凑分数格式）与感光度，动态生成古籍风骨的案卷批注。
 
-### 🔍 3. 直方图明暗分析与 EXIF 智能题跋
-- **光影明暗采样**：自研直方图分布采样算法，精准识别双峰大光比（`阴阳错落`）、高调空灵（`极目高明`）、低调幽微（`玄冥深致`）与温润中正。
-- **官署校勘诊断**：当出现高光溢出、暗部死黑或灰蒙乏力时，自动出具「官署校勘便签」与调色修正建议。
-- **光学全要素融合**：深度解析拍摄时间（早春初霁、暮秋晚晴）、镜头焦距、光圈、快门（毫秒规范化）与 ISO，自动撰写文质兼美的案卷批注。
+### 3. 东方立轴【题跋长卷】装裱导出
+- 基于 `OffscreenCanvasRenderingContext2D` 实现长卷立轴图层的离屏光栅化合成。
+- 合成要素包括：
+  - 天头装裱与干支纪年题签
+  - 原画画心装裱（内衬红边与四角留白）
+  - 传统五色谱带（提取画面主导色并计算欧氏色彩距离，匹配最接近的中国传统国色名称及色值）
+  - 卷宗案卷批注与 EXIF 参数矩阵
+  - 朱砂防伪钤印（「神、逸、妙、阅、甲」五品品第印）与底栏金石款识
+- 三级容错导出机制：优先通过离屏 Canvas 渲染并存入临时缓存；渲染异常时降级至编辑工作台单层渲染；针对示例作品支持资源管理器字节回退，杜绝空文件报错。
 
-### 🌊 4. 原始画幅无裁切与自适应瀑布流
-- **原本比例无裁切**：彻底废除硬编码的固定容器裁切，图片画心按实际物理分辨率（`naturalRatio`）自适应舒展，彻底保全底栏相机水印、品牌 Logo 与黑白边框。
-- **双列动态高度平衡瀑布流**：卷宗归档页采用基于预估高度的贪心平衡算法，横图、竖图、方图错落排布，视觉饱满从容。
-- **沉浸式固定顶栏与悬浮操作区**：作品详情页支持顶部毛玻璃标题栏固定避让，底部悬浮常驻操作条，搭配「展卷详阅 · 案卷批注 ▾」丝滑引导，彻底告别假底困惑。
+### 4. 原始画幅完整呈现与双列动态高度瀑布流
+- 废除固定长宽比或容器高度裁剪，卡片组件基于真实分辨率计算宽高比（`naturalRatio`），配合 `ImageFit.Contain` 渲染。相机水印、参数底栏及各类画框完整展示，无裁切遮挡。
+- 卷宗归档页采用双列高度平衡瀑布流算法。根据各卡片真实高宽比计算累积列高，动态将新卡片追加至较矮一列，消除传统横排因宽高比差异导致的空隙。
+- 详情页采用沉浸式布局：顶栏固定常驻，长卷内容在下方平滑滚动；底部常驻悬浮操作条；中间配备「展卷详阅 · 案卷批注」指引胶囊，轻触即可平滑下滚查看完整批注。
 
-### 📊 5. 【卷宗案牍志】端侧创作数据看板
-- **藏卷统揽**：实时汇总已封缄卷宗与研墨草稿总量，转译为传统大写汉字编号（如 `卷宗第肆零玖号`）。
-- **主流气象与设色风骨**：动态聚类创作者最青睐的主导影调与冷暖色偏，并生成文人文案结语，记录专属创作轨迹。
+### 5. 调色配方流转与操作历史栈
+- 调色配方（ColorRecipe）：将色彩微调参数（亮度、对比度、饱和度、色温）、当前 LUT 标识、滤镜强度及局部调整参数打包为结构化 JSON，支持一键复制到剪贴板与跨作品粘贴复用。
+- 双向操作历史栈（EditHistoryManager）：维护撤销（Undo）与重做（Redo）状态栈，单步回溯调色记录。
+- 触感反馈（HapticService）：参数滑块滑动至 0 刻度时触发触觉顿挫反馈；支持双击标签数值直接归零。
 
-### 🛡️ 6. 端侧隐私合规与 SaveButton 免弹窗导出
-- **华为安全组件直出**：深度集成系统 `SaveButton` 资产安全控件，无需向用户索取相册全局读写权限，实现一键静默存入系统相册。
-- **真本地私有沙箱**：基于 `preferences` 异步持久化，首次冷启动规范合规校验，同意后永久写盘绝不再弹，数据 100% 留存本机。
+### 6. 端侧隐私合规与 SaveButton 零权限保存
+- 深度适配华为系统安全控件 `SaveButton`。用户点击保存按钮即可直接写入相册公共目录，无需声明或申请全局相册读写权限（`ohos.permission.WRITE_IMAGEVIDEO`）。
+- 首选项持久化管理（PreferencesHelper）：基于 `@kit.ArkData` preferences 实现读写与异步刷盘（`flush`）。具备上下文自愈检测，首次安装冷启动时弹出合规指引，用户确认后状态持久化存盘，后续冷启动绝不重复弹窗。
+- 【卷宗案牍志】创作看板：从本地沙箱实时统计已归档卷宗总量、草稿数、主导影调聚类与设色冷暖风骨，全程无云端同步依赖。
 
 ---
 
-## 🏛️ 设计哲学 · Mask & Seal 风格规范
+## 设计系统：Mask & Seal 规范
 
-微霏的 UI/UX 全面遵循自研的 **Mask & Seal（炎国卷轴 · 文书钤印）** 东方文人设计系统：
+Vivid 界面遵循「炎国卷轴 · 文书钤印」视觉语言，核心隐喻对应如下：
 
-```
-文书隐喻：
-  照片 / 作品  ──>  卷宗 (Archive)        调色预览比对  ──>  复核 (Audit)
-  参数处理    ──>  呈报 (Submit)         保存存盘      ──>  封缄 / 落印 (Seal)
-  服务凭证    ──>  印信 (Credential)     历史记录      ──>  档存 (Records)
-```
+| 领域对象 | 对应隐喻 | 界面用途 |
+|---|---|---|
+| 摄影作品 / 导入图片 | 卷宗 (Archive) | 列表项、详情展示主体 |
+| 图像滤镜与参数调节 | 呈报 (Submit) | 编辑工坊调节行为 |
+| 预览与比对效果 | 复核 (Audit) | 长按对比、官署校勘 |
+| 存盘与相册导出 | 封缄 / 落印 (Seal) | 保存作品、相册输出 |
+| 系统服务与沙箱存储 | 印信 (Credential) | 证书凭据、本地存储说明 |
+| 历史创作数据统计 | 档存 (Records) | 卷宗案牍志看板 |
 
 ### 设计令牌（Design Tokens）
 
-| 令牌名 | 色值 / 尺寸 | 视觉隐喻与规范用途 |
+| 令牌常量 | 色值 / 尺寸 | 用途说明 |
 |---|---|---|
-| `PAPER_BASE` | `#DEDDD7` | **宣纸灰**：全局纸质底色，绘制 1px 极细朱砂网格 |
-| `PAPER_SURFACE` | `#F2F1ED` | **浅纸白**：顶栏、浮层卡片、输入面板表面 |
-| `PRIMARY` | `#7B171B` | **深朱砂主色**：重要按键、标题强调、聚焦状态 |
-| `SEAL_RED` | `#B23B2F` | **金石钤印红**：文人印章、滑块游标、印信徽记 |
-| `ON_SURFACE` | `#241918` | **正文墨色**：端庄文雅的墨汁正文字色 |
-| `FONT_SERIF` | `Noto Serif SC` | **古风衬线**：标题一律使用衬线古风体，气韵肃穆 |
-| `FONT_MONO` | `monospace` | **文书等宽**：卷宗编号、指标数字、等宽字距宽间距 |
+| `Theme.PAPER_BASE` | `#DEDDD7` | 宣纸灰。全局页面底色，叠印细网格背景 |
+| `Theme.PAPER_SURFACE` | `#F2F1ED` | 浅纸白。卡片、模态层与输入面板表面 |
+| `Theme.PRIMARY` | `#7B171B` | 深朱砂。核心主按钮、强调标题、选中状态 |
+| `Theme.SEAL_RED` | `#B23B2F` | 钤印红。印章印鉴、滑块游标、指示条 |
+| `Theme.ON_SURFACE` | `#241918` | 正文墨色。标题与主要正文字体颜色 |
+| `Theme.ON_SURFACE_VARIANT` | `#574140` | 次级文字。注释说明、时间戳、等宽标签文字 |
+| `Theme.FONT_SERIF` | `Noto Serif SC, Noto Serif` | 衬线体。用于页面顶栏、卡片标题及古典题跋 |
+| `Theme.FONT_MONO` | `monospace` | 等宽体。用于卷宗编号、指标数值与光学参数 |
 
 ---
 
-## 🏗️ 系统架构
+## 系统架构
 
-微霏采用分层松耦合、端侧响应式架构，严格遵循 ArkTS 强类型约束：
-
-```mermaid
-graph TD
-    subgraph UI_Layer["🎨 表现层 (ArkUI / Mask & Seal)"]
-        Index["主框架 Index (三 Tab)"]
-        Home["主阁 HomePage"]
-        Works["卷宗 WorksPage (双列瀑布流)"]
-        Mine["案牍志 MinePage (创作看板)"]
-        Detail["详情 WorkDetailPage (装裱大图)"]
-        Editor["调色工坊 EditPage (四道工序)"]
-    end
-
-    subgraph Domain_Layer["🧠 业务与领域模型层"]
-        WorkRepo["WorkRepository (作品数据仓)"]
-        DraftStore["DraftStore (断点草稿仓)"]
-        ToneModels["ImageToneModels (直方图影调)"]
-        ArchiveStats["ArchiveStats (案牍统计聚类)"]
-        ColorRecipe["ColorRecipeStore (调色配方流转)"]
-    end
-
-    subgraph Service_Layer["⚙️ 服务与渲染管线"]
-        Colophon["ColophonScrollRenderer (立轴全卷合成)"]
-        ToneAnalyzer["ImageToneAnalyzer (像素级采样与诊断)"]
-        ExifService["ExifReaderService (相机光学参数解析)"]
-        Haptic["HapticService (触感反馈震动)"]
-        ExportService["PhotoExportService (SaveButton 相册保存)"]
-    end
-
-    subgraph Native_Core["🚀 核心计算层 (Native C++ / GPU)"]
-        NapiBridge["NAPI 跨语言桥接"]
-        CubeParser["3D LUT Cube 解析器"]
-        VulkanEngine["Vulkan Compute GPU 滤镜引擎"]
-        CpuFallback["CPU 三线性插值弹性回退"]
-    end
-
-    subgraph System_Kits["📱 HarmonyOS NEXT 系统能力"]
-        KitMedia["@kit.MediaLibraryKit (相册挑图 / SaveButton)"]
-        KitArkData["@kit.ArkData (preferences 离线持久化)"]
-        KitAbility["@kit.AbilityKit (生命周期 / 沉浸式窗口)"]
-        KitArkUI["@kit.ArkUI (OffscreenCanvas / 弹性边界)"]
-    end
-
-    UI_Layer --> Domain_Layer
-    UI_Layer --> Service_Layer
-    Service_Layer --> Domain_Layer
-    Service_Layer --> Native_Core
-    Service_Layer --> System_Kits
-    Domain_Layer --> System_Kits
+```
++-------------------------------------------------------------------------+
+|                       表现层 (ArkUI / Mask & Seal)                       |
+|  Index (三Tab) | HomePage (主阁) | WorksPage (瀑布流) | MinePage (案牍志)  |
+|  EditPage (调色工坊) | WorkDetailPage (长卷展阅) | ColophonExportDialog  |
++-------------------------------------------------------------------------+
+                                     |
++------------------------------------+------------------------------------+
+|                         领域模型与状态管理层                                |
+|  WorkRepository (卷宗持久化仓库)     |  DraftStore (断点草稿管理)           |
+|  ImageToneModels (直方图与影调模型)   |  ArchiveStats (案牍创作统计聚类)     |
+|  ColorRecipe (调色配方数据契约)      |  WorkUiState (响应式事件总线)        |
++------------------------------------+------------------------------------+
+                                     |
++------------------------------------+------------------------------------+
+|                           服务与核心计算层                               |
+|  ColophonScrollRenderer (立轴光栅化)  |  ImageToneAnalyzer (直方图采样分析)  |
+|  ExifReaderService (EXIF参数清洗)    |  ColorRecipeStore (配方序列化流转)   |
+|  HapticService (触觉反馈服务)        |  PhotoExportService (相册保存服务)   |
++------------------------------------+------------------------------------+
+                                     |
++------------------------------------+------------------------------------+
+|                    Native 计算核心 (C++20 / NAPI)                       |
+|  NAPI 跨语言桥接层   |  3D LUT (.cube) 解析器                             |
+|  Vulkan Compute GPU 滤镜引擎         |  CPU 三线性插值多线程渲染器           |
++------------------------------------+------------------------------------+
+                                     |
++------------------------------------+------------------------------------+
+|                      HarmonyOS 系统基础能力 (Kits)                       |
+|  @kit.MediaLibraryKit (PhotoViewPicker / SaveButton)                    |
+|  @kit.ArkData (preferences 物理刷盘)                                    |
+|  @kit.ArkUI (OffscreenCanvas / 沉浸式窗口 / EdgeEffect.Spring)          |
+|  @kit.AbilityKit (UIAbility 生命周期 / 上下文管理)                        |
++-------------------------------------------------------------------------+
 ```
 
 ---
 
-## 📂 工程目录导览
+## 工程目录结构
 
 ```text
 Vivid/
 ├── entry/src/main/
-│   ├── cpp/                         # Native 高性能计算核心
-│   │   ├── filter/                  # 3D LUT 解析、Vulkan Compute 与 CPU 渲染器
-│   │   └── napi/                    # ArkTS NAPI 桥接层与 PixelMap 内存映射
+│   ├── cpp/
+│   │   ├── filter/                  # 3D LUT 解析、CPU插值与 Vulkan Compute 实现
+│   │   │   ├── cube_reader.cpp      # .cube 文件语法解析器
+│   │   │   ├── filter_engine.cpp    # 滤镜调度引擎 (GPU/CPU 切换)
+│   │   │   └── vulkan_lut_pipeline.cpp # Vulkan 计算着色器管线
+│   │   └── napi/                    # ArkTS 与 C++ 数据转换及 PixelMap 映射
 │   ├── ets/
-│   │   ├── components/              # 模块化 UI 组件库
-│   │   │   ├── common/              # Theme、PaperFrame、NotesCard、PageHeader
-│   │   │   ├── editor/              # 调色面板、滤镜胶卷、边框与文字排印
-│   │   │   ├── home/                # 首页看板、快捷工具法度、案头近辑
-│   │   │   ├── mine/                # 【卷宗案牍志】创作看板
-│   │   │   └── works/               # WorkCard (原本画幅)、WorkGrid (瀑布流)
-│   │   ├── models/                  # 领域实体与状态管理器
-│   │   │   ├── ArchiveStats.ets     # 本地数据看板聚合算法
-│   │   │   ├── ColophonModels.ets   # 题跋长卷装裱契约
-│   │   │   ├── ColorRecipe.ets      # 调色配方契约
-│   │   │   ├── ImageToneModels.ets  # 直方图影调分类模型
-│   │   │   ├── WorkRecord.ets       # 卷宗主模型 (尺寸、参数、影调、批注)
-│   │   │   └── WorkRepository.ets   # 本地文件沙箱持久化仓库
+│   │   ├── components/              # ArkUI 组件实现
+│   │   │   ├── common/              # PaperFrame, PageHeader, NotesCard, Theme
+│   │   │   ├── editor/              # 预览画布、滤镜胶卷、参数面板、边框与文字
+│   │   │   ├── home/                # 首页各功能区块
+│   │   │   ├── mine/                # 卷宗案牍志创作看板
+│   │   │   └── works/               # WorkCard (自然比例), WorkGrid (双列瀑布流)
+│   │   ├── models/                  # 数据契约与仓储模型
+│   │   │   ├── ArchiveStats.ets     # 创作统计与影调分类聚类模型
+│   │   │   ├── ColophonModels.ets   # 题跋长卷配置与五色谱数据模型
+│   │   │   ├── ColorRecipe.ets      # 调色配方数据契约
+│   │   │   ├── ImageToneModels.ets  # 直方图数据与极端明暗诊断模型
+│   │   │   ├── TraditionalColorCatalog.ets # 中国传统五色谱字典 (近百种标准色值)
+│   │   │   ├── WorkRecord.ets       # 卷宗主模型
+│   │   │   └── WorkRepository.ets   # 卷宗沙箱存储仓库
 │   │   ├── pages/                   # 独立路由页面
-│   │   │   ├── Index.ets            # 三 Tab 沉浸式主入口与冷启动合规
-│   │   │   ├── EditPage.ets         # 核心编辑调色大工作台
-│   │   │   ├── WorkDetailPage.ets   # 卷宗详情长卷展阅
+│   │   │   ├── Index.ets            # 三 Tab 框架与冷启动隐私检测
+│   │   │   ├── EditPage.ets         # 核心图像调色与多层编辑工作台
+│   │   │   ├── WorkDetailPage.ets   # 作品装裱长卷详情页
 │   │   │   └── WorksPage.ets        # 全部卷宗归档页
 │   │   ├── services/                # 业务核心服务
-│   │   │   ├── ColophonScrollRenderer.ets # 题跋立轴全卷合成渲染器
-│   │   │   ├── ColorRecipeStore.ets       # 配方复制/提取服务
-│   │   │   ├── ExifReaderService.ets      # 相机参数提取清洗
-│   │   │   ├── HapticService.ets          # 震动马达反馈服务
-│   │   │   ├── ImageToneAnalyzer.ets      # 直方图影调采样诊断引擎
-│   │   │   ├── PhotoExportService.ets     # SaveButton 授权相册导出
-│   │   │   └── WorkSaveService.ets        # 卷宗存盘与快照生成
-│   │   └── utils/                   # 工具类库
-│   │       ├── PreferencesHelper.ets      # 首选项通用异步存盘
-│   │       └── WorkImageUtils.ets         # 图像物理分辨率探测与 URI 规整
-│   └── resources/                   # 设计资源、中文字体、国风色彩与矢量图标
-└── tools/                           # 自动化测试套件与代码规范校验器
-    ├── test-colophon-renderer.cjs   # 题跋全景立轴海报渲染校验
-    ├── test-tone-analyzer.cjs       # 直方图算法与极端明暗诊断测试
-    ├── test-recipe-store.cjs        # 调色配方存取与跨卷流转校验
-    ├── test-work-resolution.cjs     # 真实画幅自适应与尺寸完整性校验
-    ├── test-privacy-flow.cjs        # 首次冷启动首选项持久化刷盘校验
-    └── verify-edge-effect.cjs       # 全局 20 处滑动边界回弹动效覆盖率校验
+│   │   │   ├── ColophonScrollRenderer.ets # 题跋立轴全卷合成光栅化渲染器
+│   │   │   ├── ColorRecipeStore.ets # 配方复制与跨作品应用服务
+│   │   │   ├── ExifReaderService.ets # EXIF 光学参数提取与清洗
+│   │   │   ├── HapticService.ets    # 触感震动反馈服务
+│   │   │   ├── ImageToneAnalyzer.ets # 图像直方图采样与曝光诊断引擎
+│   │   │   ├── PhotoExportService.ets # 结合 SaveButton 的相册保存服务
+│   │   │   └── WorkSaveService.ets  # 卷宗入库与图片文件落盘
+│   │   └── utils/                   # 工具函数
+│   │       ├── PreferencesHelper.ets # 首选项多实例异步持久化管理
+│   │       └── WorkImageUtils.ets   # 图像物理分辨率探测与 URI 协议规范化
+│   └── resources/                   # 字体、预设 LUT、矢量图标及多语言配置
+└── tools/                           # 自动化单元测试与规范校验脚本
 ```
 
 ---
 
-## 🛠️ 快速上手与工程构建
+## 开发与构建环境
 
-### 开发环境要求
-- **IDE**：Huawei DevEco Studio 6.0+ 或 6.24+
-- **SDK 版本**：HarmonyOS NEXT Developer Beta / Release (API 12+)
-- **运行环境**：ARM64 纯鸿蒙设备或配套模拟器
-- **Node.js**：v18+ (建议 v20+)
+### 前置要求
+- 操作系统：macOS / Windows / Linux
+- 开发环境：Huawei DevEco Studio 6.0+ 或 6.24+
+- SDK 版本：HarmonyOS NEXT Developer Beta (API 12+)
+- 运行环境：纯鸿蒙系统手机或配套模拟器
+- Node.js：v18.0.0 或更高版本 (测试执行依赖)
 
-### 源码拉取与编译
+### 构建与测试指令
 ```bash
-# 1. 克隆代码仓库
+# 1. 克隆仓库
 git clone git@github.com:yzbmax/Vivid.git
 cd Vivid
 
-# 2. 安装依赖 (使用 ohpm)
+# 2. 安装项目依赖
 ohpm install
 
-# 3. 执行自动化规范与全量测试套件
+# 3. 执行全量单元测试与动效规范校验
 for f in tools/test-*.cjs; do node "$f" || exit 1; done
 node tools/verify-edge-effect.cjs
 ```
 
-在 **DevEco Studio** 中直接打开工程目录，配置本地签名后即可点击 **Run** 部署至 HarmonyOS 设备。
+通过 DevEco Studio 打开工程目录，完成本地签名配置后，选择运行目标设备直接部署。
 
 ---
 
-## 🧪 自动化测试与工程质量保证
+## 自动化测试体系
 
-微霏采用严格的 **TDD（测试驱动开发）** 规范，建立覆盖纯逻辑、图形几何、数据持久化与动效规范的完备自动化测试矩阵。
+项目采用测试驱动开发（TDD）模式，测试脚本位于 `tools/` 目录，无需启动真机即可秒级完成关键业务与算法验证：
 
-在终端执行：
-```bash
-for f in tools/test-*.cjs; do node "$f" || exit 1; done && node tools/verify-edge-effect.cjs
+| 测试脚本 | 验证范围 |
+|---|---|
+| `test-archive-stats.cjs` | 案牍指标聚合、汉字大写编号转译、主导影调聚类与设色风骨计算 |
+| `test-colophon-export-flow.cjs` | 题跋装裱弹窗生命周期、沙箱临时副本生成与相册导出链路 |
+| `test-colophon-renderer.cjs` | 题跋长卷离屏 Canvas 排版、五色谱带提取与朱砂方印绘制 |
+| `test-color-palette.cjs` | 传统色谱提取、欧氏色彩距离计算与最近邻国色匹配 |
+| `test-compare-overlay.cjs` | 原图与调色图实时对比蒙版几何定位与触控防抖 |
+| `test-editor-composition.cjs` | 编辑器多图层合成、边界限制、代次控制与 PixelMap 释放 |
+| `test-haptic-and-reset.cjs` | 触感震动反馈参数传递与滑块双击复位逻辑 |
+| `test-privacy-flow.cjs` | 隐私政策首次冷启动检测、Preferences 上下文自愈与写盘持久化 |
+| `test-recipe-store.cjs` | 调色配方数据契约完整性、序列化与剪贴板存取流转 |
+| `test-save-flow.cjs` | SaveButton 安全控件集成规范与免弹窗导出降级机制 |
+| `test-text-logic.cjs` | 文字图层多行排版、Unicode 码点计算、旋转拖拽夹紧算法 |
+| `test-tone-analyzer.cjs` | 直方图分布判定、大光比识别与极端明暗官署校勘诊断 |
+| `test-undo-redo.cjs` | 编辑器单步撤销与重做双向历史栈状态一致性 |
+| `test-work-resolution.cjs` | 真实物理分辨率探测、WorkCard 原本比例与自适应瀑布流 |
+| `verify-edge-effect.cjs` | 全局 20 处滚动容器（垂直长卷与水平选择栏）弹性边界反馈（EdgeEffect.Spring）覆盖校验 |
+
+---
+
+## 代码规范与开发约定
+
+1. **ArkUI 图像加载与沙箱文件规范**：
+   - `<Image>` 组件加载沙箱文件（`filesDir` / `cacheDir`）必须携带 `file://` 协议前缀，严禁传入裸绝对路径 `/data/...`。
+   - 持久化图片必须包含真实扩展名（`.jpg` / `.png` / `.webp`），禁止无扩展名写入。
+   - 所有展示组件统一通过 `resolveWorkImageSource` 处理图片来源，包含完整的三级回退策略（`previewImageUri > sourceImageUri > 内置画作资源`）。
+2. **ArkTS 强类型约束**：
+   - 严禁在非必要场景使用 `any`，所有异步服务及数据转换均提供完整接口契约。
+3. **Canvas 装裱防撞与双行折叠**：
+   - 绘制底栏相机水印与 EXIF 参数时，预估左右两侧所需宽度；窄画幅超出可用宽度时，自动折叠为双行紧凑排版。
+
+---
+
+## 许可证
+
+本项目依据 [Apache License 2.0](LICENSE) 许可协议开源。
 ```
+Copyright 2026 Vivid Team
 
-### 测试套件覆盖范围：
-1. `test-archive-stats.cjs`: 创作数据聚合、汉字大写转译与影调偏好聚类
-2. `test-colophon-export-flow.cjs`: 题跋装裱弹窗全链路与临时副本生成
-3. `test-colophon-renderer.cjs`: 离屏 Canvas 海报排印、五色谱带与朱砂钤印
-4. `test-color-palette.cjs`: 传统色谱提取与欧氏色彩距离匹配
-5. `test-compare-overlay.cjs`: 原图与调色实时对比蒙版几何运算
-6. `test-editor-composition.cjs`: 编辑器多图层合成、边界限制与生命周期
-7. `test-haptic-and-reset.cjs`: 触感马达集成与滑块双击复位校验
-8. `test-privacy-flow.cjs`: 隐私协议首次冷启动探测与物理刷盘校验
-9. `test-recipe-store.cjs`: 调色配方序列化与跨组件剪贴板流转
-10. `test-save-flow.cjs`: SaveButton 免弹窗静默相册保存合规校验
-11. `test-text-logic.cjs`: 文字图层字距、旋转、拖动钳制与代码点计算
-12. `test-tone-analyzer.cjs`: 直方图采样、明暗双峰判定与官署校勘便签
-13. `test-undo-redo.cjs`: 编辑器单步撤销 / 重做双向历史栈
-14. `test-work-resolution.cjs`: 原始分辨率探测、无裁切画框与动态瀑布流
-15. `verify-edge-effect.cjs`: 全局 20 处垂直/横向滚动容器弹性反馈动效覆盖率 100%
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
----
+    http://www.apache.org/licenses/LICENSE-2.0
 
-## 🤝 贡献规范
-
-微霏遵循多人并行开发与代码审查规范：
-- 严格遵循 ArkTS 强类型约束，禁止使用 `any` 或未定义的裸对象；
-- ArkUI 图片加载一律遵循 `file://` 协议规整与兜底回退机制；
-- 保持东方审美词表一致性，不得随意引入现代扁平或 Material 违和样式；
-- 欢迎提交 PR 或 Issue 探讨更多东方美学滤镜与立轴装裱模板！
-
----
-
-## 📄 开源许可证
-
-本项目基于 [Apache License 2.0](LICENSE) 协议开源。
-版权所有 © 2026 Vivid Team. All Rights Reserved.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
