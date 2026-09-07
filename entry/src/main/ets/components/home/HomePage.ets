@@ -221,49 +221,26 @@ export struct HomePage {
   @Builder
   HomeHeader() {
     Column() {
-      Row() {
-        // 左侧占位（等宽保证标题绝对居中）
-        Blank()
-          .width(36)
+      // 居中品牌标题：主阁 + CANVAS HUB
+      Column({ space: 1 }) {
+        Text('主  阁')
+          .fontFamily(Theme.FONT_SERIF)
+          .fontSize(21)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Theme.ON_SURFACE)
+          .letterSpacing(3)
 
-        // 居中品牌标题：主阁 + CANVAS HUB
-        Column({ space: 1 }) {
-          Text('主  阁')
-            .fontFamily(Theme.FONT_SERIF)
-            .fontSize(21)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(Theme.ON_SURFACE)
-            .letterSpacing(3)
-
-          Text('CANVAS HUB · 卷宗呈报')
-            .fontFamily(Theme.FONT_MONO)
-            .fontSize(9)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(Theme.PRIMARY)
-            .letterSpacing(1.5)
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-
-        // 右侧朱砂金石印章个人中心按钮
-        Stack({ alignContent: Alignment.Center }) {
-          Image($r('app.media.icon_person'))
-            .width(17)
-            .height(17)
-            .fillColor(Theme.ON_PRIMARY)
-        }
-        .width(32)
-        .height(32)
-        .borderRadius(Theme.RADIUS_FULL)
-        .backgroundColor(Theme.PRIMARY)
-        .shadow({ radius: 4, color: 'rgba(123, 23, 27, 0.25)', offsetY: 1 })
-        .onClick(() => {
-          AppStorage.setOrCreate('mainTabIndex', 2);
-        })
+        Text('CANVAS HUB · 卷宗呈报')
+          .fontFamily(Theme.FONT_MONO)
+          .fontSize(9)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Theme.PRIMARY)
+          .letterSpacing(1.5)
       }
       .width('100%')
       .height(Theme.HEADER_HEIGHT + 6)
-      .padding({ left: 16, right: 16 })
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
     .padding({ top: AppStorage.get<number>('statusBarHeight') ?? 0 })

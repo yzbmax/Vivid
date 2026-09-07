@@ -11,7 +11,12 @@ import { PhotoExportService, ExportResult } from '../services/PhotoExportService
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { AppExportSettings, ExportFormat, toExportProfile } from '../models/AppSettingsModels';
 import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
+import { ColophonExportDialog } from '../components/common/ColophonExportDialog';
 import { ColorRecipeStore } from '../services/ColorRecipeStore';
+import { probeImageDimensions } from '../utils/WorkImageUtils';
+import { ExifReaderService } from '../services/ExifReaderService';
+import { ImageToneAnalyzer } from '../services/ImageToneAnalyzer';
+import { generateWorkDescription, generateAuditSuggestion } from '../models/WorkDescriptionGenerator';
 import { common } from '@kit.AbilityKit';
 
 /**
@@ -29,7 +34,9 @@ struct WorkDetailPage {
   @State work: WorkRecord | null = null;
   @State exporting: boolean = false;
   @State showExportDialog: boolean = false;
+  @State showColophonDialog: boolean = false;
 
+  private scroller: Scroller = new Scroller();
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   aboutToAppear(): void {
@@ -37,6 +44,78 @@ struct WorkDetailPage {
     this.workId = params?.workId ?? '';
     mockWorkStore.init(this.context);
     this.work = mockWorkStore.findById(this.workId);
+    this.ensureWorkDimensions();
+    this.ensureWorkAnnotation();
+  }
+
+  /** 确保卷宗批注与真实照片的直方图明暗、拍摄时间与参数深度关联 */
+  private async ensureWorkAnnotation(): Promise<void> {
+    if (this.work === null) {
+      return;
+    }
+    const defaultSnippet = '光影均衡，不偏不倚';
+    const needsRefresh = !this.work.description ||
+      this.work.description.length === 0 ||
+      this.work.description.includes(defaultSnippet) ||
+      !this.work.toneLabel ||
+      this.work.toneLabel.length === 0;
+
+    if (!needsRefresh) {
+      return;
+    }
+
+    const targetUri = this.work.sourceImageUri || this.work.previewImageUri;
+    if (!targetUri || targetUri.length === 0) {
+      return;
+    }
+
+    try {
+      const exif = await ExifReaderService.extractWatermarkInfo(targetUri, this.context);
+      const toneResult = await ImageToneAnalyzer.analyzeImageTone(targetUri);
+
+      if (this.work !== null) {
+        const newDesc = generateWorkDescription({
+          adjustments: this.work.adjustments,
+          width: this.work.width,
+          height: this.work.height,
+          exif: exif,
+          toneMetrics: toneResult.metrics,
+          audit: toneResult.audit
+        });
+        const suggestion = generateAuditSuggestion(toneResult.audit);
+        this.work.description = newDesc;
+        this.work.toneLabel = toneResult.metrics.toneLabel;
+        this.work.auditSuggestion = suggestion;
+        try {
+          mockWorkStore.update(this.work.id, this.work);
+        } catch (_e) {}
+      }
+    } catch (_err) {}
+  }
+
+  /** 确保卷宗分辨率尺寸就绪；若旧数据未录入宽高，主动异步探测并持久化回填 */
+  private async ensureWorkDimensions(): Promise<void> {
+    if (this.work !== null && (this.work.width <= 0 || this.work.height <= 0)) {
+      const targetUri = this.work.sourceImageUri || this.work.previewImageUri;
+      if (targetUri && targetUri.length > 0) {
+        const dims = await probeImageDimensions(targetUri);
+        if (dims.width > 0 && dims.height > 0 && this.work !== null) {
+          this.applyResolvedDimensions(dims.width, dims.height);
+        }
+      }
+    }
+  }
+
+  /** 将解析出的真实宽高应用到当前作品并同步持久化 */
+  private applyResolvedDimensions(width: number, height: number): void {
+    if (this.work === null || (this.work.width === width && this.work.height === height)) {
+      return;
+    }
+    this.work.width = width;
+    this.work.height = height;
+    try {
+      mockWorkStore.update(this.work.id, this.work);
+    } catch (_e) {}
   }
 
   private toast(msg: string): void {
@@ -77,74 +156,127 @@ struct WorkDetailPage {
     return y + '.' + m + '.' + day;
   }
 
-  /** 操作区：导出（ghost）+ 复制配方（ghost）+ 启封续编（primary） */
+  /** 展卷详阅指引小胶囊：文书钤印古雅风格，点击平滑展开下卷 */
+  @Builder
+  scrollCuePill() {
+    Row({ space: 4 }) {
+      Text('展卷详阅 · 案卷批注')
+        .fontFamily(Theme.FONT_SERIF)
+        .fontSize(12)
+        .fontColor(Theme.ON_SURFACE_VARIANT)
+        .letterSpacing(1.2)
+      Text('▾')
+        .fontFamily(Theme.FONT_SERIF)
+        .fontSize(12)
+        .fontColor(Theme.PRIMARY)
+    }
+    .padding({ top: 6, bottom: 6, left: 14, right: 14 })
+    .backgroundColor(Theme.PRIMARY_05)
+    .borderRadius(Theme.RADIUS_FULL)
+    .border({ width: 1, color: Theme.PRIMARY_20 })
+    .margin({ bottom: 12 })
+    .onClick(() => {
+      this.scroller.scrollPage({ next: true });
+    })
+  }
+
+  /** 操作区：导出（ghost）+ 复制配方（ghost）+ 题跋长卷（ghost）+ 启封续编（primary） */
   @Builder
   actionArea() {
-    Row({ space: 12 }) {
-      // 导出到相册按钮
-      Stack({ alignContent: Alignment.Center }) {
-        if (this.exporting) {
-          LoadingProgress()
-            .width(20)
-            .height(20)
-            .color(Theme.ON_SURFACE_VARIANT)
-        } else {
-          Image($r('app.media.icon_archive'))
+    Column() {
+      Row({ space: 10 }) {
+        // 导出到相册按钮
+        Stack({ alignContent: Alignment.Center }) {
+          if (this.exporting) {
+            LoadingProgress()
+              .width(20)
+              .height(20)
+              .color(Theme.ON_SURFACE_VARIANT)
+          } else {
+            Image($r('app.media.icon_archive'))
+              .width(20)
+              .height(20)
+              .fillColor(Theme.ON_SURFACE_VARIANT)
+          }
+        }
+        .width(48)
+        .height(52)
+        .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+        .borderRadius(Theme.RADIUS_DEFAULT)
+        .onClick(() => {
+          this.exportToGallery();
+        })
+
+        // 复制此卷配方按钮
+        Stack({ alignContent: Alignment.Center }) {
+          Image($r('app.media.icon_copy'))
             .width(20)
             .height(20)
             .fillColor(Theme.ON_SURFACE_VARIANT)
         }
-      }
-      .width(52)
-      .height(56)
-      .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
-      .onClick(() => {
-        this.exportToGallery();
-      })
+        .width(48)
+        .height(52)
+        .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+        .borderRadius(Theme.RADIUS_DEFAULT)
+        .onClick(() => {
+          this.copyWorkRecipe();
+        })
 
-      // 复制此卷配方按钮
-      Stack({ alignContent: Alignment.Center }) {
-        Image($r('app.media.icon_copy'))
-          .width(20)
-          .height(20)
-          .fillColor(Theme.ON_SURFACE_VARIANT)
-      }
-      .width(52)
-      .height(56)
-      .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
-      .onClick(() => {
-        this.copyWorkRecipe();
-      })
-
-      Row({ space: 8 }) {
-        Image($r('app.media.icon_edit'))
-          .width(20)
-          .height(20)
-          .fillColor(Theme.ON_PRIMARY)
-        Text('继续编辑')
-          .fontFamily(Theme.FONT_SERIF)
-          .fontSize(18)
-          .fontColor(Theme.ON_PRIMARY)
-          .letterSpacing(3)
-      }
-      .layoutWeight(1)
-      .height(56)
-      .backgroundColor(Theme.PRIMARY)
-      .justifyContent(FlexAlign.Center)
-      .onClick(() => {
-        if (this.work != null) {
-          // 待 C 在 main_pages.json 注册 pages/EditPage 后生效
-          this.getUIContext().getRouter().pushUrl({
-            url: 'pages/EditPage',
-            params: { source: 'work', workId: this.work.id }
-          }).catch(() => {
-            this.toast('编辑页尚未就绪');
-          });
+        // 题跋长卷装裱按钮
+        Stack({ alignContent: Alignment.Center }) {
+          Image($r('app.media.icon_scroll'))
+            .width(20)
+            .height(20)
+            .fillColor(Theme.ON_SURFACE_VARIANT)
         }
-      })
+        .width(48)
+        .height(52)
+        .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+        .borderRadius(Theme.RADIUS_DEFAULT)
+        .onClick(() => {
+          this.showColophonDialog = true;
+        })
+
+        Row({ space: 8 }) {
+          Image($r('app.media.icon_edit'))
+            .width(20)
+            .height(20)
+            .fillColor(Theme.ON_PRIMARY)
+          Text('继续编辑')
+            .fontFamily(Theme.FONT_SERIF)
+            .fontSize(18)
+            .fontColor(Theme.ON_PRIMARY)
+            .letterSpacing(3)
+        }
+        .layoutWeight(1)
+        .height(52)
+        .backgroundColor(Theme.PRIMARY)
+        .borderRadius(Theme.RADIUS_DEFAULT)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          if (this.work != null) {
+            // 待 C 在 main_pages.json 注册 pages/EditPage 后生效
+            this.getUIContext().getRouter().pushUrl({
+              url: 'pages/EditPage',
+              params: { source: 'work', workId: this.work.id }
+            }).catch(() => {
+              this.toast('编辑页尚未就绪');
+            });
+          }
+        })
+      }
+      .width('100%')
     }
     .width('100%')
-    .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+    .padding({
+      left: Theme.MARGIN_MOBILE,
+      right: Theme.MARGIN_MOBILE,
+      top: 10,
+      bottom: 10 + (AppStorage.get<number>('navBarHeight') ?? 0)
+    })
+    .backgroundColor(Theme.PAPER_SURFACE_80)
+    .backdropBlur(20)
+    .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
   }
 
   /** 复制此卷调色配方到剪贴板 */
@@ -268,27 +400,61 @@ struct WorkDetailPage {
             .width('100%')
             .height('100%')
           } else {
-            Scroll() {
-              Column() {
-                // 统一头部标题栏（自顶避让状态栏，背景延伸至屏幕顶部）
-                PageHeader({ title: this.work!.title, showBack: true,
-                  onBack: () => this.getUIContext().getRouter().back(), topInset: true })
-                PaperFrame({ image: this.work!.previewImage, imageUri: this.work!.previewImageUri, fileNo: this.work!.id })
-                  .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-                  .margin({ bottom: 32 })
-                MetadataBar({ columns: this.metadataItems() })
-                  .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 24 })
-                NotesCard({ content: this.notesText() })
-                  .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 32 })
-                this.actionArea()
+            Column() {
+              // 1. 统一头部标题栏（自顶避让状态栏，常驻固定在页面顶部）
+              PageHeader({
+                title: this.work!.title,
+                showBack: true,
+                onBack: () => this.getUIContext().getRouter().back(),
+                topInset: true
+              })
+
+              // 2. 中间长卷内容滚动区（随手势流畅翻阅，开启卷轴刻度滚动条）
+              Scroll(this.scroller) {
+                Column() {
+                  PaperFrame({
+                    image: this.work!.previewImage,
+                    imageUri: this.work!.previewImageUri,
+                    fileNo: this.work!.id,
+                    frameRatio: (this.work!.width > 0 && this.work!.height > 0)
+                      ? (this.work!.width / this.work!.height)
+                      : 0,
+                    onImageSize: (w: number, h: number) => {
+                      if (this.work !== null && (this.work.width <= 0 || this.work.height <= 0)) {
+                        this.applyResolvedDimensions(w, h);
+                      }
+                    }
+                  })
+                    .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+                    .margin({ top: 12, bottom: 8 })
+
+                  // 展卷指引提示 pill（提示下方有案卷批注与考评，点击亦可平滑展开下卷）
+                  this.scrollCuePill()
+
+                  MetadataBar({ columns: this.metadataItems() })
+                    .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 16 })
+
+                  NotesCard({
+                    content: this.notesText(),
+                    toneLabel: this.work?.toneLabel ?? '',
+                    suggestion: this.work?.auditSuggestion ?? '',
+                    watermarkGlyph: (this.work?.auditSuggestion && this.work.auditSuggestion.length > 0) ? '待校' : '阅'
+                  })
+                    .margin({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, bottom: 20 })
+                }
+                .width('100%')
+                .padding({ bottom: 20 })
               }
+              .layoutWeight(1)
               .width('100%')
-              .padding({ bottom: 32 })
+              .scrollBar(BarState.Auto)
+              .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+
+              // 3. 底部悬浮常驻操作区（继续编辑 / 题跋长卷 / 复制配方 / 导出）
+              this.actionArea()
             }
             .width('100%')
             .height('100%')
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           }
         }
       }
@@ -306,6 +472,16 @@ struct WorkDetailPage {
           },
           onCancel: () => {
             this.showExportDialog = false;
+          }
+        })
+      }
+
+      if (this.showColophonDialog) {
+        ColophonExportDialog({
+          isVisible: this.showColophonDialog,
+          work: this.work,
+          onClose: () => {
+            this.showColophonDialog = false;
           }
         })
       }

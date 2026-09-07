@@ -158,6 +158,12 @@ export class WorkRepository {
     if (patch.description && patch.description.length > 0) {
       existing.description = patch.description;
     }
+    if (patch.toneLabel !== undefined) {
+      existing.toneLabel = patch.toneLabel;
+    }
+    if (patch.auditSuggestion !== undefined) {
+      existing.auditSuggestion = patch.auditSuggestion;
+    }
     existing.status = patch.status;
     existing.adjustments = {
       exposure: patch.adjustments.exposure,
@@ -217,6 +223,8 @@ export class WorkRepository {
     copy.id = w.id;
     copy.title = w.title ?? '';
     copy.description = w.description ?? '';
+    copy.toneLabel = w.toneLabel ?? '';
+    copy.auditSuggestion = w.auditSuggestion ?? '';
     copy.previewImage = w.previewImage ?? null;
     copy.date = w.date ?? '';
     copy.sealGlyph = w.sealGlyph ?? '';

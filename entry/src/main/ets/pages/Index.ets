@@ -47,8 +47,12 @@ struct Index {
       return;
     }
     try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const helper = PreferencesHelper.getStore('vivid_default_pref');
-      const val = await helper.getString('privacy_agreed');
+      if (ctx) {
+        await helper.init(ctx);
+      }
+      const val = await helper.getString('privacy_agreed', '', ctx);
       if (val === 'true') {
         AppStorage.setOrCreate('privacy_agreed', true);
       } else {
@@ -59,10 +63,19 @@ struct Index {
     }
   }
 
-  private agreePrivacy(): void {
+  private async agreePrivacy(): Promise<void> {
     this.showPrivacyModal = false;
     AppStorage.setOrCreate('privacy_agreed', true);
-    PreferencesHelper.getStore('vivid_default_pref').putString('privacy_agreed', 'true');
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const helper = PreferencesHelper.getStore('vivid_default_pref');
+      if (ctx) {
+        await helper.init(ctx);
+      }
+      await helper.putString('privacy_agreed', 'true', ctx);
+    } catch (_err) {
+      // 容错降级
+    }
   }
 
   private exitApp(): void {

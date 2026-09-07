@@ -23,6 +23,10 @@ export class WorkRecord {
   title: string = '';
   /** 自动生成或手动编辑的作品描述（案卷批注） */
   description: string = '';
+  /** 直方图调性标签（如：阴阳错落 / 极目高明） */
+  toneLabel: string = '';
+  /** 极端直方图官署校勘修改建议 */
+  auditSuggestion: string = '';
   /** 作品页缩略图 */
   previewImage: Resource | null = null;
   /** 保存时间展示文案 */

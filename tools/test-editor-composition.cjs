@@ -5,7 +5,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
-const studio = process.env.DEVECO_STUDIO_HOME || path.join(process.env.ProgramFiles || 'C:/Program Files', 'Huawei/DevEco Studio');
+const studio = process.env.DEVECO_STUDIO_HOME || (
+  process.platform === 'darwin'
+    ? '/Applications/DevEco-Studio.app/Contents'
+    : path.join(process.env.ProgramFiles || 'C:/Program Files', 'Huawei/DevEco Studio')
+);
 const ts = require(path.join(studio, 'tools/hvigor/hvigor-ohos-plugin/node_modules/typescript'));
 const cache = new Map();
 const imageBackend = { source: undefined };

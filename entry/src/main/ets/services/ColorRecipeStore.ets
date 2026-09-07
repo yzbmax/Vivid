@@ -1,6 +1,5 @@
 import { ColorRecipe } from '../models/ColorRecipe';
-import { AdjustParams } from '../models/EditModels';
-import { RegionAdjustParams } from '../models/SharedContracts';
+import { AdjustParams, RegionAdjustments, cloneAdjustments, cloneRegionAdjustments } from '../models/EditModels';
 
 /**
  * 调色配方存储管理服务（内存与跨页面共享）
@@ -15,22 +14,16 @@ export class ColorRecipeStore {
     adjustments: AdjustParams,
     filterId: string,
     filterStrength: number,
-    regionAdjustments?: RegionAdjustParams,
+    regionAdjustments?: RegionAdjustments,
     name?: string
   ): void {
     ColorRecipeStore.cachedRecipe = {
       version: 1,
       name,
-      adjustments: {
-        exposure: adjustments.exposure,
-        brightness: adjustments.brightness,
-        contrast: adjustments.contrast,
-        saturation: adjustments.saturation,
-        temperature: adjustments.temperature
-      },
+      adjustments: cloneAdjustments(adjustments),
       filterId: filterId || 'original',
       filterStrength: filterStrength !== undefined ? filterStrength : 1.0,
-      regionAdjustments: regionAdjustments ? JSON.parse(JSON.stringify(regionAdjustments)) : undefined,
+      regionAdjustments: regionAdjustments ? cloneRegionAdjustments(regionAdjustments) : undefined,
       timestamp: Date.now()
     };
     try {

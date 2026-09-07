@@ -1,4 +1,5 @@
 import { fileIo as fs } from '@kit.CoreFileKit';
+import { image } from '@kit.ImageKit';
 
 /**
  * 规范化并解析作品卡片的图片源：
@@ -100,4 +101,65 @@ export function fixAndNormalizePath(uri: string): string {
   }
 
   return clean;
+}
+
+export interface ImageDimension {
+  width: number;
+  height: number;
+}
+
+/**
+ * 安全探测并解析图片的自然分辨率尺寸（像素宽与高）
+ * 支持 file:// 沙箱路径、本地绝对路径以及普通 URI
+ */
+export async function probeImageDimensions(imageUri?: string): Promise<ImageDimension> {
+  const result: ImageDimension = { width: 0, height: 0 };
+  if (!imageUri || imageUri.trim().length === 0) {
+    return result;
+  }
+  const clean = imageUri.trim();
+  let imageSource: image.ImageSource | null = null;
+  let file: fs.File | null = null;
+
+  try {
+    if (clean.startsWith('file://') || clean.startsWith('/')) {
+      const filePath = clean.startsWith('file://') ? clean.substring(7) : clean;
+      let exists = false;
+      try {
+        exists = fs.accessSync(filePath);
+      } catch (_) {
+        exists = false;
+      }
+      if (!exists) {
+        return result;
+      }
+      file = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
+      imageSource = image.createImageSource(file.fd);
+    } else {
+      imageSource = image.createImageSource(clean);
+    }
+
+    if (imageSource) {
+      const info = await imageSource.getImageInfo();
+      if (info && info.size) {
+        result.width = info.size.width;
+        result.height = info.size.height;
+      }
+    }
+  } catch (_e) {
+    // 探测失败安全兜底返回 0, 0
+  } finally {
+    if (imageSource) {
+      try {
+        await imageSource.release();
+      } catch (_) {}
+    }
+    if (file) {
+      try {
+        fs.closeSync(file.fd);
+      } catch (_) {}
+    }
+  }
+
+  return result;
 }

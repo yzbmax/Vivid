@@ -1,4 +1,4 @@
-import { AdjustParams, RegionAdjustments } from './EditModels';
+import { AdjustParams, RegionAdjustments, cloneAdjustments, cloneRegionAdjustments } from './EditModels';
 
 /**
  * 单步编辑状态快照
@@ -89,19 +89,10 @@ export class EditHistoryManager {
 
   private cloneSnapshot(snapshot: EditHistorySnapshot): EditHistorySnapshot {
     return {
-      adjustments: {
-        exposure: snapshot.adjustments.exposure,
-        brightness: snapshot.adjustments.brightness,
-        contrast: snapshot.adjustments.contrast,
-        saturation: snapshot.adjustments.saturation,
-        temperature: snapshot.adjustments.temperature
-      },
+      adjustments: cloneAdjustments(snapshot.adjustments),
       filterId: snapshot.filterId,
       filterStrength: snapshot.filterStrength,
-      regionAdjustments: snapshot.regionAdjustments ? {
-        subject: { ...snapshot.regionAdjustments.subject },
-        background: { ...snapshot.regionAdjustments.background }
-      } : undefined,
+      regionAdjustments: snapshot.regionAdjustments ? cloneRegionAdjustments(snapshot.regionAdjustments) : undefined,
       description: snapshot.description
     };
   }

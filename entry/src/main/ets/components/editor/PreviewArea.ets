@@ -248,10 +248,12 @@ export struct PreviewArea {
         Image(this.baseImage)
           .width('100%').height('100%').objectFit(ImageFit.Contain)
           .colorFilter(this.baseFilter)
+          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
       } else if (this.previewPixelMap !== undefined) {
         Image(this.previewPixelMap)
           .width('100%').height('100%').objectFit(ImageFit.Contain)
           .colorFilter(this.baseFilter)
+          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
       } else {
         Image(this.imageSrc)
           .width('100%').height('100%').objectFit(ImageFit.Contain)
@@ -262,10 +264,12 @@ export struct PreviewArea {
       Image(this.previewPixelMap)
         .width('100%').height('100%').objectFit(ImageFit.Contain)
         .colorFilter(this.effects())
+        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
     } else if (this.baseImage !== undefined) {
       Image(this.baseImage)
         .width('100%').height('100%').objectFit(ImageFit.Contain)
         .colorFilter(this.effects())
+        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
     } else {
       Image(this.imageSrc)
         .width('100%').height('100%').objectFit(ImageFit.Contain)

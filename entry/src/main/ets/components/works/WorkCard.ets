@@ -11,9 +11,27 @@ import { resolveWorkImageSource } from '../../utils/WorkImageUtils';
  */
 @Component
 export struct WorkCard {
-  data: WorkRecord = new WorkRecord();
+  @Prop data: WorkRecord = new WorkRecord();
   onCardClick: (id: string) => void = () => {};
   onCardLongPress: (id: string) => void = () => {};
+
+  @State private naturalRatio: number = 0;
+
+  aboutToAppear(): void {
+    if (this.data.width > 0 && this.data.height > 0) {
+      this.naturalRatio = this.data.width / this.data.height;
+    }
+  }
+
+  private getAspectRatio(): number {
+    if (this.naturalRatio > 0) {
+      return this.naturalRatio;
+    }
+    if (this.data.width > 0 && this.data.height > 0) {
+      return this.data.width / this.data.height;
+    }
+    return 1.0;
+  }
 
   @Styles
   cardPressed() {
@@ -22,12 +40,18 @@ export struct WorkCard {
 
   build() {
     Column() {
-      // 缩略图区（h-40 等高于参考样板）
+      // 缩略图区：原本比例自适应，彻底杜绝裁切与遮挡
       Stack({ alignContent: Alignment.TopStart }) {
         Image(this.previewSource())
           .width('100%')
           .height('100%')
-          .objectFit(ImageFit.Cover)
+          .objectFit(ImageFit.Contain)
+          .onComplete((event) => {
+            if (event && event.width > 0 && event.height > 0) {
+              this.naturalRatio = event.width / event.height;
+            }
+          })
+
         if (this.data.status === WorkStatus.Draft) {
           // 未完成遮罩：反色面半透明 + 居中状态标签
           Column() {
@@ -54,7 +78,7 @@ export struct WorkCard {
         }
       }
       .width('100%')
-      .height(Theme.CARD_IMAGE_HEIGHT)
+      .aspectRatio(this.getAspectRatio())
       // 信息区（p-3）
       Column({ space: 8 }) {
         Text(this.data.title)

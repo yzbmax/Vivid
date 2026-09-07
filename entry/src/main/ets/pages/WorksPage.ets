@@ -122,26 +122,19 @@ export struct WorksPage {
                                     }
                                 })
                                 this.endMark()
+                                // 卷宗落款移入列表末尾，作为文人落款自然收束，彻底杜绝悬浮遮挡卡片
+                                if (this.displayedWorks().length > 0) {
+                                    FooterSealBar({ count: this.displayedWorks().length })
+                                        .margin({ top: 8, bottom: 24 })
+                                }
                             }
                             .width('100%')
                             .constraintSize({ minHeight: '100%' })
-                            .padding({ bottom: 24 })
+                            .padding({ bottom: 48 })
                         }
                         .layoutWeight(1)
                         .scrollBar(BarState.Off)
                         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-                        // 底部：卷宗落款（底部导航由 Index 的 Tabs 提供，本页不再预留占位）
-                        Column() {
-                            Column() {
-                                FooterSealBar({ count: this.displayedWorks().length })
-                            }
-                            .width('100%')
-                            .padding({ top: 8, bottom: 8 })
-                            // .backgroundImageSize({ width: '', height: '' })
-                        }
-                        .width('100%')
-                        // 透明背景 + 无模糊，让下方网格纹理透出
-                        // .backgroundColor(Theme.PAPER_BASE_90)
                     }
                     .width('100%')
                     .height('100%')

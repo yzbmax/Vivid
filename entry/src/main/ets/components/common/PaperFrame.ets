@@ -2,8 +2,8 @@ import { Theme } from './Theme';
 import { resolveWorkImageSource } from '../../utils/WorkImageUtils';
 
 /**
- * 卷轴装裱画框（预留组件 F1 的详情页形态）：纸面装裱 + 图片 + 网格叠层 + 底部卷宗编号。
- * 参考：docs/公共组件预留文档.md F1、stitch「Work Detail Page」Canvas Area。
+ * 卷轴装裱画框（预留组件 F1 的详情页形态）：纸面装裱 + 图片 + 底部卷宗编号。
+ * 遵循原汁原味原本比例呈现画心，彻底杜绝裁切与画面遮挡。
  */
 @Component
 export struct PaperFrame {
@@ -16,36 +16,26 @@ export struct PaperFrame {
   /** 是否显示背后堆叠阴影 */
   showShadow: boolean = true;
   /** 宽高比（命名规避与 ArkUI 通用属性 aspectRatio 冲突） */
-  frameRatio: number = 3 / 4;
+  @Prop frameRatio: number = 0;
+  /** 图片加载完成的原始尺寸回调 */
+  onImageSize?: (width: number, height: number) => void;
 
-  /** 图片上的分析网格叠层（白线 10%，约 2×2 细分） */
-  @Builder
-  gridOverlay() {
-    Stack() {
-      Row()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          direction: GradientDirection.Right,
-          colors: [
-            ['#1AFFFFFF', 0], ['#1AFFFFFF', 0.02], ['#00FFFFFF', 0.02], ['#00FFFFFF', 0.5],
-            ['#1AFFFFFF', 0.5], ['#1AFFFFFF', 0.52], ['#00FFFFFF', 0.52], ['#00FFFFFF', 1]
-          ]
-        })
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          direction: GradientDirection.Bottom,
-          colors: [
-            ['#1AFFFFFF', 0], ['#1AFFFFFF', 0.02], ['#00FFFFFF', 0.02], ['#00FFFFFF', 0.5],
-            ['#1AFFFFFF', 0.5], ['#1AFFFFFF', 0.52], ['#00FFFFFF', 0.52], ['#00FFFFFF', 1]
-          ]
-        })
+  @State private naturalRatio: number = 0;
+
+  aboutToAppear(): void {
+    if (this.frameRatio > 0) {
+      this.naturalRatio = this.frameRatio;
     }
-    .width('100%')
-    .height('100%')
-    .opacity(0.4)
+  }
+
+  private getImageRatio(): number {
+    if (this.naturalRatio > 0) {
+      return this.naturalRatio;
+    }
+    if (this.frameRatio > 0) {
+      return this.frameRatio;
+    }
+    return 1.0;
   }
 
   /** 判断 image 是否有实际内容（排除空字符串）。 */
@@ -61,17 +51,9 @@ export struct PaperFrame {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      // 背后堆叠阴影（纸张层次）：与装裱纸同宽高比，偏移 8,8 露出边角（避免百分比高度塌陷）
-      if (this.showShadow) {
-        Stack()
-          .width('100%')
-          .aspectRatio(this.frameRatio)
-          .backgroundColor(Theme.SURFACE_CONTAINER_HIGH)
-          .translate({ x: 8, y: 8 })
-      }
-      // 装裱纸（p-3，底部 pb-12 给元数据留位）
+      // 装裱纸卡（四周 12vp 雅致宣纸留白，底部放置 FILE . NO 案卷编号与文人验证印章）
       Column() {
-        // 图片区
+        // 画心图片区：使用原本自然画幅比例，彻底杜绝任何裁切与遮挡
         Stack() {
           Image(resolveWorkImageSource(
             this.imageUri,
@@ -79,13 +61,20 @@ export struct PaperFrame {
             this.image
           ))
             .width('100%')
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-          this.gridOverlay()
+            .aspectRatio(this.getImageRatio())
+            .objectFit(ImageFit.Contain)
+            .borderRadius(2)
+            .onComplete((event) => {
+              if (event && event.width > 0 && event.height > 0) {
+                this.naturalRatio = event.width / event.height;
+                if (this.onImageSize) {
+                  this.onImageSize(event.width, event.height);
+                }
+              }
+            })
         }
         .width('100%')
-        .layoutWeight(1)
-        .clip(true)
+        .aspectRatio(this.getImageRatio())
 
         // 底部元数据：FILE . NO + 编号 + 已验证徽标
         Row() {
@@ -101,7 +90,9 @@ export struct PaperFrame {
               .fontColor(Theme.ON_SURFACE_VARIANT)
           }
           .alignItems(HorizontalAlign.Start)
+
           Blank()
+
           Row() {
             Text('✓')
               .fontFamily(Theme.FONT_SERIF)
@@ -118,9 +109,9 @@ export struct PaperFrame {
         .padding({ top: 12 })
       }
       .width('100%')
-      .aspectRatio(this.frameRatio)
       .backgroundColor(Theme.PAPER_SURFACE)
       .padding(12)
+      .borderRadius(Theme.RADIUS_DEFAULT)
       .shadow({ radius: 8, color: Theme.SHADOW_SM, offsetY: 4 })
     }
     .width('100%')

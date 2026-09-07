@@ -4,8 +4,8 @@ import { WorkCard } from './WorkCard';
 import { WorkRecord } from '../../models/WorkRecord';
 
 /**
- * 作品 2 列网格：每行固定两卡（layoutWeight 均分，奇数末行左侧对齐），
- * 空数据时展示 EmptyState。参考：docs/公共组件预留文档.md C6。
+ * 作品 2 列瀑布流：自适应照片原本画幅，左右双列高度智能平衡分流，
+ * 杜绝任何画面裁切与空隙挤压。
  */
 @Component
 export struct WorkGrid {
@@ -19,35 +19,84 @@ export struct WorkGrid {
     if (this.items.length === 0) {
       EmptyState({ title: this.emptyTitle, description: this.emptyDescription })
     } else {
-      Column() {
-        ForEach(this.buildRows(), (row: WorkRecord[], index: number) => {
-          Row({ space: Theme.GUTTER }) {
-            ForEach(row, (item: WorkRecord) => {
-              WorkCard({
-                data: item,
-                onCardClick: (id: string) => this.onCardClick(id),
-                onCardLongPress: (id: string) => this.onCardLongPress(id)
-              })
-                .layoutWeight(1)
-            }, (item: WorkRecord) => item.id)
-            if (row.length === 1) {
-              Row()
-                .layoutWeight(1)
-            }
-          }
-          .width('100%')
-          .margin({ bottom: Theme.GUTTER })
-        }, (row: WorkRecord[], index: number) => row[0].id + '-' + index)
+      Row({ space: Theme.GUTTER }) {
+        // 左列（高度均衡双列瀑布流）
+        Column({ space: Theme.GUTTER }) {
+          ForEach(this.getLeftColumnWorks(), (item: WorkRecord) => {
+            WorkCard({
+              data: item,
+              onCardClick: (id: string) => this.onCardClick(id),
+              onCardLongPress: (id: string) => this.onCardLongPress(id)
+            })
+              .width('100%')
+          }, (item: WorkRecord) => item.id)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        // 右列
+        Column({ space: Theme.GUTTER }) {
+          ForEach(this.getRightColumnWorks(), (item: WorkRecord) => {
+            WorkCard({
+              data: item,
+              onCardClick: (id: string) => this.onCardClick(id),
+              onCardLongPress: (id: string) => this.onCardLongPress(id)
+            })
+              .width('100%')
+          }, (item: WorkRecord) => item.id)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
       }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
       .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
     }
   }
 
-  private buildRows(): WorkRecord[][] {
-    const rows: WorkRecord[][] = [];
-    for (let i = 0; i < this.items.length; i += 2) {
-      rows.push(this.items.slice(i, i + 2));
+  /**
+   * 按预估高度动态平衡分流左列
+   */
+  private getLeftColumnWorks(): WorkRecord[] {
+    const left: WorkRecord[] = [];
+    let leftH = 0;
+    let rightH = 0;
+
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      const ratio = (item.width > 0 && item.height > 0) ? (item.height / item.width) : 1.0;
+      const estH = Math.round(170 * Math.max(0.5, Math.min(2.0, ratio))) + 68;
+
+      if (leftH <= rightH) {
+        left.push(item);
+        leftH += estH;
+      } else {
+        rightH += estH;
+      }
     }
-    return rows;
+    return left;
+  }
+
+  /**
+   * 按预估高度动态平衡分流右列
+   */
+  private getRightColumnWorks(): WorkRecord[] {
+    const right: WorkRecord[] = [];
+    let leftH = 0;
+    let rightH = 0;
+
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      const ratio = (item.width > 0 && item.height > 0) ? (item.height / item.width) : 1.0;
+      const estH = Math.round(170 * Math.max(0.5, Math.min(2.0, ratio))) + 68;
+
+      if (leftH <= rightH) {
+        leftH += estH;
+      } else {
+        right.push(item);
+        rightH += estH;
+      }
+    }
+    return right;
   }
 }

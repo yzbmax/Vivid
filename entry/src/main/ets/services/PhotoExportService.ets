@@ -237,7 +237,7 @@ export class PhotoExportService {
   /**
    * 安全删除文件，忽略错误
    */
-  private static safeUnlink(path: string): void {
+  public static safeUnlink(path: string): void {
     try {
       if (fs.accessSync(path)) {
         fs.unlinkSync(path);

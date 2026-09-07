@@ -64,7 +64,7 @@ import { draftStore } from '../models/DraftStore';
 import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { TextPanel } from '../components/editor/TextPanel';
 import { registerTextFonts } from '../components/editor/TextFontRegistrar';
-import { fixAndNormalizePath } from '../utils/WorkImageUtils';
+import { fixAndNormalizePath, probeImageDimensions } from '../utils/WorkImageUtils';
 import { WorkFileService } from '../services/WorkFileService';
 // ===== End A =====
 import { EditorToolBar } from '../components/editor/EditorToolBar';
@@ -442,10 +442,23 @@ struct EditPage {
         const textImageInfo = source.getImageInfoSync();
         this.textPhotoWidth = textImageInfo.size.width;
         this.textPhotoHeight = textImageInfo.size.height;
+        if (this.imageWidth <= 0 || this.imageHeight <= 0) {
+          this.imageWidth = textImageInfo.size.width;
+          this.imageHeight = textImageInfo.size.height;
+        }
       } catch (_err) {
         console.warn('Editor preview dimensions unavailable');
       }
       // ===== End A =====
+
+      // 主动探测原始图像像素尺寸（不受预览缩放影响）
+      try {
+        const dims = await probeImageDimensions(this.imageSrc);
+        if (dims.width > 0 && dims.height > 0) {
+          this.imageWidth = dims.width;
+          this.imageHeight = dims.height;
+        }
+      } catch (_err) {}
       this.previewLoading = false;
       console.info('Editor preview source decoded');
       if (this.activeTool === 'filter') {
@@ -1330,20 +1343,30 @@ struct EditPage {
   }
 
   private showResetOptions(): void {
-    const sheets: Array<{ title: string; action: () => void }> = [
-      { title: '重置当前参数', action: () => this.resetCurrentSlider() },
-      { title: '全部重置', action: () => this.resetAllSliders() },
-      { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
-    ];
     if (ColorRecipeStore.hasRecipe()) {
-      sheets.push({ title: '粘贴调色配方', action: () => this.pasteRecipe() });
+      this.getUIContext().showActionSheet({
+        title: '调节选项',
+        message: '重置参数或管理配方',
+        sheets: [
+          { title: '重置当前参数', action: () => this.resetCurrentSlider() },
+          { title: '全部重置', action: () => this.resetAllSliders() },
+          { title: '复制当前配方', action: () => this.copyCurrentRecipe() },
+          { title: '粘贴调色配方', action: () => this.pasteRecipe() }
+        ],
+        cancel: () => {}
+      });
+    } else {
+      this.getUIContext().showActionSheet({
+        title: '调节选项',
+        message: '重置参数或管理配方',
+        sheets: [
+          { title: '重置当前参数', action: () => this.resetCurrentSlider() },
+          { title: '全部重置', action: () => this.resetAllSliders() },
+          { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
+        ],
+        cancel: () => {}
+      });
     }
-    this.getUIContext().showActionSheet({
-      title: '调节选项',
-      message: '重置参数或管理配方',
-      sheets: sheets,
-      cancel: () => {}
-    });
   }
 
   private showRegionResetOptions(): void {
@@ -1431,19 +1454,26 @@ struct EditPage {
   }
 
   private showRecipeMenu(): void {
-    const has = ColorRecipeStore.hasRecipe();
-    const sheets: Array<{ title: string; action: () => void }> = [
-      { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
-    ];
-    if (has) {
-      sheets.push({ title: '粘贴调色配方', action: () => this.pasteRecipe() });
+    if (ColorRecipeStore.hasRecipe()) {
+      this.getUIContext().showActionSheet({
+        title: '调色配方',
+        message: '剪贴板已有配方可用',
+        sheets: [
+          { title: '复制当前配方', action: () => this.copyCurrentRecipe() },
+          { title: '粘贴调色配方', action: () => this.pasteRecipe() }
+        ],
+        cancel: () => {}
+      });
+    } else {
+      this.getUIContext().showActionSheet({
+        title: '调色配方',
+        message: '可将当前滤镜与参数复制复用',
+        sheets: [
+          { title: '复制当前配方', action: () => this.copyCurrentRecipe() }
+        ],
+        cancel: () => {}
+      });
     }
-    this.getUIContext().showActionSheet({
-      title: '调色配方',
-      message: has ? '剪贴板已有配方可用' : '可将当前滤镜与参数复制复用',
-      sheets: sheets,
-      cancel: () => {}
-    });
   }
 
   // ── 撤销 / 重做 (Undo / Redo) ──
@@ -2141,6 +2171,8 @@ struct EditPage {
         console.warn('Draft preview generation fallback to source:', e);
       }
       record.previewImageUri = previewUri;
+      record.width = this.imageWidth;
+      record.height = this.imageHeight;
       record.editorSnapshot = cloneEditorSnapshot(snapshot);
       record.status = intent.draft.status;
       record.createdAt = now;

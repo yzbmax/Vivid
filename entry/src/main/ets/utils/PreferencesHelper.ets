@@ -35,13 +35,9 @@ export class PreferencesHelper {
       return;
     }
     try {
-      if (context) {
-        this.prefInstance = await preferences.getPreferences(context, this.storeName);
-      } else {
-        const appContext = AppStorage.get<common.UIAbilityContext>('appContext');
-        if (appContext) {
-          this.prefInstance = await preferences.getPreferences(appContext, this.storeName);
-        }
+      const targetContext = context ?? AppStorage.get<common.UIAbilityContext>('appContext');
+      if (targetContext) {
+        this.prefInstance = await preferences.getPreferences(targetContext, this.storeName);
       }
     } catch (_err) {
       // 在单测或无 AbilityKit 环境下安全降级使用内存 Map
@@ -50,7 +46,15 @@ export class PreferencesHelper {
     this.initialized = true;
   }
 
-  public async putString(key: string, value: string): Promise<void> {
+  private async ensureInitialized(context?: common.UIAbilityContext): Promise<void> {
+    if (this.initialized && this.prefInstance !== null) {
+      return;
+    }
+    await this.init(context);
+  }
+
+  public async putString(key: string, value: string, context?: common.UIAbilityContext): Promise<void> {
+    await this.ensureInitialized(context);
     this.memoryCache.set(key, value);
     if (this.prefInstance) {
       try {
@@ -62,7 +66,8 @@ export class PreferencesHelper {
     }
   }
 
-  public async getString(key: string, defaultValue: string = ''): Promise<string> {
+  public async getString(key: string, defaultValue: string = '', context?: common.UIAbilityContext): Promise<string> {
+    await this.ensureInitialized(context);
     if (this.prefInstance) {
       try {
         const val = await this.prefInstance.get(key, defaultValue);
@@ -76,13 +81,13 @@ export class PreferencesHelper {
     return this.memoryCache.get(key) ?? defaultValue;
   }
 
-  public async putObject<T>(key: string, value: T): Promise<void> {
+  public async putObject<T>(key: string, value: T, context?: common.UIAbilityContext): Promise<void> {
     const json = JSON.stringify(value);
-    await this.putString(key, json);
+    await this.putString(key, json, context);
   }
 
-  public async getObject<T>(key: string, defaultValue: T): Promise<T> {
-    const json = await this.getString(key, '');
+  public async getObject<T>(key: string, defaultValue: T, context?: common.UIAbilityContext): Promise<T> {
+    const json = await this.getString(key, '', context);
     if (!json) {
       return defaultValue;
     }
@@ -93,7 +98,8 @@ export class PreferencesHelper {
     }
   }
 
-  public async delete(key: string): Promise<void> {
+  public async delete(key: string, context?: common.UIAbilityContext): Promise<void> {
+    await this.ensureInitialized(context);
     this.memoryCache.delete(key);
     if (this.prefInstance) {
       try {
@@ -104,7 +110,8 @@ export class PreferencesHelper {
     }
   }
 
-  public async clear(): Promise<void> {
+  public async clear(context?: common.UIAbilityContext): Promise<void> {
+    await this.ensureInitialized(context);
     this.memoryCache.clear();
     if (this.prefInstance) {
       try {

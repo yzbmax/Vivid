@@ -8,9 +8,12 @@ import { ImageRenderService } from './ImageRenderService';
 import { PhotoExportService, ExportResult } from './PhotoExportService';
 import { WorkFileService } from './WorkFileService';
 import { generateWorkTitle } from '../models/WorkTitleGenerator';
-import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
-import { EditorSnapshot, cloneEditorSnapshot, createDefaultEditorSnapshot } from '../models/SharedContracts';
+import { generateWorkDescription, generateAuditSuggestion } from '../models/WorkDescriptionGenerator';
+import { ExifReaderService } from './ExifReaderService';
+import { ImageToneAnalyzer, ToneAnalysisResult } from './ImageToneAnalyzer';
+import { EditorSnapshot, cloneEditorSnapshot, createDefaultEditorSnapshot, WatermarkConfig } from '../models/SharedContracts';
 import { EditorCompositionService } from './EditorCompositionService';
+import { probeImageDimensions } from '../utils/WorkImageUtils';
 
 /**
  * 保存请求
@@ -284,6 +287,14 @@ export class WorkSaveService {
           if (existing) {
             existing.sourceImageUri = sourcePath;
             existing.previewImageUri = previewUri;
+            if (existing.width <= 0 || existing.height <= 0) {
+              const probeTarget = sourcePath || previewUri;
+              const dims = await probeImageDimensions(probeTarget);
+              if (dims.width > 0 && dims.height > 0) {
+                existing.width = dims.width;
+                existing.height = dims.height;
+              }
+            }
             existing.adjustments.exposure = request.adjustments.exposure;
             existing.adjustments.brightness = request.adjustments.brightness;
             existing.adjustments.contrast = request.adjustments.contrast;
@@ -306,8 +317,40 @@ export class WorkSaveService {
           // 新建作品
           const newWork = new WorkRecord();
           const now = Date.now();
+          const probeTarget = sourcePath || previewUri;
+          const dims = await probeImageDimensions(probeTarget);
+          newWork.width = dims.width;
+          newWork.height = dims.height;
           newWork.title = generateWorkTitle(now, mockWorkStore.countToday());
-          newWork.description = generateWorkDescription(request.adjustments, 0, 0);
+
+          // 提取 EXIF 与直方图生成智能批注与校勘
+          let exif: Partial<WatermarkConfig> | undefined = request.editorSnapshot?.border?.watermark;
+          if (!exif && probeTarget && probeTarget.length > 0) {
+            try {
+              exif = await ExifReaderService.extractWatermarkInfo(probeTarget, context);
+            } catch (_) {}
+          }
+          let toneResult: ToneAnalysisResult | null = null;
+          if (probeTarget && probeTarget.length > 0) {
+            try {
+              toneResult = await ImageToneAnalyzer.analyzeImageTone(probeTarget);
+            } catch (_) {}
+          }
+
+          if (toneResult) {
+            newWork.toneLabel = toneResult.metrics.toneLabel;
+            newWork.auditSuggestion = generateAuditSuggestion(toneResult.audit);
+            newWork.description = generateWorkDescription({
+              adjustments: request.adjustments,
+              width: dims.width,
+              height: dims.height,
+              exif: exif,
+              toneMetrics: toneResult.metrics,
+              audit: toneResult.audit
+            });
+          } else {
+            newWork.description = generateWorkDescription(request.adjustments, dims.width, dims.height);
+          }
           newWork.sourceImageUri = sourcePath;
           newWork.previewImageUri = previewUri;
           newWork.adjustments.exposure = request.adjustments.exposure;
