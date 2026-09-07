@@ -13,6 +13,7 @@ import { BorderPreviewLayer } from './BorderPreviewLayer';
 import { TextLayer as TextLayerOverlay } from './TextLayer';
 // ===== End A =====
 import { buildAdjustmentFilter } from '../../utils/ColorMatrixUtils';
+import { HapticService } from '../../services/HapticService';
 
 /**
  * 预览区：双图叠放 + colorFilter 调色。
@@ -137,13 +138,20 @@ export struct PreviewArea {
             })
             // ===== End A =====
             if (this.isComparing) {
-              Text('原图')
-                .fontFamily(Theme.FONT_MONO)
-                .fontSize(12)
-                .fontColor(Theme.ON_PRIMARY)
-                .backgroundColor(Theme.PRIMARY)
-                .padding(6)
-                .hitTestBehavior(HitTestMode.None)
+              Row() {
+                Text('原图')
+                  .fontFamily(Theme.FONT_SERIF)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.ON_PRIMARY)
+                  .letterSpacing(1.5)
+              }
+              .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+              .backgroundColor(Theme.SEAL_RED)
+              .borderRadius(Theme.RADIUS_DEFAULT)
+              .border({ width: 1, color: Theme.ON_PRIMARY })
+              .shadow({ radius: 6, color: 'rgba(123, 23, 27, 0.4)', offsetY: 2 })
+              .hitTestBehavior(HitTestMode.None)
             }
           }
           .width(this.layout().photoRect.width)
@@ -158,6 +166,9 @@ export struct PreviewArea {
         .position({ x: this.layout().outputRect.x, y: this.layout().outputRect.y })
         .clip(true)
         .id(PREVIEW_STACK_ID)
+
+        // 浮动对比按钮（长按即显原图）
+        this.compareFloatingButton()
       } else {
         Text('请选择图片或加载作品')
           .fontFamily(Theme.FONT_SERIF)
@@ -173,11 +184,33 @@ export struct PreviewArea {
       this.containerH = Number(newValue.height);
       this.notifyDisplaySize();
     })
+  }
+
+  @Builder
+  private compareFloatingButton() {
+    Row({ space: 5 }) {
+      Image($r('app.media.icon_compare'))
+        .width(14)
+        .height(14)
+        .objectFit(ImageFit.Contain)
+        .fillColor(this.isComparing ? Theme.ON_PRIMARY : Theme.PRIMARY)
+      Text('对比')
+        .fontFamily(Theme.FONT_SERIF)
+        .fontSize(12)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.isComparing ? Theme.ON_PRIMARY : Theme.PRIMARY)
+    }
+    .padding({ left: 10, right: 12, top: 6, bottom: 6 })
+    .backgroundColor(this.isComparing ? Theme.PRIMARY : Theme.PAPER_SURFACE_80)
+    .borderRadius(16)
+    .border({ width: 1, color: this.isComparing ? Theme.PRIMARY : Theme.OUTLINE_VARIANT })
+    .shadow({ radius: 8, color: 'rgba(36, 25, 24, 0.15)', offsetY: 2 })
+    .position({ x: '100%', y: 12 })
+    .markAnchor({ x: '100%', y: 0 })
+    .margin({ right: 12 })
     .onTouch((event: TouchEvent) => {
-      if (this.stickerMode || this.textMode || !hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined)) {
-        return;
-      }
       if (event.type === TouchType.Down) {
+        HapticService.triggerTick();
         this.onCompareChange(true);
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
         this.onCompareChange(false);
