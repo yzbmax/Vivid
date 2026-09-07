@@ -70,7 +70,7 @@ import { common } from '@kit.AbilityKit';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { toExportProfile, ExportProfile, AppExportSettings } from '../models/AppSettingsModels';
 import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
-import { PhotoExportService } from '../services/PhotoExportService';
+import { PhotoExportService, ExportResult } from '../services/PhotoExportService';
 import { SubjectSegmentationService, getSubjectSegmentationService } from '../services/SubjectSegmentationService';
 import { WorkRecord } from '../models/WorkRecord';
 import { mockWorkStore } from '../models/MockWorkStore';

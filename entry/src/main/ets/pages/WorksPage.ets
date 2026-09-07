@@ -9,7 +9,7 @@ import { mockWorkStore } from '../models/MockWorkStore';
 import { EditEntrySource } from '../models/EditModels';
 import { WorkUiState } from '../models/WorkUiState';
 import { WorkSaveService } from '../services/WorkSaveService';
-import { PhotoExportService } from '../services/PhotoExportService';
+import { PhotoExportService, ExportResult } from '../services/PhotoExportService';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { AppExportSettings, ExportFormat, toExportProfile } from '../models/AppSettingsModels';
 import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';

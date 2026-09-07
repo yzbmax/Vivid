@@ -67,6 +67,19 @@ test('PhotoExportService.saveViaSaveButton 存在且具备容错能力', () => {
   assert(serviceContent.includes('cleanUpOnError'), 'saveViaSaveButton 应支持 cleanUpOnError 控制降级清理');
 });
 
+// 4. 引用完整性校验
+test('所有使用 ExportResult 的页面必须正确 import ExportResult', () => {
+  const pages = [
+    'entry/src/main/ets/pages/EditPage.ets',
+    'entry/src/main/ets/pages/WorkDetailPage.ets',
+    'entry/src/main/ets/pages/WorksPage.ets'
+  ];
+  for (const p of pages) {
+    const content = fs.readFileSync(path.join(root, p), 'utf8');
+    assert(/import\s*\{[^}]*ExportResult[^}]*\}\s*from/.test(content), `${p} 必须正确 import ExportResult`);
+  }
+});
+
 console.log('====================================================');
 console.log(`测试结果: ${passed} 项通过, ${failed} 项失败`);
 console.log('====================================================');
