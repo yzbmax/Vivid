@@ -4,6 +4,9 @@ import { Theme } from '../components/common/Theme';
 import { AppSettingsStore } from '../models/AppSettingsStore';
 import { AppExportSettings, ExportFormat, ExportQuality } from '../models/AppSettingsModels';
 import { ExportSettingsDialog } from '../components/common/ExportSettingsDialog';
+import { DoubleListDialog } from '../components/common/DoubleListDialog';
+import { PreferencesHelper } from '../utils/PreferencesHelper';
+import { common } from '@kit.AbilityKit';
 
 @Entry
 @Component
@@ -12,6 +15,7 @@ struct AppSettingsPage {
   @State exportFormat: ExportFormat = ExportFormat.JPEG;
   @State promptOnExport: boolean = true;
   @State showExportDialog: boolean = false;
+  @State showDoubleListDialog: boolean = false;
 
   aboutToAppear(): void {
     this.loadExportSettings();
@@ -138,6 +142,41 @@ struct AppSettingsPage {
     }
   }
 
+  private confirmRevokePrivacy(): void {
+    this.getUIContext().showAlertDialog({
+      title: '撤销隐私政策授权？',
+      message: '撤回授权后，微霏将重置端侧运行环境初始化标记并退出应用。下次启动将重新征询您的授权同意。',
+      primaryButton: {
+        value: '取消',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '确认撤回并退出',
+        fontColor: MASK_SEAL.sealRed,
+        action: () => {
+          this.doRevokePrivacy();
+        }
+      }
+    });
+  }
+
+  private async doRevokePrivacy(): Promise<void> {
+    try {
+      AppStorage.setOrCreate('privacy_agreed', false);
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const helper = PreferencesHelper.getStore('vivid_default_pref');
+      if (ctx) {
+        await helper.init(ctx);
+        await helper.putString('privacy_agreed', 'false', ctx);
+        if (typeof ctx.terminateSelf === 'function') {
+          ctx.terminateSelf();
+        }
+      }
+    } catch (_e) {
+      this.showToast('撤销授权失败，请重试');
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       SealPaperBackground();
@@ -247,6 +286,36 @@ struct AppSettingsPage {
               }
               .border({ width: 1, color: '#d9c4c0' });
             }
+
+            // ③ 隐私与合规区块
+            Column({ space: 10 }) {
+              Text('隐私与合规')
+                .fontFamily(Theme.FONT_MONO)
+                .fontSize(12)
+                .fontColor(MASK_SEAL.primary)
+                .letterSpacing(1.5)
+                .width('100%')
+                .padding({ bottom: 2 });
+              Column() {
+                SettingRow({
+                  title: '个人信息双清单',
+                  detail: '已收集清单 · 第三方共享清单',
+                  interactive: true,
+                  onTap: () => {
+                    this.showDoubleListDialog = true;
+                  }
+                });
+                SettingRow({
+                  title: '撤销隐私政策授权',
+                  detail: '清除授权状态并退出应用（下次需重签）',
+                  interactive: true,
+                  onTap: () => {
+                    this.confirmRevokePrivacy();
+                  }
+                });
+              }
+              .border({ width: 1, color: '#d9c4c0' });
+            }
           }
           .width('100%')
           .padding(20);
@@ -272,6 +341,16 @@ struct AppSettingsPage {
           },
           onCancel: () => {
             this.showExportDialog = false;
+          }
+        })
+      }
+
+      // 个人信息保护双清单弹窗
+      if (this.showDoubleListDialog) {
+        DoubleListDialog({
+          isVisible: this.showDoubleListDialog,
+          onClose: () => {
+            this.showDoubleListDialog = false;
           }
         })
       }

@@ -21,3 +21,9 @@
 -enable-toplevel-obfuscation
 -enable-filename-obfuscation
 -enable-export-obfuscation
+
+-keep-property-name
+  loadLut
+  hasLut
+  render
+  clear

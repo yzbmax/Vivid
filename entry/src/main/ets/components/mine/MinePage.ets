@@ -2,6 +2,7 @@ import { MASK_SEAL, SealButton, SettingRow } from '../MaskSeal';
 import { PageHeader } from '../common/PageHeader';
 import { PaperBackground } from '../common/PaperBackground';
 import { Theme } from '../common/Theme';
+import { DoubleListDialog } from '../common/DoubleListDialog';
 import { ArchiveStats, computeArchiveStats } from '../../models/ArchiveStats';
 import { workRepository } from '../../models/WorkRepository';
 import { WorkUiState } from '../../models/WorkUiState';
@@ -19,6 +20,7 @@ import { WorkUiState } from '../../models/WorkUiState';
 export struct MinePage {
   @State stats: ArchiveStats = computeArchiveStats([]);
   @State showStorageDialog: boolean = false;
+  @State showDoubleListDialog: boolean = false;
   private unregisterWorkListener: (() => void) | null = null;
 
   aboutToAppear(): void {
@@ -349,6 +351,15 @@ export struct MinePage {
               });
 
               SettingRow({
+                title: '个人信息双清单',
+                detail: '已收集清单 · 第三方共享清单',
+                interactive: true,
+                onTap: () => {
+                  this.showDoubleListDialog = true;
+                }
+              });
+
+              SettingRow({
                 title: '纯端侧运行承诺',
                 detail: '零网络上传 · 零广告追踪 · 无第三方商业 SDK',
                 interactive: false,
@@ -386,6 +397,16 @@ export struct MinePage {
       // 本地沙箱说明弹窗
       if (this.showStorageDialog) {
         this.storageDialog();
+      }
+
+      // 个人信息保护双清单弹窗
+      if (this.showDoubleListDialog) {
+        DoubleListDialog({
+          isVisible: this.showDoubleListDialog,
+          onClose: () => {
+            this.showDoubleListDialog = false;
+          }
+        })
       }
     }
     .width('100%')

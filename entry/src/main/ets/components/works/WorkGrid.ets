@@ -54,7 +54,14 @@ export struct WorkGrid {
 
   build() {
     if (this.items.length === 0) {
-      EmptyState({ title: this.emptyTitle, description: this.emptyDescription })
+      EmptyState({
+        title: this.emptyTitle,
+        description: this.emptyDescription,
+        actionText: '前往首页',
+        onAction: () => {
+          AppStorage.setOrCreate('mainTabIndex', 0);
+        }
+      })
     } else {
       Row({ space: Theme.GUTTER }) {
         // 左列（高度均衡双列瀑布流）
