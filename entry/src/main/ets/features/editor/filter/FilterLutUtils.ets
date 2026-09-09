@@ -11,19 +11,45 @@ export function decodeLutAscii(bytes: Uint8Array): string {
   }
   try {
     const textDecoder = util.TextDecoder.create('utf-8', { ignoreBOM: true });
-    return textDecoder.decodeToString(bytes);
-  } catch (_e) {
-    // 降级兜底：在极端非标准环境下使用分块 ASCII 解码
-    let result = '';
-    const chunkSize = 8192;
-    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-      let chunk = '';
-      const end = Math.min(bytes.length, offset + chunkSize);
-      for (let i = offset; i < end; i++) {
-        chunk += String.fromCharCode(bytes[i]);
-      }
-      result += chunk;
+    const res = textDecoder.decodeToString(bytes);
+    if (res && res.length > 0) {
+      return res;
     }
-    return result;
+  } catch (_e) {
+    // 降级兜底
   }
+
+  // 降级兜底：在极端非标准环境（如单元测试 Mock）下使用 UTF-8 分块解码
+  let result = '';
+  let i = 0;
+  const len = bytes.length;
+  const CHUNK_SIZE = 4096;
+  const chars: string[] = [];
+  while (i < len) {
+    const b0 = bytes[i++];
+    if (b0 < 0x80) {
+      chars.push(String.fromCharCode(b0));
+    } else if (b0 >= 0xC0 && b0 < 0xE0) {
+      const b1 = i < len ? bytes[i++] : 0;
+      chars.push(String.fromCharCode(((b0 & 0x1F) << 6) | (b1 & 0x3F)));
+    } else if (b0 >= 0xE0 && b0 < 0xF0) {
+      const b1 = i < len ? bytes[i++] : 0;
+      const b2 = i < len ? bytes[i++] : 0;
+      chars.push(String.fromCharCode(((b0 & 0x0F) << 12) | ((b1 & 0x3F) << 6) | (b2 & 0x3F)));
+    } else {
+      const b1 = i < len ? bytes[i++] : 0;
+      const b2 = i < len ? bytes[i++] : 0;
+      const b3 = i < len ? bytes[i++] : 0;
+      const code = (((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F)) - 0x10000;
+      chars.push(String.fromCharCode(0xD800 + (code >> 10), 0xDC00 + (code & 0x3FF)));
+    }
+    if (chars.length >= CHUNK_SIZE) {
+      result += chars.join('');
+      chars.length = 0;
+    }
+  }
+  if (chars.length > 0) {
+    result += chars.join('');
+  }
+  return result;
 }

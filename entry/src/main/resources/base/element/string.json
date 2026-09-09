@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "微霏 - 东方美学数字画卷工坊"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "微霏主入口"
     },
     {
       "name": "EntryAbility_label",

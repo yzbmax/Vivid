@@ -272,7 +272,7 @@ struct WorkDetailPage {
       left: Theme.MARGIN_MOBILE,
       right: Theme.MARGIN_MOBILE,
       top: 10,
-      bottom: 10 + (AppStorage.get<number>('navBarHeight') ?? 0)
+      bottom: 10 + Math.max(AppStorage.get<number>('navBarHeight') ?? 28, 28)
     })
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .backdropBlur(20)

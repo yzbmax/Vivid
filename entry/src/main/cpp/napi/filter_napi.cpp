@@ -311,6 +311,23 @@ napi_value Render(napi_env env, napi_callback_info info) {
     return promise;
 }
 
+napi_value HasLut(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    if (napi_get_cb_info(env, info, &argc, args, nullptr, nullptr) != napi_ok || argc < 1) {
+        return Throw(env, "hasLut requires a filterId string argument");
+    }
+    std::string filterId;
+    if (!ReadString(env, args[0], &filterId)) {
+        return Throw(env, "hasLut filterId must be a string");
+    }
+    std::lock_guard<std::mutex> lock(g_engineMutex);
+    bool has = g_engine.HasLut(filterId);
+    napi_value result = nullptr;
+    napi_get_boolean(env, has, &result);
+    return result;
+}
+
 napi_value Clear(napi_env env, napi_callback_info info) {
     (void)info;
     std::lock_guard<std::mutex> lock(g_engineMutex);
@@ -329,10 +346,11 @@ float FilterNapi::ClampStrength(float value) {
 napi_value FilterNapi::Init(napi_env env, napi_value exports) {
     const napi_property_descriptor properties[] = {
         {"loadLut", nullptr, LoadLut, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"hasLut", nullptr, HasLut, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"render", nullptr, Render, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"clear", nullptr, Clear, nullptr, nullptr, nullptr, napi_default, nullptr}
     };
-    if (napi_define_properties(env, exports, 3, properties) != napi_ok) {
+    if (napi_define_properties(env, exports, 4, properties) != napi_ok) {
         return nullptr;
     }
     return exports;

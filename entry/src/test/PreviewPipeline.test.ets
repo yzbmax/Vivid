@@ -1,7 +1,9 @@
 import { describe, it, expect } from '@ohos/hypium';
+import { image } from '@kit.ImageKit';
 import {
   PREVIEW_MAX_LONG_EDGE,
   OwnedRenderResult,
+  PreviewPipeline,
   RenderGeneration,
   fitPreviewCard,
   fitPreviewDimensions,
@@ -89,6 +91,49 @@ export default function previewPipelineTest() {
       owner.clear();
       expect(released.length).assertEqual(2);
       expect(released[1]).assertEqual('second-filter');
+    });
+
+    it('conflates rapid renders and executes only the latest pending task', 0, async (): Promise<void> => {
+      const pipeline = new PreviewPipeline();
+      const mockSource = { release: (): void => {} } as image.PixelMap;
+      pipeline.setSourcePixelMapForTest(mockSource);
+
+      const executedTasks: string[] = [];
+      let resolveFirst: ((pm: image.PixelMap) => void) | undefined;
+
+      const p1 = pipeline.render((): Promise<image.PixelMap> => new Promise<image.PixelMap>((res: (pm: image.PixelMap) => void): void => {
+        executedTasks.push('task1');
+        resolveFirst = res;
+      }));
+
+      const p2 = pipeline.render((): Promise<image.PixelMap> => {
+        executedTasks.push('task2');
+        return Promise.resolve({ release: (): void => {} } as image.PixelMap);
+      });
+
+      const p3 = pipeline.render((): Promise<image.PixelMap> => {
+        executedTasks.push('task3');
+        return Promise.resolve({ release: (): void => {} } as image.PixelMap);
+      });
+
+      expect(executedTasks.length).assertEqual(1);
+      expect(executedTasks[0]).assertEqual('task1');
+
+      const pm1 = { release: (): void => {} } as image.PixelMap;
+      if (resolveFirst !== undefined) {
+        resolveFirst(pm1);
+      }
+
+      const res1 = await p1;
+      const res2 = await p2;
+      const res3 = await p3;
+
+      expect(res1).assertUndefined();
+      expect(res2).assertUndefined();
+      expect(res3 !== undefined).assertTrue();
+      expect(executedTasks.length).assertEqual(2);
+      expect(executedTasks[0]).assertEqual('task1');
+      expect(executedTasks[1]).assertEqual('task3');
     });
   });
 }

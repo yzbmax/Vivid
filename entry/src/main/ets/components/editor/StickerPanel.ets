@@ -7,7 +7,8 @@ import {
   STICKER_CATEGORIES,
   STICKER_MAX_COUNT,
   filterTemplatesByCategory,
-  findStickerTemplate
+  findStickerTemplate,
+  ensureFileUri
 } from '../../models/EditModels';
 import { Theme } from '../common/Theme';
 
@@ -163,7 +164,7 @@ export struct StickerPanel {
           .shadow({ radius: 2, color: Theme.SHADOW_SM, offsetY: 1 })
         } else if (tpl.renderType === StickerRenderType.CustomImage || (tpl.customUri !== undefined && tpl.customUri !== '')) {
           if (tpl.customUri !== undefined && tpl.customUri !== '') {
-            Image(tpl.customUri)
+            Image(ensureFileUri(tpl.customUri))
               .width(34)
               .height(34)
               .objectFit(ImageFit.Contain)
@@ -239,8 +240,10 @@ export struct StickerPanel {
             .trackColor(Theme.OUTLINE_VARIANT)
             .trackThickness(2)
             .width('100%')
-            .onChange((value: number) => {
-              this.notifySizeChange(value);
+            .onChange((value: number, mode: SliderChangeMode): void => {
+              if (mode === SliderChangeMode.Moving || mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.notifySizeChange(value);
+              }
             })
         }
         .layoutWeight(1)
@@ -278,8 +281,10 @@ export struct StickerPanel {
             .trackColor(Theme.OUTLINE_VARIANT)
             .trackThickness(2)
             .width('100%')
-            .onChange((value: number) => {
-              this.notifyRotationChange(value);
+            .onChange((value: number, mode: SliderChangeMode): void => {
+              if (mode === SliderChangeMode.Moving || mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.notifyRotationChange(value);
+              }
             })
         }
         .layoutWeight(1)
@@ -321,8 +326,10 @@ export struct StickerPanel {
             .trackColor(Theme.OUTLINE_VARIANT)
             .trackThickness(2)
             .width('100%')
-            .onChange((value: number) => {
-              this.notifyOpacityChange(value / 100);
+            .onChange((value: number, mode: SliderChangeMode): void => {
+              if (mode === SliderChangeMode.Moving || mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.notifyOpacityChange(value / 100);
+              }
             })
         }
         .layoutWeight(1)

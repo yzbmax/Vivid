@@ -24,13 +24,14 @@ export struct WorkCard {
   }
 
   private getAspectRatio(): number {
+    let r = 1.0;
     if (this.naturalRatio > 0) {
-      return this.naturalRatio;
+      r = this.naturalRatio;
+    } else if (this.data.width > 0 && this.data.height > 0) {
+      r = this.data.width / this.data.height;
     }
-    if (this.data.width > 0 && this.data.height > 0) {
-      return this.data.width / this.data.height;
-    }
-    return 1.0;
+    // 限制单张卡片纵横比在 0.5 (2:1超高立轴) 到 2.0 (1:2超宽横幅) 之间，防止极端画幅挤占过多纵向版面
+    return Math.max(0.5, Math.min(2.0, r));
   }
 
   @Styles
@@ -108,6 +109,7 @@ export struct WorkCard {
     }
     .width('100%')
     .backgroundColor(Theme.SURFACE_CONTAINER)
+    .borderRadius(Theme.RADIUS_DEFAULT)
     .shadow({ radius: 2, color: Theme.SHADOW_SM, offsetY: 1 })
     .clip(true)
     .onClick(() => {

@@ -32,6 +32,9 @@ function load(relative) {
   const requireLocal = id => {
     if (id === '@ohos/hypium') return testApi;
     if (id === '@kit.ArkUI') return { LengthMetricsUnit: global.LengthMetricsUnit };
+    if (id === '@kit.ImageKit') return { image: {} };
+    if (id === '@kit.AbilityKit') return { common: {} };
+    if (id === '@kit.CoreFileKit') return { fileIo: {} };
     if (!id.startsWith('.')) throw new Error('Unexpected platform dependency: ' + id);
     return load(path.resolve(path.dirname(file), id + '.ets'));
   };
@@ -44,6 +47,7 @@ class PixelMap {
   release() { assert.equal(this.released, false, 'double release'); this.released = true; }
 }
 global.LengthMetricsUnit = { PX: 1 };
+global.$r = res => res;
 global.RenderingContextSettings = class {};
 const allocated = [];
 let failReadback = false;

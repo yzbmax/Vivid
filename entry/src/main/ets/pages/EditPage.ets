@@ -26,7 +26,8 @@ import {
   editRouteError,
   normalizeEditorToolKey,
   parseEditRouteParams,
-  resolveDisplayImageSource
+  resolveDisplayImageSource,
+  ensureFileUri
 } from '../models/EditModels';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { PhotoPickerService } from '../services/PhotoPickerService';
@@ -174,9 +175,8 @@ struct EditPage {
   @State previewDisplayW: number = 0;
   @State previewDisplayH: number = 0;
   @State stickerVersion: number = 0;
-  @Provide stickerTargetSize: number = -1;
-  @Provide stickerTargetRotation: number = -999;
-  @Provide stickerTargetOpacity: number = -1;
+  @State isIsolateSubject: boolean = false;
+  @State isSavingSubject: boolean = false;
   // ── 滤镜系统状态 ──
   @State previewPixelMap: image.PixelMap | undefined = undefined;
   @State previewLoading: boolean = true;
@@ -190,7 +190,6 @@ struct EditPage {
     new OwnedRenderResult<image.PixelMap>((value: image.PixelMap) => value.release());
   private previewPipeline: PreviewPipeline = new PreviewPipeline();
   private thumbnailPipeline: ThumbnailPipeline = new ThumbnailPipeline();
-  private loadedFilterIds: string[] = [];
   private filterController: FilterController = new FilterController();
   private disposed: boolean = false;
   private loadingThumbnails: boolean = false;
@@ -417,6 +416,7 @@ struct EditPage {
     }
     this.baseImage = undefined;
     getSubjectSegmentationService().invalidate();
+    FilterNativeBridge.clear();
   }
 
   private async loadPreviewSource(): Promise<void> {
@@ -495,7 +495,7 @@ struct EditPage {
     if (preset === undefined) {
       return;
     }
-    if (preset.lutPath !== undefined && !this.loadedFilterIds.includes(preset.id)) {
+    if (preset.lutPath !== undefined && !FilterNativeBridge.hasLut(preset.id)) {
       try {
         const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
         const loaded = await FilterNativeBridge.loadPreset(context, preset);
@@ -503,7 +503,6 @@ struct EditPage {
           this.toast('滤镜资源加载失败');
           return;
         }
-        this.loadedFilterIds.push(preset.id);
       } catch (err) {
         console.error(`Failed to read LUT ${preset.id}: ${JSON.stringify(err)}`);
         this.toast('滤镜资源读取失败');
@@ -526,6 +525,13 @@ struct EditPage {
       const result = await this.previewPipeline.render(
         async (src: image.PixelMap): Promise<image.PixelMap> => {
           if (filterId !== 'original' && strength > 0) {
+            if (!FilterNativeBridge.hasLut(filterId)) {
+              const currentPreset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+              if (currentPreset && currentPreset.lutPath !== undefined) {
+                const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+                await FilterNativeBridge.loadPreset(context, currentPreset);
+              }
+            }
             const filtered = await FilterNativeBridge.render(src, filterId, strength);
             return filtered;
           }
@@ -539,8 +545,8 @@ struct EditPage {
           }
           return;
         }
-        this.renderedPreviewOwner.replace(result, source);
         this.previewPixelMap = result;
+        this.renderedPreviewOwner.replace(result, source);
       }
     } catch (err) {
       console.error(`Failed to render preview: ${JSON.stringify(err)}`);
@@ -832,12 +838,15 @@ struct EditPage {
           stickerMode: this.activeTool === 'sticker',
           selectedStickerId: this.selectedStickerId,
           stickerVersion: this.stickerVersion,
+          isolateSubject: this.isIsolateSubject,
           onStickerSelect: (instanceId: string) => {
             this.selectedStickerId = instanceId;
-            this.updateTargetValues();
           },
           onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
             this.updateStickerPosition(instanceId, posX, posY, size, rotation);
+          },
+          onStickerDelete: (instanceId: string): void => {
+            this.removeSticker(instanceId);
           },
           onDisplaySizeChange: (displayW: number, displayH: number) => {
             this.previewDisplayW = displayW;
@@ -855,6 +864,9 @@ struct EditPage {
 
       // 区域切换 Tab（主体/背景）
       if (this.isRegionMode()) {
+        if (this.activeRegion === 'subject' && this.segStatus === 'ready' && this.foregroundImage !== undefined) {
+          this.mattingActionBar()
+        }
         RegionTabs({
           selected: this.activeRegion,
           onChange: (region: RegionKey) => {
@@ -980,7 +992,6 @@ struct EditPage {
           },
           onSelectSticker: (instanceId: string) => {
             this.selectedStickerId = instanceId;
-            this.updateTargetValues();
           },
           onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => {
             this.updateStickerParams(instanceId, size, rotation, opacity);
@@ -1111,6 +1122,12 @@ struct EditPage {
 
   private onToolSelect(key: EditorToolKey): void {
     this.activeTool = key;
+    if (key !== 'sticker') {
+      this.selectedStickerId = '';
+    }
+    if (key !== 'text') {
+      this.selectedTextLayerId = '';
+    }
     // ===== A: Text Layer =====
     this.getUIContext().setKeyboardAvoidMode(key === 'text'
       ? KeyboardAvoidMode.RESIZE_WITH_CARET : this.previousTextKeyboardMode);
@@ -1588,7 +1605,6 @@ struct EditPage {
     this.stickerVersion++;
     this.selectedStickerId = newItem.instanceId;
     this.dirty = true;
-    this.updateTargetValues();
   }
 
   private async uploadCustomSticker(): Promise<void> {
@@ -1620,6 +1636,7 @@ struct EditPage {
       const destPath = `${dir}/${filename}`;
       fs.copyFileSync(pickResult.sourcePath, destPath);
 
+      const fileUri = ensureFileUri(destPath);
       const tplId = `custom-${Date.now()}`;
       const customTpl: StickerTemplate = {
         id: tplId,
@@ -1629,10 +1646,10 @@ struct EditPage {
         resource: null,
         textContent: '',
         defaultSize: 64,
-        customUri: destPath
+        customUri: fileUri
       };
       this.customStickerTemplates.push(customTpl);
-      this.addSticker(tplId, destPath);
+      this.addSticker(tplId, fileUri);
       this.toast('贴纸已添加');
     } catch (err) {
       console.error(`Upload custom sticker failed: ${JSON.stringify(err)}`);
@@ -1641,6 +1658,7 @@ struct EditPage {
   }
 
   private removeSticker(instanceId: string): void {
+    HapticService.triggerTick();
     const next: StickerItem[] = [];
     for (let i = 0; i < this.stickers.length; i++) {
       if (this.stickers[i].instanceId !== instanceId) {
@@ -1686,11 +1704,13 @@ struct EditPage {
     for (let i = 0; i < this.stickers.length; i++) {
       const s = this.stickers[i];
       if (s.instanceId === instanceId) {
+        const deltaX = (s.size - size) / 2;
+        const deltaY = (s.size - size) / 2;
         const updated: StickerItem = {
           instanceId: s.instanceId,
           templateId: s.templateId,
-          posX: s.posX,
-          posY: s.posY,
+          posX: s.posX + deltaX,
+          posY: s.posY + deltaY,
           size: size,
           rotation: rotation,
           opacity: opacity,
@@ -1705,7 +1725,6 @@ struct EditPage {
     this.stickers = next;
     this.stickerVersion++;
     this.dirty = true;
-    this.updateTargetValues();
   }
 
   private async loadExifForWatermark(): Promise<void> {
@@ -1734,23 +1753,7 @@ struct EditPage {
     }
   }
 
-  private updateTargetValues(): void {
-    if (this.selectedStickerId === '') {
-      return;
-    }
-    for (let i = 0; i < this.stickers.length; i++) {
-      const s = this.stickers[i];
-      if (s.instanceId === this.selectedStickerId) {
-        this.stickerTargetSize = s.size;
-        this.stickerTargetRotation = s.rotation;
-        this.stickerTargetOpacity = s.opacity;
-        return;
-      }
-    }
-  }
-
   private onSliderSizeChange(value: number): void {
-    this.stickerTargetSize = value;
     if (this.selectedStickerId !== '') {
       this.updateStickerParams(this.selectedStickerId, value,
         this.getSelectedRotation(), this.getSelectedOpacity());
@@ -1758,7 +1761,6 @@ struct EditPage {
   }
 
   private onSliderRotationChange(value: number): void {
-    this.stickerTargetRotation = value;
     if (this.selectedStickerId !== '') {
       this.updateStickerParams(this.selectedStickerId,
         this.getSelectedSize(), value, this.getSelectedOpacity());
@@ -1766,7 +1768,6 @@ struct EditPage {
   }
 
   private onSliderOpacityChange(value: number): void {
-    this.stickerTargetOpacity = value;
     if (this.selectedStickerId !== '') {
       this.updateStickerParams(this.selectedStickerId,
         this.getSelectedSize(), this.getSelectedRotation(), value);
@@ -1798,6 +1799,138 @@ struct EditPage {
       }
     }
     return 1.0;
+  }
+
+  // ── AI 抠图导出与贴纸转换 ──
+
+  @Builder
+  mattingActionBar() {
+    Row({ space: 10 }) {
+      Button(this.isIsolateSubject ? '显示全图' : '去底预览')
+        .type(ButtonType.Capsule)
+        .height(30)
+        .fontSize(12)
+        .fontFamily(Theme.FONT_SANS)
+        .backgroundColor(this.isIsolateSubject ? Theme.PRIMARY : Theme.SURFACE_CONTAINER_LOWEST)
+        .fontColor(this.isIsolateSubject ? Theme.ON_PRIMARY : Theme.PRIMARY)
+        .border({ width: 1, color: Theme.PRIMARY })
+        .onClick(() => {
+          this.isIsolateSubject = !this.isIsolateSubject;
+        })
+
+      Button('存为贴纸')
+        .type(ButtonType.Capsule)
+        .height(30)
+        .fontSize(12)
+        .fontFamily(Theme.FONT_SANS)
+        .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
+        .fontColor(Theme.PRIMARY)
+        .border({ width: 1, color: Theme.OUTLINE_VARIANT })
+        .onClick(() => {
+          this.saveForegroundAsSticker();
+        })
+
+      Button(this.isSavingSubject ? '正在保存…' : '导出抠图')
+        .type(ButtonType.Capsule)
+        .height(30)
+        .fontSize(12)
+        .fontFamily(Theme.FONT_SANS)
+        .backgroundColor(Theme.PRIMARY)
+        .fontColor(Theme.ON_PRIMARY)
+        .onClick(() => {
+          this.exportForegroundToAlbum();
+        })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .padding({ top: 4, bottom: 8 })
+  }
+
+  private async saveForegroundAsSticker(): Promise<void> {
+    if (this.foregroundImage === undefined) {
+      this.toast('主体识别尚未就绪');
+      return;
+    }
+    if (this.stickers.length >= STICKER_MAX_COUNT) {
+      this.toast('贴纸数量已达上限（最多 12 枚）');
+      return;
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const dir = `${context.filesDir}/stickers`;
+      try {
+        if (!fs.accessSync(dir)) {
+          fs.mkdirSync(dir);
+        }
+      } catch (_e) {
+        try {
+          fs.mkdirSync(dir);
+        } catch (_e2) {}
+      }
+      const filename = `matting_${Date.now()}.png`;
+      const destPath = `${dir}/${filename}`;
+      const file = fs.openSync(destPath, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE);
+      const packer = image.createImagePacker();
+      await packer.packToFile(this.foregroundImage, file.fd, { format: 'image/png', quality: 100 });
+      fs.closeSync(file.fd);
+
+      const fileUri = ensureFileUri(destPath);
+      const tplId = `custom-matting-${Date.now()}`;
+      const customTpl: StickerTemplate = {
+        id: tplId,
+        name: '抠图',
+        category: 'custom',
+        renderType: StickerRenderType.CustomImage,
+        resource: null,
+        textContent: '',
+        defaultSize: 80,
+        customUri: fileUri
+      };
+      this.customStickerTemplates.push(customTpl);
+      this.addSticker(tplId, fileUri);
+      this.activeTool = 'sticker';
+      this.toast('已成功抠出主体并转为贴纸！');
+    } catch (err) {
+      hilog.error(0x0000, 'EditPage', 'saveForegroundAsSticker failed: %{public}s', String(err));
+      this.toast('存为贴纸失败，请重试');
+    }
+  }
+
+  private async exportForegroundToAlbum(): Promise<void> {
+    if (this.foregroundImage === undefined) {
+      this.toast('主体识别尚未就绪');
+      return;
+    }
+    if (this.isSavingSubject) {
+      return;
+    }
+    this.isSavingSubject = true;
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const pngProfile: ExportProfile = {
+        mimeType: 'image/png',
+        extension: '.png',
+        maxLongEdge: 0,
+        encoderQuality: 100
+      };
+      const tmpPath = await PhotoExportService.encodeToCacheFile(context, this.foregroundImage, pngProfile);
+      if (!tmpPath) {
+        this.toast('编码透明抠图失败');
+        return;
+      }
+      const fileName = `vivid_subject_${Date.now()}`;
+      const res = await PhotoExportService.saveViaDialog(context, tmpPath, fileName, 'png');
+      if (res.success) {
+        this.toast('主体透明抠图已保存至系统相册！');
+      } else if (res.errorCode !== 'USER_CANCELLED') {
+        this.toast('保存至相册失败');
+      }
+    } catch (err) {
+      hilog.error(0x0000, 'EditPage', 'exportForegroundToAlbum failed: %{public}s', String(err));
+      this.toast('保存至相册失败');
+    } finally {
+      this.isSavingSubject = false;
+    }
   }
 
   // ── AI 分割 ──
@@ -1931,14 +2064,13 @@ struct EditPage {
       // 确保滤镜资源已加载
       const filterId = snapshot.filter.filterId;
       const preset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
-      if (preset !== undefined && preset.lutPath !== undefined && !this.loadedFilterIds.includes(filterId)) {
+      if (preset !== undefined && preset.lutPath !== undefined && !FilterNativeBridge.hasLut(filterId)) {
         const loaded = await FilterNativeBridge.loadPreset(context, preset);
         if (!loaded) {
           this.toast('滤镜资源加载失败');
           this.saving = false;
           return;
         }
-        this.loadedFilterIds.push(filterId);
       }
 
       // 渲染调色后的图片
@@ -1949,7 +2081,9 @@ struct EditPage {
         exportProfile,
         true,
         context,
-        this.unavailableTextFontKeys
+        this.unavailableTextFontKeys,
+        this.previewDisplayW,
+        this.previewDisplayH
       );
 
       // 编码到 cacheDir
@@ -2151,7 +2285,9 @@ struct EditPage {
           draftProfile,
           false,
           context,
-          this.unavailableTextFontKeys
+          this.unavailableTextFontKeys,
+          this.previewDisplayW,
+          this.previewDisplayH
         );
         try {
           const cachePath = await PhotoExportService.encodeToCacheFile(context, composition.pixelMap, draftProfile);

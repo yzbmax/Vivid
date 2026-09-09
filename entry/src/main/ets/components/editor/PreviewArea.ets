@@ -68,6 +68,8 @@ export struct PreviewArea {
   @Prop baseFilter: number[] = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
   /** 是否处于主体/背景区域调色模式。 */
   @Prop isRegionMode: boolean = false;
+  /** 纯净去底抠图预览模式。 */
+  @Prop isolateSubject: boolean = false;
 
   /** 贴纸列表。 */
   @Prop stickers: StickerItem[] = [];
@@ -87,6 +89,8 @@ export struct PreviewArea {
   onStickerSelect: (instanceId: string) => void = () => {};
   /** 更新贴纸参数。 */
   onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => void = () => {};
+  /** 删除贴纸。 */
+  onStickerDelete: (instanceId: string) => void = () => {};
   /** 回传预览区实际显示尺寸（vp），供贴纸定位使用。 */
   onDisplaySizeChange: (displayW: number, displayH: number) => void = () => {};
 
@@ -115,15 +119,19 @@ export struct PreviewArea {
           Stack({ alignContent: Alignment.Center }) {
             this.photoLayers()
             if (!this.isComparing) {
-              ForEach(this.stickers, (item: StickerItem) => {
+              ForEach(this.stickers, (item: StickerItem, index: number) => {
+                // 从响应式数组读取最新值，不让 Builder 闭包停留在首次创建的图层对象
                 StickerLayer({
-                  item: item,
-                  template: this.findTpl(item.templateId),
-                  isSelected: this.selectedStickerId === item.instanceId,
+                  item: this.stickerAt(index, item),
+                  template: this.findTpl(this.stickerAt(index, item).templateId),
+                  isSelected: this.stickerMode && this.selectedStickerId === this.stickerAt(index, item).instanceId,
+                  active: this.stickerMode,
                   onUpdate: this.onStickerUpdate,
-                  onSelect: this.onStickerSelect
+                  onSelect: this.onStickerSelect,
+                  onDelete: this.onStickerDelete
                 })
-              }, (item: StickerItem) => item.instanceId)
+                  .zIndex(index + 10)
+              }, (item: StickerItem): string => `${item.instanceId}_${item.posX}_${item.posY}_${item.size}_${item.rotation}_${item.opacity}`)
             }
             // ===== A: Text Layer =====
             TextLayerOverlay({
@@ -165,9 +173,18 @@ export struct PreviewArea {
         .height(this.layout().outputRect.height)
         .position({ x: this.layout().outputRect.x, y: this.layout().outputRect.y })
         .clip(true)
+        .shadow({ radius: 10, color: 'rgba(36, 25, 24, 0.12)', offsetY: 3 })
         .id(PREVIEW_STACK_ID)
+        .onClick((): void => {
+          if (this.selectedStickerId !== '') {
+            this.onStickerSelect('');
+          }
+          if (this.selectedTextLayerId !== '') {
+            this.onTextSelect('');
+          }
+        })
 
-        // 浮动对比按钮（长按即显原图）
+        // 浮动对比按钮（长按即显原图，移至右下角大拇指黄金触控区）
         this.compareFloatingButton()
       } else {
         Text('请选择图片或加载作品')
@@ -200,15 +217,17 @@ export struct PreviewArea {
         .fontWeight(FontWeight.Medium)
         .fontColor(this.isComparing ? Theme.ON_PRIMARY : Theme.PRIMARY)
     }
-    .padding({ left: 10, right: 12, top: 6, bottom: 6 })
+    .padding({ left: 12, right: 14, top: 7, bottom: 7 })
     .backgroundColor(this.isComparing ? Theme.PRIMARY : Theme.PAPER_SURFACE_80)
     .borderRadius(16)
     .border({ width: 1, color: this.isComparing ? Theme.PRIMARY : Theme.OUTLINE_VARIANT })
     .shadow({ radius: 8, color: 'rgba(36, 25, 24, 0.15)', offsetY: 2 })
-    .position({ x: '100%', y: 12 })
-    .markAnchor({ x: '100%', y: 0 })
-    .margin({ right: 12 })
-    .onTouch((event: TouchEvent) => {
+    .position({ x: '100%', y: '100%' })
+    .markAnchor({ x: '100%', y: '100%' })
+    .offset({ x: -16, y: -16 })
+    .responseRegion({ x: -20, y: -20, width: '180%', height: '180%' })
+    .hitTestBehavior(HitTestMode.Block)
+    .onTouch((event: TouchEvent): void => {
       if (event.type === TouchType.Down) {
         HapticService.triggerTick();
         this.onCompareChange(true);
@@ -220,62 +239,99 @@ export struct PreviewArea {
 
   @Builder
   private photoLayers() {
-    if (this.isComparing) {
-      if (this.originalPixelMap !== undefined) {
-        Image(this.originalPixelMap)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-      } else if (this.baseImage !== undefined) {
-        Image(this.baseImage)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-      } else if (this.previewPixelMap !== undefined) {
-        Image(this.previewPixelMap)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-      } else {
-        Image(this.imageSrc)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+    Stack({ alignContent: Alignment.Center }) {
+      // ── 底层：原始图像（常驻底层，支持三级兜底：originalPixelMap > baseImage > imageSrc） ──
+      // 即使在切换模式或手指长按瞬间，底层原图也始终在内存渲染管线中准备就绪，杜绝切换白屏与黑屏
+      if (this.isComparing || !(this.isRegionMode && this.isolateSubject)) {
+        if (this.originalPixelMap !== undefined) {
+          Image(this.originalPixelMap)
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        } else if (this.baseImage !== undefined) {
+          Image(this.baseImage)
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        } else {
+          Image(this.resolvedImageSrc())
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        }
       }
-    } else if (this.isRegionMode) {
-      if (this.baseImage !== undefined && this.foregroundImage !== undefined) {
-        Image(this.baseImage)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .colorFilter(this.baseFilter)
-        Image(this.foregroundImage)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .colorFilter(this.subjectFilter)
-      } else if (this.baseImage !== undefined) {
-        // 区域调色模式下，前景图尚未生成或无主体时展示 baseImage 并应用 baseFilter 杜绝白屏
-        Image(this.baseImage)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .colorFilter(this.baseFilter)
-          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
-      } else if (this.previewPixelMap !== undefined) {
-        Image(this.previewPixelMap)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .colorFilter(this.baseFilter)
-          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
-      } else {
-        Image(this.imageSrc)
-          .width('100%').height('100%').objectFit(ImageFit.Contain)
-          .colorFilter(this.baseFilter)
-          .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+
+      // ── 顶层：调色/滤镜结果层（非对比状态覆盖显示；长按对比时隐藏露出底层原图） ──
+      if (!this.isComparing) {
+        if (this.isRegionMode) {
+          if (this.baseImage !== undefined && this.foregroundImage !== undefined) {
+            if (!this.isolateSubject) {
+              Image(this.baseImage)
+                .width('100%').height('100%').objectFit(ImageFit.Contain)
+                .colorFilter(this.baseFilter)
+                .syncLoad(true)
+                .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+            } else {
+              Column()
+                .width('100%')
+                .height('100%')
+                .backgroundColor(Theme.SURFACE_CONTAINER_LOWEST)
+            }
+            Image(this.foregroundImage)
+              .width('100%').height('100%').objectFit(ImageFit.Contain)
+              .colorFilter(this.subjectFilter)
+              .syncLoad(true)
+          } else if (this.baseImage !== undefined) {
+            // 区域调色模式下，前景图尚未生成或无主体时展示 baseImage 并应用 baseFilter 杜绝白屏
+            Image(this.baseImage)
+              .width('100%').height('100%').objectFit(ImageFit.Contain)
+              .colorFilter(this.baseFilter)
+              .syncLoad(true)
+              .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+          } else if (this.previewPixelMap !== undefined) {
+            Image(this.previewPixelMap)
+              .width('100%').height('100%').objectFit(ImageFit.Contain)
+              .colorFilter(this.baseFilter)
+              .syncLoad(true)
+              .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+          } else {
+            Image(this.resolvedImageSrc())
+              .width('100%').height('100%').objectFit(ImageFit.Contain)
+              .colorFilter(this.baseFilter)
+              .syncLoad(true)
+              .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+          }
+        } else if (this.previewPixelMap !== undefined) {
+          Image(this.previewPixelMap)
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .colorFilter(this.effects())
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        } else if (this.baseImage !== undefined) {
+          Image(this.baseImage)
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .colorFilter(this.effects())
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        } else {
+          Image(this.resolvedImageSrc())
+            .width('100%').height('100%').objectFit(ImageFit.Contain)
+            .colorFilter(this.effects())
+            .syncLoad(true)
+            .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
+        }
       }
-    } else if (this.previewPixelMap !== undefined) {
-      Image(this.previewPixelMap)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
-        .colorFilter(this.effects())
-        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
-    } else if (this.baseImage !== undefined) {
-      Image(this.baseImage)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
-        .colorFilter(this.effects())
-        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
-    } else {
-      Image(this.imageSrc)
-        .width('100%').height('100%').objectFit(ImageFit.Contain)
-        .colorFilter(this.effects())
-        .onComplete((event) => this.updateNaturalSize(event?.width ?? 0, event?.height ?? 0))
     }
+    .width('100%')
+    .height('100%')
+    .onClick((): void => {
+      if (this.selectedStickerId !== '') {
+        this.onStickerSelect('');
+      }
+      if (this.selectedTextLayerId !== '') {
+        this.onTextSelect('');
+      }
+    })
   }
 
   @Builder
@@ -288,6 +344,7 @@ export struct PreviewArea {
           .objectFit(ImageFit.Cover)
           .blur(32)
           .colorFilter(this.effects())
+          .syncLoad(true)
       } else if (this.baseImage !== undefined) {
         Image(this.baseImage)
           .width('100%')
@@ -295,13 +352,15 @@ export struct PreviewArea {
           .objectFit(ImageFit.Cover)
           .blur(32)
           .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+          .syncLoad(true)
       } else if (this.imageSrc) {
-        Image(this.imageSrc)
+        Image(this.resolvedImageSrc())
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
           .blur(32)
           .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+          .syncLoad(true)
       }
       // 适度半透明暗化罩层，保证白字铭牌与中心主图有清晰对比，同时与原图色调完全一致
       Column()
@@ -316,26 +375,57 @@ export struct PreviewArea {
   }
 
   private cachedLayout: EditorPreviewLayout | null = null;
-  private lastLayoutKey: string = '';
+  private cachedContainerW: number = -1;
+  private cachedContainerH: number = -1;
+  private cachedPhotoW: number = -1;
+  private cachedPhotoH: number = -1;
+  private cachedBorderTemplateId: string = '';
+  private cachedBorderWidthRatio: number = -1;
+  private cachedBorderRadiusRatio: number = -1;
 
   private photoCornerRadius(): number {
-    const geom = this.layout().geometry;
+    const currentLayout = this.layout();
+    const geom = currentLayout.geometry;
     if (!geom || geom.cornerRadius <= 0 || geom.photoRect.width <= 0) {
       return 0;
     }
-    const scale = this.layout().photoRect.width / geom.photoRect.width;
+    const scale = currentLayout.photoRect.width / geom.photoRect.width;
     return Math.round(geom.cornerRadius * scale);
   }
 
   private layout(): EditorPreviewLayout {
-    const key = `${this.containerW}_${this.containerH}_${this.photoWidth}_${this.photoHeight}_${this.imageNaturalW}_${this.imageNaturalH}_${this.borderState.templateId}_${this.borderState.widthRatio}_${this.borderState.radiusRatio ?? 0}`;
-    if (this.cachedLayout !== null && this.lastLayoutKey === key) {
+    const effectiveW = this.photoWidth > 0 ? this.photoWidth : this.imageNaturalW;
+    const effectiveH = this.photoHeight > 0 ? this.photoHeight : this.imageNaturalH;
+    const radiusRatio = this.borderState.radiusRatio ?? 0;
+
+    if (
+      this.cachedLayout !== null &&
+      this.cachedContainerW === this.containerW &&
+      this.cachedContainerH === this.containerH &&
+      this.cachedPhotoW === effectiveW &&
+      this.cachedPhotoH === effectiveH &&
+      this.cachedBorderTemplateId === this.borderState.templateId &&
+      this.cachedBorderWidthRatio === this.borderState.widthRatio &&
+      this.cachedBorderRadiusRatio === radiusRatio
+    ) {
       return this.cachedLayout;
     }
-    this.lastLayoutKey = key;
-    this.cachedLayout = resolveEditorPreviewLayout(this.containerW, this.containerH,
-      this.photoWidth > 0 ? this.photoWidth : this.imageNaturalW,
-      this.photoHeight > 0 ? this.photoHeight : this.imageNaturalH, this.borderState);
+
+    this.cachedContainerW = this.containerW;
+    this.cachedContainerH = this.containerH;
+    this.cachedPhotoW = effectiveW;
+    this.cachedPhotoH = effectiveH;
+    this.cachedBorderTemplateId = this.borderState.templateId;
+    this.cachedBorderWidthRatio = this.borderState.widthRatio;
+    this.cachedBorderRadiusRatio = radiusRatio;
+
+    this.cachedLayout = resolveEditorPreviewLayout(
+      this.containerW,
+      this.containerH,
+      effectiveW,
+      effectiveH,
+      this.borderState
+    );
     return this.cachedLayout;
   }
 
@@ -357,6 +447,14 @@ export struct PreviewArea {
     );
   }
 
+  /** 安全读取响应式贴纸数组中的最新项，防止 Builder 闭包持有初始创建时的陈旧对象。 */
+  private stickerAt(index: number, fallback: StickerItem): StickerItem {
+    if (index >= 0 && index < this.stickers.length) {
+      return this.stickers[index];
+    }
+    return fallback;
+  }
+
   /** 根据 templateId 查找贴纸模板。 */
   private findTpl(templateId: string): StickerTemplate | null {
     for (let i = 0; i < this.customTemplates.length; i++) {
@@ -375,5 +473,12 @@ export struct PreviewArea {
       this.onImageSizeChange(width, height);
       this.notifyDisplaySize();
     }
+  }
+
+  private resolvedImageSrc(): string {
+    if (this.imageSrc.startsWith('/') && !this.imageSrc.startsWith('file://')) {
+      return `file://${this.imageSrc}`;
+    }
+    return this.imageSrc;
   }
 }

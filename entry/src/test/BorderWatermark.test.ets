@@ -5,7 +5,8 @@ import {
   defaultBorderState,
   defaultWatermarkConfig,
   cloneWatermarkConfig,
-  WatermarkConfig
+  WatermarkConfig,
+  WatermarkLogoType
 } from '../main/ets/models/SharedContracts';
 import {
   BORDER_TEMPLATES,
@@ -391,14 +392,14 @@ export default function borderWatermarkTest() {
     });
 
     it('supports all 16 logo types in watermark config without corruption', 0, () => {
-      const logos = [
+      const logos: WatermarkLogoType[] = [
         'zeiss', 'leica', 'hasselblad', 'xmage', 'fujifilm',
         'xiaomi', 'huawei', 'apple', 'samsung', 'vivo',
         'oppo', 'honor', 'sony', 'canon', 'nikon', 'master', 'none'
       ];
       for (const l of logos) {
         const cfg = defaultWatermarkConfig();
-        cfg.logo = l as any;
+        cfg.logo = l;
         const cloned = cloneWatermarkConfig(cfg);
         expect(cloned.logo).assertEqual(l);
       }

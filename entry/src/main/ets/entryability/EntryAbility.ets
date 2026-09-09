@@ -28,24 +28,43 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-    try {
-      const win = windowStage.getMainWindowSync();
-      // 沉浸式布局：窗口全屏，页面背景可延伸至状态栏 / 导航栏之外
-      win.setWindowLayoutFullScreen(true).then(() => {
-        // 全屏生效后读取系统安全区高度（px），换算为 vp 后写入 AppStorage，供页面内容上下避让
-        const avoid = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-        const density: number = display.getDefaultDisplaySync().densityPixels;
-        const toVp = (px: number): number => density > 0 ? px / density : 0;
-        AppStorage.setOrCreate('statusBarHeight', toVp(avoid.topRect.height));
-        AppStorage.setOrCreate('navBarHeight', toVp(avoid.bottomRect.height));
-      }).catch((err: Error) => {
-        hilog.error(DOMAIN, 'testTag', 'Failed to set full screen. Cause: %{public}s', JSON.stringify(err));
-      });
-      // 宣纸底色：过渡动画与安全区缺口处与页面 paper-base 一致（设计令牌 paper_base）
-      win.setWindowBackgroundColor('#DEDDD7');
-    } catch (err) {
-      hilog.error(DOMAIN, 'testTag', 'Failed to configure window. Cause: %{public}s', JSON.stringify(err));
-    }
+    windowStage.getMainWindow((err, win) => {
+      if (err.code || !win) {
+        hilog.error(DOMAIN, 'testTag', 'Failed to obtain main window: %{public}s', JSON.stringify(err));
+        return;
+      }
+      try {
+        const updateAvoidAreas = (): void => {
+          try {
+            const sysAvoid = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+            const navAvoid = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+            const density: number = display.getDefaultDisplaySync().densityPixels;
+            const toVp = (px: number): number => density > 0 ? px / density : 0;
+            AppStorage.setOrCreate('statusBarHeight', toVp(sysAvoid.topRect.height));
+            const rawNavH = Math.max(toVp(navAvoid.bottomRect.height), toVp(sysAvoid.bottomRect.height));
+            // 华为应用审核规范：底部手势/导航条避让硬保底至少 28vp
+            const safeNavH = Math.max(rawNavH, 28);
+            AppStorage.setOrCreate('navBarHeight', safeNavH);
+          } catch (e) {
+            AppStorage.setOrCreate('navBarHeight', 28);
+          }
+        };
+
+        // 沉浸式布局：窗口全屏，页面背景可延伸至状态栏 / 导航栏之外
+        win.setWindowLayoutFullScreen(true).then(() => {
+          // 全屏生效后读取系统安全区高度（px），换算为 vp 后写入 AppStorage，供页面内容上下避让
+          updateAvoidAreas();
+          // 监听安全区域动态变化（如折叠屏展开/折叠、横竖屏切换）
+          win.on('avoidAreaChange', (_options: window.AvoidAreaOptions): void => {
+            updateAvoidAreas();
+          });
+        }).catch((err: Error) => {
+          hilog.error(DOMAIN, 'testTag', 'Failed to set full screen. Cause: %{public}s', JSON.stringify(err));
+        });
+      } catch (configErr) {
+        hilog.error(DOMAIN, 'testTag', 'Failed to configure window. Cause: %{public}s', JSON.stringify(configErr));
+      }
+    });
 
     // 主框架 MainTabs（pages/Index）为启动页；WorksPage 作为「作品」Tab 挂载于 Index。
     windowStage.loadContent('pages/Index', (err) => {
@@ -54,6 +73,13 @@ export default class EntryAbility extends UIAbility {
         return;
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
+      try {
+        const win = windowStage.getMainWindowSync();
+        // 宣纸底色：过渡动画与安全区缺口处与页面 paper-base 一致（设计令牌 paper_base）
+        win.setWindowBackgroundColor('#DEDDD7');
+      } catch (colorErr) {
+        hilog.warn(DOMAIN, 'testTag', 'Failed to set window background color: %{public}s', JSON.stringify(colorErr));
+      }
     });
   }
 

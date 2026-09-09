@@ -6,6 +6,7 @@ import { EditorSnapshot, cloneEditorSnapshot } from '../models/SharedContracts';
 import { ImageRenderService } from './ImageRenderService';
 import { TextCompositionService } from './TextCompositionService';
 import { BorderCompositionService } from './BorderCompositionService';
+import { StickerCompositionService } from './StickerCompositionService';
 
 /**
  * 合成渲染结果
@@ -25,18 +26,22 @@ export interface CompositionRenderResult {
  * 1. 原图解码 (loadPixelMap)
  * 2. LUT 滤镜 (FilterNativeBridge)
  * 3. 调色参数 (applyAdjustments)
- * 4. 文字图层合成 (TextCompositionService)
- * 5. 边框画布外扩装裱 (BorderCompositionService)
+ * 4. 贴纸图层合成 (StickerCompositionService)
+ * 5. 文字图层合成 (TextCompositionService)
+ * 6. 边框画布外扩装裱 (BorderCompositionService)
  */
 export class EditorCompositionService {
   /**
    * 统一全分辨率合成
    * @param sourceUri 源图 URI
    * @param adjustments 调色参数
-   * @param snapshot 统一编辑快照（滤镜、文字、边框）
+   * @param snapshot 统一编辑快照（滤镜、贴纸、文字、边框）
    * @param profile 导出配置
    * @param preserveSourceSize 是否保留原图分辨率
    * @param context 应用上下文
+   * @param unavailableFontKeys 缺失字体键
+   * @param previewWidth 预览区照片宽度（用于等比缩放贴纸）
+   * @param previewHeight 预览区照片高度（用于等比缩放贴纸）
    * @returns 合成结果（包含最终 PixelMap 与尺寸）
    */
   static async render(
@@ -46,13 +51,16 @@ export class EditorCompositionService {
     profile: ExportProfile,
     preserveSourceSize: boolean = false,
     context?: common.UIAbilityContext,
-    unavailableFontKeys: string[] = []
+    unavailableFontKeys: string[] = [],
+    previewWidth: number = 0,
+    previewHeight: number = 0
   ): Promise<CompositionRenderResult> {
     const safeSnapshot = cloneEditorSnapshot(snapshot);
     const filterId = safeSnapshot.filter.filterId ?? 'original';
     const strength = safeSnapshot.filter.strength ?? 0;
 
     let basePixelMap: image.PixelMap | null = null;
+    let stickeredPixelMap: image.PixelMap | null = null;
     let textedPixelMap: image.PixelMap | null = null;
     let finalPixelMap: image.PixelMap | null = null;
 
@@ -68,14 +76,23 @@ export class EditorCompositionService {
         context
       );
 
-      // 4. 文字图层
-      textedPixelMap = await TextCompositionService.render(
+      // 4. 贴纸图层离线合成
+      stickeredPixelMap = await StickerCompositionService.render(
         basePixelMap,
+        safeSnapshot.stickers ?? [],
+        previewWidth,
+        previewHeight,
+        context
+      );
+
+      // 5. 文字图层
+      textedPixelMap = await TextCompositionService.render(
+        stickeredPixelMap,
         safeSnapshot.textLayers,
         unavailableFontKeys
       );
 
-      // 5. 边框装裱
+      // 6. 边框装裱
       finalPixelMap = await BorderCompositionService.render(
         textedPixelMap,
         safeSnapshot.border
@@ -92,17 +109,23 @@ export class EditorCompositionService {
       if (textedPixelMap !== finalPixelMap) {
         textedPixelMap.release();
       }
-      if (basePixelMap !== textedPixelMap && basePixelMap !== finalPixelMap) {
+      if (stickeredPixelMap !== textedPixelMap && stickeredPixelMap !== finalPixelMap) {
+        stickeredPixelMap.release();
+      }
+      if (basePixelMap !== stickeredPixelMap && basePixelMap !== textedPixelMap && basePixelMap !== finalPixelMap) {
         basePixelMap.release();
       }
       return res;
     } catch (err) {
       // 异常时安全清理中间 PixelMap 防止内存泄漏
-      if (finalPixelMap && finalPixelMap !== textedPixelMap && finalPixelMap !== basePixelMap) {
+      if (finalPixelMap && finalPixelMap !== textedPixelMap && finalPixelMap !== stickeredPixelMap && finalPixelMap !== basePixelMap) {
         finalPixelMap.release();
       }
-      if (textedPixelMap && textedPixelMap !== basePixelMap) {
+      if (textedPixelMap && textedPixelMap !== stickeredPixelMap && textedPixelMap !== basePixelMap) {
         textedPixelMap.release();
+      }
+      if (stickeredPixelMap && stickeredPixelMap !== basePixelMap) {
+        stickeredPixelMap.release();
       }
       if (basePixelMap) {
         basePixelMap.release();

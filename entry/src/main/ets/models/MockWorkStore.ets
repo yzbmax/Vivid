@@ -75,13 +75,16 @@ export class MockWorkStore {
     return work;
   }
 
+  private static mockWorkIdSeq: number = 0;
+
   /**
    * 新建作品：生成或保留 ID，设置 createdAt / updatedAt，
    * 加入列表、持久化到沙箱存储并返回新记录。
    */
   create(record: WorkRecord): WorkRecord {
     const now = Date.now();
-    record.id = (record.id && record.id.length > 0) ? record.id : 'MOCK-' + now;
+    MockWorkStore.mockWorkIdSeq++;
+    record.id = (record.id && record.id.length > 0) ? record.id : `MOCK-${now}-${MockWorkStore.mockWorkIdSeq}`;
     record.createdAt = record.createdAt > 0 ? record.createdAt : now;
     record.updatedAt = now;
     if (!record.status) {

@@ -566,6 +566,30 @@ export function findStickerTemplate(templateId: string): StickerTemplate | null 
   return null;
 }
 
+/** 贴纸 zIndex 安全自增序号（10..1000），严禁使用 Date.now() 造成 int32 溢出为负数 */
+let globalStickerZIndexSeq: number = 10;
+export function getNextStickerZIndex(): number {
+  globalStickerZIndexSeq++;
+  if (globalStickerZIndexSeq > 1000) {
+    globalStickerZIndexSeq = 10;
+  }
+  return globalStickerZIndexSeq;
+}
+
+/** 规范化本地图片/贴纸 URI 协议前缀（符合 ArkUI 沙箱加载规范） */
+export function ensureFileUri(uri: string): string {
+  if (!uri || uri.length === 0) {
+    return '';
+  }
+  if (uri.startsWith('file://')) {
+    return uri;
+  }
+  if (uri.startsWith('/')) {
+    return `file://${uri}`;
+  }
+  return uri;
+}
+
 /**
  * 创建贴纸实例（默认放置在预览区中心）。
  * centerX / centerY 为预览区中心像素坐标。
@@ -582,7 +606,7 @@ export function createStickerInstance(templateId: string, centerX: number, cente
     size: defaultSize,
     rotation: microRotate,
     opacity: 1.0,
-    zIndex: Date.now()
+    zIndex: getNextStickerZIndex()
   };
 }
 
@@ -600,8 +624,8 @@ export function createCustomStickerInstance(customUri: string, centerX: number, 
     size: defaultSize,
     rotation: 0,
     opacity: 1.0,
-    zIndex: Date.now(),
-    customUri: customUri
+    zIndex: getNextStickerZIndex(),
+    customUri: ensureFileUri(customUri)
   };
 }
 

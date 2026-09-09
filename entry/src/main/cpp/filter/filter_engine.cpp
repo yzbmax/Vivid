@@ -3,6 +3,28 @@
 #include "cube_parser.h"
 #include "lut_renderer.h"
 
+FilterEngine::FilterEngine(size_t maxCacheSize)
+    : maxCacheSize_(maxCacheSize > 0 ? maxCacheSize : kDefaultMaxLutCache) {}
+
+void FilterEngine::TouchLru(const std::string& filterId) {
+    auto it = lruIterators_.find(filterId);
+    if (it != lruIterators_.end()) {
+        lruOrder_.erase(it->second);
+    }
+    lruOrder_.push_front(filterId);
+    lruIterators_[filterId] = lruOrder_.begin();
+}
+
+void FilterEngine::EvictLruIfNeeded() {
+    while (luts_.size() > maxCacheSize_ && !lruOrder_.empty()) {
+        const std::string victim = lruOrder_.back();
+        lruOrder_.pop_back();
+        lruIterators_.erase(victim);
+        luts_.erase(victim);
+        renderer_.RemoveLut(victim);
+    }
+}
+
 bool FilterEngine::LoadLut(const std::string& filterId, const std::string& cubeContent) {
     if (filterId.empty()) {
         return false;
@@ -12,9 +34,11 @@ bool FilterEngine::LoadLut(const std::string& filterId, const std::string& cubeC
         Lut3D parsed = CubeParser::Parse(cubeContent);
         luts_[filterId] = std::move(parsed);
         renderer_.RemoveLut(filterId);
+        TouchLru(filterId);
+        EvictLruIfNeeded();
         return true;
     } catch (const std::exception&) {
-        luts_.erase(filterId);
+        RemoveLut(filterId);
         return false;
     }
 }
@@ -26,11 +50,22 @@ bool FilterEngine::HasLut(const std::string& filterId) const {
 void FilterEngine::RemoveLut(const std::string& filterId) {
     renderer_.RemoveLut(filterId);
     luts_.erase(filterId);
+    auto it = lruIterators_.find(filterId);
+    if (it != lruIterators_.end()) {
+        lruOrder_.erase(it->second);
+        lruIterators_.erase(it);
+    }
 }
 
 void FilterEngine::Clear() {
     renderer_.ClearLutCache();
     luts_.clear();
+    lruOrder_.clear();
+    lruIterators_.clear();
+}
+
+size_t FilterEngine::CachedLutCount() const {
+    return luts_.size();
 }
 
 bool FilterEngine::Render(uint8_t* rgba,
@@ -47,6 +82,8 @@ bool FilterEngine::Render(uint8_t* rgba,
         }
         return false;
     }
+    TouchLru(filterId);
+
     std::string vkError;
     if (renderer_.Render(rgba, width, height, rowBytes, filterId,
                          it->second, strength, &vkError)) {

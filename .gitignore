@@ -21,3 +21,7 @@
 *.p7b
 *.jks
 .DS_Store
+
+# 临时大文件备份
+tools/filters_backup/
+tools/fonts_backup/

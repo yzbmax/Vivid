@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class VulkanLutRenderer {
 public:
@@ -72,6 +73,7 @@ private:
     VkCommandPool commandPool_ = VK_NULL_HANDLE;
     VkDescriptorPool descriptorPool_ = VK_NULL_HANDLE;
     std::unordered_map<std::string, Buffer> lutBuffers_;
+    std::vector<uint8_t> fallbackCheckBuffer_;
 };
 
 #endif  // VIVID_VULKAN_LUT_RENDERER_H

@@ -98,13 +98,16 @@ export class WorkRepository {
     return this.sanitizeWork(work);
   }
 
+  private static workRepoIdSeq: number = 0;
+
   /** 新建作品并持久化 */
   public create(record: WorkRecord): WorkRecord {
     this.ensureInitSync();
     const now = Date.now();
-    record.id = record.id && record.id.length > 0 ? record.id : 'WORK-' + now;
+    WorkRepository.workRepoIdSeq++;
+    record.id = record.id && record.id.length > 0 ? record.id : `WORK-${now}-${WorkRepository.workRepoIdSeq}`;
     record.createdAt = record.createdAt > 0 ? record.createdAt : now;
-    record.updatedAt = now;
+    record.updatedAt = record.updatedAt > 0 ? record.updatedAt : now;
     if (!record.status) {
       record.status = WorkStatus.Draft;
     }

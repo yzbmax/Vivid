@@ -358,7 +358,7 @@ export struct MinePage {
 
             // 页脚说明
             Column({ space: 4 }) {
-              Text('微霏 V1.0.2 · 东方美学数字画卷工坊')
+              Text('微霏 V1.0.3 · 东方美学数字画卷工坊')
                 .fontFamily(Theme.FONT_MONO)
                 .fontSize(11)
                 .fontColor(MASK_SEAL.inkMuted)
@@ -374,7 +374,7 @@ export struct MinePage {
           }
           .width('100%')
           .alignItems(HorizontalAlign.Center)
-          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: 16, bottom: 28 });
+          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: 16, bottom: 28 + Math.max(AppStorage.get<number>('navBarHeight') ?? 28, 28) });
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)

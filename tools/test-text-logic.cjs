@@ -34,7 +34,10 @@ let beforeEachFn = null;
 let testQueue = Promise.resolve();
 const testApi = {
   describe: (_name, body) => body(),
+  beforeAll: fn => fn(),
+  afterAll: fn => fn(),
   beforeEach: fn => { beforeEachFn = fn; },
+  afterEach: fn => fn(),
   it: (name, _level, body) => {
     const currentBeforeEach = beforeEachFn;
     testQueue = testQueue.then(async () => {
@@ -54,7 +57,8 @@ const testApi = {
     assertTrue: () => assert.strictEqual(value, true),
     assertFalse: () => assert.strictEqual(value, false),
     assertNull: () => assert.strictEqual(value, null),
-    assertUndefined: () => assert.strictEqual(value, undefined)
+    assertUndefined: () => assert.strictEqual(value, undefined),
+    assertContain: expected => assert.ok(String(value).includes(expected))
   })
 };
 function load(file) {
@@ -68,6 +72,18 @@ function load(file) {
   cache.set(file, module);
   const localRequire = id => {
     if (id === '@ohos/hypium') return testApi;
+    if (id === 'libvivid_image.so') {
+      return {
+        renderLut: () => {},
+        loadLut: () => true,
+        hasLut: () => true,
+        clearLuts: () => {}
+      };
+    }
+    if (id === '@kit.ArkUI') return { LengthMetricsUnit: { PX: 1, VP: 0 } };
+    if (id === '@kit.ImageKit') return { image: {} };
+    if (id === '@kit.MediaLibraryKit') return { photoAccessHelper: {} };
+    if (id === '@kit.ArkGraphics2D') return { imageColorFilter: {} };
     if (id === '@kit.ArkData') return { preferences: {} };
     if (id === '@kit.AbilityKit') return { common: {} };
     if (id === '@kit.CoreFileKit') {
@@ -124,6 +140,7 @@ function load(file) {
 const suites = process.argv.slice(3);
 (async () => {
   for (const suite of suites.length ? suites : ['TextLayerState', 'TextLayoutResolver']) {
+    beforeEachFn = null;
     await load(path.join(repo, 'entry/src/test', suite + '.test.ets')).default();
   }
   await testQueue;

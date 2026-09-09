@@ -5,6 +5,8 @@ import { fileIo as fs } from '@kit.CoreFileKit';
 import { AdjustParams } from '../models/EditModels';
 import { ExportProfile } from '../models/AppSettingsModels';
 import { FilterNativeBridge } from '../features/editor/filter/FilterNativeBridge';
+import { FILTER_PRESETS } from '../features/editor/filter/FilterCatalog';
+import { FilterPreset } from '../features/editor/filter/FilterModels';
 import { isPhotoPickerUri } from './PhotoPickerService';
 
 /**
@@ -47,6 +49,12 @@ export class ImageRenderService {
 
     // Export starts from a fresh source PixelMap; the preview PixelMap is never reused.
     if (filterId !== 'original' && strength > 0) {
+      if (!FilterNativeBridge.hasLut(filterId) && context !== undefined) {
+        const preset = FILTER_PRESETS.find((item: FilterPreset) => item.id === filterId);
+        if (preset !== undefined && preset.lutPath !== undefined) {
+          await FilterNativeBridge.loadPreset(context, preset);
+        }
+      }
       try {
         const filtered = await FilterNativeBridge.render(pixelMap, filterId, strength);
         pixelMap.release();

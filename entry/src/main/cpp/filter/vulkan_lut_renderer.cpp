@@ -398,8 +398,11 @@ bool VulkanLutRenderer::Render(uint8_t* rgba,
     }
     const VkDeviceSize imageSize =
         static_cast<VkDeviceSize>(rowBytes) * static_cast<VkDeviceSize>(height);
-    const std::vector<uint8_t> originalPixels(
-        rgba, rgba + static_cast<std::size_t>(imageSize));
+    const size_t imageBytes = static_cast<size_t>(imageSize);
+    if (fallbackCheckBuffer_.size() < imageBytes) {
+        fallbackCheckBuffer_.resize(imageBytes);
+    }
+    std::memcpy(fallbackCheckBuffer_.data(), rgba, imageBytes);
     Buffer input{};
     Buffer output{};
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
@@ -543,10 +546,10 @@ bool VulkanLutRenderer::Render(uint8_t* rgba,
     }
 
     const bool gpuPixelsChanged =
-        std::memcmp(rgba, originalPixels.data(), static_cast<std::size_t>(imageSize)) != 0;
+        std::memcmp(rgba, fallbackCheckBuffer_.data(), imageBytes) != 0;
     bool usedCpuFallback = false;
     if (VulkanLutContract::ShouldUseCpuFallback(gpuPixelsChanged, strength)) {
-        std::memcpy(rgba, originalPixels.data(), static_cast<std::size_t>(imageSize));
+        std::memcpy(rgba, fallbackCheckBuffer_.data(), imageBytes);
         if (!LutRenderer::Render(rgba, width, height, rowBytes, lut, strength)) {
             cleanupRender();
             return SetError("CPU LUT fallback failed after unchanged Vulkan output", error);
@@ -631,4 +634,6 @@ void VulkanLutRenderer::Cleanup() {
     pipeline_ = VK_NULL_HANDLE;
     commandPool_ = VK_NULL_HANDLE;
     descriptorPool_ = VK_NULL_HANDLE;
+    fallbackCheckBuffer_.clear();
+    fallbackCheckBuffer_.shrink_to_fit();
 }

@@ -79,16 +79,20 @@ export class OwnedRenderResult<T> {
     if (next === this.current) {
       return next;
     }
-    this.clear();
+    const previous = this.current;
     // 原图由 PreviewPipeline 持有，不能随临时滤镜结果一起释放。
     this.current = next === borrowed ? undefined : next;
+    if (previous !== undefined) {
+      this.releaseResult(previous);
+    }
     return next;
   }
 
   clear(): void {
     if (this.current !== undefined) {
-      this.releaseResult(this.current);
+      const target = this.current;
       this.current = undefined;
+      this.releaseResult(target);
     }
   }
 }
@@ -115,6 +119,9 @@ export async function keepLatest<T>(
 export class PreviewPipeline {
   private sourcePixelMap: image.PixelMap | undefined;
   private generations: RenderGeneration = new RenderGeneration();
+  private isRendering: boolean = false;
+  private pendingTask: ((source: image.PixelMap) => Promise<image.PixelMap>) | undefined = undefined;
+  private pendingResolves: Array<(result: image.PixelMap | undefined) => void> = [];
 
   async loadSource(
     sourceUri: string,
@@ -138,19 +145,82 @@ export class PreviewPipeline {
     if (source === undefined) {
       return undefined;
     }
-    return keepLatest(
-      this.generations,
-      () => renderTask(source),
-      (stale: image.PixelMap) => {
-        if (stale !== source) {
-          stale.release();
+
+    if (this.isRendering) {
+      // 正在高频切换中，提前结算上一轮等待中的过时请求（丢弃中间帧，杜绝并发堆叠）
+      const superseded = this.pendingResolves;
+      this.pendingResolves = [];
+      for (let i = 0; i < superseded.length; i++) {
+        superseded[i](undefined);
+      }
+
+      return new Promise<image.PixelMap | undefined>((resolve: (value: image.PixelMap | undefined) => void): void => {
+        this.pendingTask = renderTask;
+        this.pendingResolves.push(resolve);
+      });
+    }
+
+    this.isRendering = true;
+    try {
+      let currentTask: ((source: image.PixelMap) => Promise<image.PixelMap>) | undefined = renderTask;
+      let lastResult: image.PixelMap | undefined = undefined;
+
+      while (currentTask !== undefined) {
+        const activeTask: (source: image.PixelMap) => Promise<image.PixelMap> = currentTask;
+        currentTask = undefined;
+
+        lastResult = await keepLatest<image.PixelMap>(
+          this.generations,
+          (): Promise<image.PixelMap> => {
+            return activeTask(source);
+          },
+          (stale: image.PixelMap): void => {
+            if (stale !== source) {
+              stale.release();
+            }
+          }
+        );
+
+        // 如果在当前渲染执行期间又有最新请求进来，继续执行最新请求，丢弃中间结果
+        if (this.pendingTask !== undefined) {
+          currentTask = this.pendingTask;
+          this.pendingTask = undefined;
+          if (lastResult !== undefined && lastResult !== source) {
+            lastResult.release();
+            lastResult = undefined;
+          }
         }
       }
-    );
+
+      if (this.pendingResolves.length > 0) {
+        const waiting = this.pendingResolves;
+        this.pendingResolves = [];
+        for (let i = 0; i < waiting.length; i++) {
+          waiting[i](lastResult);
+        }
+        return undefined;
+      }
+
+      return lastResult;
+    } finally {
+      this.isRendering = false;
+      this.pendingTask = undefined;
+      const leftover = this.pendingResolves;
+      this.pendingResolves = [];
+      for (let i = 0; i < leftover.length; i++) {
+        leftover[i](undefined);
+      }
+    }
   }
 
   cancelPendingRenders(): void {
     this.generations.invalidate();
+    this.pendingTask = undefined;
+    const waiting = this.pendingResolves;
+    this.pendingResolves = [];
+    for (let i = 0; i < waiting.length; i++) {
+      waiting[i](undefined);
+    }
   }
 
   releaseSource(): void {
@@ -160,8 +230,12 @@ export class PreviewPipeline {
     }
   }
 
+  setSourcePixelMapForTest(source: image.PixelMap | undefined): void {
+    this.sourcePixelMap = source;
+  }
+
   dispose(): void {
-    this.generations.invalidate();
+    this.cancelPendingRenders();
     this.releaseSource();
   }
 }
