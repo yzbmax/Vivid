@@ -2,6 +2,7 @@ import { BorderState } from '../../../models/SharedContracts';
 import { BorderGeometry } from './BorderLayoutResolver';
 import { sanitizeBorderState } from './BorderState';
 import { Theme } from '../../../components/common/Theme';
+import { LengthMetricsUnit } from '@kit.ArkUI';
 
 /** 在 Canvas 上绘制圆角矩形闭合路径（供裁剪、描边或填充）。 */
 export function drawRoundedRectPath(
@@ -474,14 +475,14 @@ let zeissWordmarkPath: Path2D | null = null;
 
 function getZeissShieldPath(): Path2D {
   if (!zeissShieldPath) {
-    zeissShieldPath = new Path2D(ZEISS_SHIELD_SVG);
+    zeissShieldPath = new Path2D(ZEISS_SHIELD_SVG, LengthMetricsUnit.PX);
   }
   return zeissShieldPath;
 }
 
 function getZeissWordmarkPath(): Path2D {
   if (!zeissWordmarkPath) {
-    zeissWordmarkPath = new Path2D(ZEISS_WORDMARK_SVG);
+    zeissWordmarkPath = new Path2D(ZEISS_WORDMARK_SVG, LengthMetricsUnit.PX);
   }
   return zeissWordmarkPath;
 }
@@ -504,7 +505,7 @@ let appleIconPath: Path2D | null = null;
 
 function getAppleIconPath(): Path2D {
   if (!appleIconPath) {
-    appleIconPath = new Path2D(APPLE_ICON_SVG);
+    appleIconPath = new Path2D(APPLE_ICON_SVG, LengthMetricsUnit.PX);
   }
   return appleIconPath;
 }
@@ -561,9 +562,9 @@ function paintLogoBadge(
     context.fillText('HASSELBLAD', x + dotR * 2 + 3, centerY);
   } else if (logo === 'apple') {
     // 经典 Apple 官方咬口苹果与飞叶纯矢量图标（自适应当前主题文字颜色）
-    const scale = size / 170;
+    const scale = size / 160;
     context.save();
-    context.translate(x - 18.7 * scale, centerY - 91.65 * scale);
+    context.translate(x - 16.05 * scale, centerY - 92.8 * scale);
     context.scale(scale, scale);
     context.fillStyle = defaultTextColor;
     context.fill(getAppleIconPath());
@@ -798,6 +799,12 @@ function paintMasterGridWatermark(
  *    - GPS 经纬度（39°58'59"N 116°29'27"E，若有）
  *    - 拍摄时间（2026.06.07 14:41）
  */
+interface CenteredStackItem {
+  kind: 'logo' | 'device' | 'params' | 'gps' | 'time';
+  h: number;
+  gapBelow: number;
+}
+
 function paintCenteredSpecsWatermark(
   context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   geometry: BorderGeometry,
@@ -811,11 +818,13 @@ function paintCenteredSpecsWatermark(
   const w = geometry.outputWidth * scale;
   const h = geometry.outputHeight * scale;
 
-  const overlayH = Math.max(80 * scale, h * 0.22);
+  // 1. 宽幅平滑渐变保护层（柔和过渡，让白色参数在任何画面底层均有极佳可读性）
+  const overlayH = Math.max(96 * scale, h * 0.28);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.25)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+  grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.22)');
+  grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.55)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
   context.fillStyle = grad;
   context.fillRect(0, h - overlayH, w, overlayH);
 
@@ -828,65 +837,72 @@ function paintCenteredSpecsWatermark(
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
-  let lineCount = 0;
-  if (hasLogo) { lineCount++; }
-  if (displayDevice.length > 0) { lineCount++; }
-  if (params.length > 0) { lineCount++; }
-  if (gps.length > 0) { lineCount++; }
-  if (time.length > 0) { lineCount++; }
-  if (lineCount === 0) {
-    return;
+  // 2. 梯级字体与间距比例（松弛有度、呼吸感充沛，杜绝局促感）
+  const primarySize = Math.max(12 * scale, Math.min(22 * scale, Math.round(overlayH * 0.14)));
+  const logoSize = Math.round(primarySize * 1.35);
+  const secondarySize = Math.max(9 * scale, Math.min(15 * scale, Math.round(primarySize * 0.74)));
+  const tertiarySize = Math.max(8 * scale, Math.min(13 * scale, Math.round(primarySize * 0.65)));
+
+  const items: CenteredStackItem[] = [];
+  if (hasLogo) {
+    items.push({ kind: 'logo', h: logoSize, gapBelow: Math.max(6 * scale, overlayH * 0.055) });
+  }
+  if (displayDevice.length > 0) {
+    items.push({ kind: 'device', h: primarySize, gapBelow: Math.max(7 * scale, overlayH * 0.065) });
+  }
+  if (params.length > 0) {
+    items.push({ kind: 'params', h: secondarySize, gapBelow: Math.max(5 * scale, overlayH * 0.045) });
+  }
+  if (gps.length > 0) {
+    items.push({ kind: 'gps', h: tertiarySize, gapBelow: Math.max(4 * scale, overlayH * 0.04) });
+  }
+  if (time.length > 0) {
+    items.push({ kind: 'time', h: tertiarySize, gapBelow: 0 });
   }
 
-  const primarySize = Math.max(10, Math.round(overlayH * 0.16));
-  const secondarySize = Math.max(8, Math.round(overlayH * 0.11));
-  const lineSpacing = Math.max(secondarySize * 1.35, overlayH / (lineCount + 2));
+  if (items.length === 0) {
+    return;
+  }
+  items[items.length - 1].gapBelow = 0;
 
-  let curY = h - (lineCount + 0.5) * lineSpacing * 0.5 - overlayH * 0.1;
-  if (curY < h - overlayH + primarySize) {
-    curY = h - overlayH + primarySize;
+  let totalContentH = 0;
+  for (const it of items) {
+    totalContentH += it.h + it.gapBelow;
+  }
+
+  // 3. 底部安全留白（文字底边缘距离照片底部保留充分呼吸空间，绝不贴底）
+  const bottomMargin = Math.max(18 * scale, h * 0.06);
+  let topY = h - bottomMargin - totalContentH;
+  if (topY < h - overlayH + 12 * scale) {
+    topY = h - overlayH + 12 * scale;
   }
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
 
-  // 1. Logo
-  if (hasLogo) {
-    const logoSize = Math.round(primarySize * 1.3);
-    const logoW = getLogoBadgeWidth(context, logo, logoSize);
-    paintLogoBadge(context, logo, w * 0.5 - logoW * 0.5, curY, logoSize, '#FFFFFF');
-    curY += lineSpacing * 1.1;
-  }
-
-  // 2. 设备名
-  if (displayDevice.length > 0) {
-    context.fillStyle = '#FFFFFF';
-    context.font = `bold ${primarySize}px sans-serif`;
-    context.fillText(displayDevice, w * 0.5, curY);
-    curY += lineSpacing;
-  }
-
-  // 3. 拍摄参数
-  if (params.length > 0) {
-    context.fillStyle = 'rgba(255, 255, 255, 0.92)';
-    context.font = `500 ${secondarySize}px monospace, sans-serif`;
-    context.fillText(params, w * 0.5, curY);
-    curY += lineSpacing * 0.95;
-  }
-
-  // 4. GPS 坐标
-  if (gps.length > 0) {
-    context.fillStyle = 'rgba(255, 255, 255, 0.80)';
-    context.font = `400 ${Math.max(7, Math.round(secondarySize * 0.9))}px monospace, sans-serif`;
-    context.fillText(gps, w * 0.5, curY);
-    curY += lineSpacing * 0.9;
-  }
-
-  // 5. 拍摄时间
-  if (time.length > 0) {
-    context.fillStyle = 'rgba(255, 255, 255, 0.75)';
-    context.font = `400 ${Math.max(7, Math.round(secondarySize * 0.85))}px sans-serif`;
-    context.fillText(time, w * 0.5, curY);
+  for (const it of items) {
+    const centerY = topY + it.h * 0.5;
+    if (it.kind === 'logo') {
+      const logoW = getLogoBadgeWidth(context, logo, logoSize);
+      paintLogoBadge(context, logo, w * 0.5 - logoW * 0.5, centerY, logoSize, '#FFFFFF');
+    } else if (it.kind === 'device') {
+      context.fillStyle = '#FFFFFF';
+      context.font = `bold ${primarySize}px sans-serif`;
+      context.fillText(displayDevice, w * 0.5, centerY);
+    } else if (it.kind === 'params') {
+      context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      context.font = `500 ${secondarySize}px monospace, sans-serif`;
+      context.fillText(params, w * 0.5, centerY);
+    } else if (it.kind === 'gps') {
+      context.fillStyle = 'rgba(255, 255, 255, 0.80)';
+      context.font = `400 ${tertiarySize}px monospace, sans-serif`;
+      context.fillText(gps, w * 0.5, centerY);
+    } else if (it.kind === 'time') {
+      context.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      context.font = `400 ${tertiarySize}px sans-serif`;
+      context.fillText(time, w * 0.5, centerY);
+    }
+    topY += it.h + it.gapBelow;
   }
 }
 
@@ -1011,8 +1027,8 @@ export function formatKeyValueSpecs(paramsText: string): string {
 /**
  * 极简键值印记水印（原图 4 风格）：
  * 1. 底部微暗渐变保护；
- * 2. 居中经典单字母徽标（如哈苏斜体加粗 H 或其他品牌单标）；
- * 3. 居中 Aperture | ... Shutter | ... ISO | ... 工业规范排版。
+ * 2. 居中机型名称与品牌单标协同排版（支持 Hasselblad、Apple、Leica、Zeiss、Sony 等）；
+ * 3. 居中 Aperture | ... Shutter | ... ISO | ... 工业规范参数排版。
  */
 function paintMinimalKeyvalueWatermark(
   context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -1027,45 +1043,94 @@ function paintMinimalKeyvalueWatermark(
   const w = geometry.outputWidth * scale;
   const h = geometry.outputHeight * scale;
 
-  const overlayH = Math.max(64 * scale, h * 0.16);
+  const overlayH = Math.max(80 * scale, h * 0.22);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.25)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.28)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.72)');
   context.fillStyle = grad;
   context.fillRect(0, h - overlayH, w, overlayH);
 
-  const centerY = h - overlayH * 0.45;
-  const primarySize = Math.max(16, Math.round(overlayH * 0.30));
-  const secondarySize = Math.max(8, Math.round(overlayH * 0.16));
-
-  const rawParams = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : 'f/4.0 1/250s ISO800';
+  const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
+  const rawParams = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const kvParams = formatKeyValueSpecs(rawParams);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
-  const logo = hasLogo ? (wm.logo ?? 'hasselblad') : 'none';
+
+  const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
+  const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
+
+  // Line 1 是否存在：有设备名、有 Logo、或者设备为空但默认是哈苏 H
+  const hasLine1 = (displayDevice.length > 0 || hasLogo || (device.length === 0 && (!wm.logo || wm.logo === 'hasselblad')));
+  const hasLine2 = kvParams.length > 0;
+
+  if (!hasLine1 && !hasLine2) {
+    return;
+  }
+
+  const primarySize = Math.max(12 * scale, Math.min(22 * scale, Math.round(overlayH * 0.18)));
+  const secondarySize = Math.max(9 * scale, Math.min(16 * scale, Math.round(overlayH * 0.12)));
+  const bottomMargin = Math.max(16 * scale, h * 0.055);
+  const gapBetweenLines = Math.max(8 * scale, overlayH * 0.08);
+
+  let totalH = 0;
+  if (hasLine1 && hasLine2) {
+    totalH = primarySize + gapBetweenLines + secondarySize;
+  } else if (hasLine1) {
+    totalH = primarySize;
+  } else {
+    totalH = secondarySize;
+  }
+
+  const topY = h - bottomMargin - totalH;
+  const line1Y = topY + primarySize * 0.5;
+  const line2Y = hasLine1 ? (topY + primarySize + gapBetweenLines + secondarySize * 0.5) : (topY + secondarySize * 0.5);
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
 
-  const logoY = centerY - secondarySize * 0.9;
-  const paramsY = centerY + secondarySize * 0.85;
-
-  // 1. 居中单徽标
-  if (hasLogo) {
-    if (logo === 'hasselblad') {
+  // 1. Line 1: 机型名称与经典单标 / 品牌徽标
+  if (hasLine1) {
+    if (logo === 'hasselblad' && displayDevice.length === 0) {
+      // 纯哈苏单字母 H
       context.fillStyle = '#FFFFFF';
-      context.font = `italic 700 ${primarySize}px serif, "Times New Roman", sans-serif`;
-      context.fillText('H', w * 0.5, logoY);
+      context.font = `italic 700 ${Math.round(primarySize * 1.25)}px serif, "Times New Roman", sans-serif`;
+      context.fillText('H', w * 0.5, line1Y);
     } else {
-      const logoW = getLogoBadgeWidth(context, logo, primarySize);
-      paintLogoBadge(context, logo, w * 0.5 - logoW * 0.5, logoY, primarySize, '#FFFFFF');
+      const logoSize = Math.round(primarySize * 1.05);
+      const logoW = hasLogo ? getLogoBadgeWidth(context, logo, logoSize) : 0;
+      context.font = `bold ${primarySize}px sans-serif`;
+      const devW = displayDevice.length > 0 ? context.measureText(displayDevice).width : 0;
+      const gap = (logoW > 0 && devW > 0) ? Math.max(6 * scale, Math.round(primarySize * 0.45)) : 0;
+      const totalW = logoW + gap + devW;
+
+      if (logoW > 0) {
+        if (logo === 'hasselblad') {
+          context.fillStyle = '#FFFFFF';
+          context.font = `italic 700 ${logoSize}px serif, "Times New Roman", sans-serif`;
+          context.textAlign = 'left';
+          context.fillText('H', w * 0.5 - totalW * 0.5, line1Y);
+        } else {
+          paintLogoBadge(context, logo, w * 0.5 - totalW * 0.5, line1Y, logoSize, '#FFFFFF');
+        }
+      }
+      if (displayDevice.length > 0) {
+        context.fillStyle = '#FFFFFF';
+        context.font = `bold ${primarySize}px sans-serif`;
+        context.textAlign = logoW > 0 ? 'left' : 'center';
+        const textX = logoW > 0 ? (w * 0.5 - totalW * 0.5 + logoW + gap) : (w * 0.5);
+        context.fillText(displayDevice, textX, line1Y);
+      }
     }
   }
 
-  // 2. 居中带键名参数条
-  context.fillStyle = '#FFFFFF';
-  context.font = `bold ${secondarySize}px monospace, sans-serif`;
-  context.fillText(kvParams, w * 0.5, hasLogo ? paramsY : centerY);
+  // 2. Line 2: 居中带键名工业参数条
+  if (hasLine2) {
+    context.textAlign = 'center';
+    context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    context.font = `bold ${secondarySize}px monospace, sans-serif`;
+    context.fillText(kvParams, w * 0.5, line2Y);
+  }
 }
 
 /** 弥散虚化画中画水印（参考图 2 & 5） */

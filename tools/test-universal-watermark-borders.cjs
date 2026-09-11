@@ -127,8 +127,20 @@ test('paintHarmonicEditorialWatermark 包含优雅题签与中英文双行排版
   assert(harmBody.includes('subTitle') || harmBody.includes('一双发现美的眼睛'), '必须支持中文副标');
 });
 
-test('paintMinimalKeyvalueWatermark 包含键值对参数格式化', () => {
+test('paintMinimalKeyvalueWatermark 包含键值对参数格式化与机型名称排版', () => {
   assert(borderPainterContent.includes('Aperture |') || borderPainterContent.includes('formatKeyValueSpecs'), '必须支持 Aperture | 键值对排版');
+  const kvFuncMatch = borderPainterContent.match(/function paintMinimalKeyvalueWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(kvFuncMatch, '必须提取到 paintMinimalKeyvalueWatermark 函数实现');
+  const kvBody = kvFuncMatch[1];
+  assert(kvBody.includes('displayDevice') || kvBody.includes('deviceModel'), 'paintMinimalKeyvalueWatermark 必须包含机型名称呈现');
+});
+
+test('paintCenteredSpecsWatermark 具备底部呼吸留白与阶梯间距结构，杜绝排版紧迫贴底', () => {
+  const centeredFuncMatch = borderPainterContent.match(/function paintCenteredSpecsWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(centeredFuncMatch, '必须提取到 paintCenteredSpecsWatermark 函数实现');
+  const centeredBody = centeredFuncMatch[1];
+  assert(centeredBody.includes('bottomMargin'), 'paintCenteredSpecsWatermark 必须包含明确的 bottomMargin 底部留白保护');
+  assert(centeredBody.includes('CenteredStackItem') || centeredBody.includes('items.push'), 'paintCenteredSpecsWatermark 必须具备结构化梯级间距');
 });
 
 // ==========================================
