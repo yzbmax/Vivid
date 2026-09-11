@@ -146,10 +146,14 @@ export class BorderCompositionService {
     }
     const canvas = new OffscreenCanvasRenderingContext2D(geom.outputWidth, geom.outputHeight,
       new RenderingContextSettings(true), LengthMetricsUnit.PX);
-    if (geom.templateId === 'watermark_blur_pip') {
+    const isOverlay = geom.templateId === 'watermark_centered_specs' ||
+      geom.templateId === 'watermark_minimal_keyvalue' ||
+      geom.templateId === 'watermark_overlay';
+
+    if (geom.templateId === 'watermark_blur_pip' || geom.templateId === 'watermark_harmonic_editorial') {
       canvas.save();
       try {
-        canvas.filter = 'blur(45px)';
+        canvas.filter = geom.templateId === 'watermark_harmonic_editorial' ? 'blur(64px)' : 'blur(45px)';
       } catch (_e) {}
       const overflowX = Math.round(geom.outputWidth * 0.08);
       const overflowY = Math.round(geom.outputHeight * 0.08);
@@ -163,19 +167,30 @@ export class BorderCompositionService {
       try {
         canvas.filter = 'none';
       } catch (_e) {}
-      canvas.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      if (geom.templateId === 'watermark_harmonic_editorial') {
+        const c = border.colorArgb;
+        canvas.fillStyle = 'rgba(' + ((c >>> 16) & 255) + ',' + ((c >>> 8) & 255) + ',' + (c & 255) + ',0.55)';
+      } else {
+        canvas.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      }
       canvas.fillRect(0, 0, geom.outputWidth, geom.outputHeight);
       canvas.restore();
     }
-    paintBorder(canvas, geom, border);
-    if (geom.cornerRadius > 0) {
-      canvas.save();
-      drawRoundedRectPath(canvas, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height, geom.cornerRadius);
-      canvas.clip();
-      canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
-      canvas.restore();
+
+    if (isOverlay) {
+      canvas.drawImage(basePixelMap, 0, 0, geom.photoRect.width, geom.photoRect.height);
+      paintBorder(canvas, geom, border);
     } else {
-      canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+      paintBorder(canvas, geom, border);
+      if (geom.cornerRadius > 0) {
+        canvas.save();
+        drawRoundedRectPath(canvas, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height, geom.cornerRadius);
+        canvas.clip();
+        canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+        canvas.restore();
+      } else {
+        canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+      }
     }
     // 失败必须上抛，不能把未装裱的原图当作成功结果。
     return canvas.getPixelMap(0, 0, geom.outputWidth, geom.outputHeight);

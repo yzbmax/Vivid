@@ -113,6 +113,9 @@ export struct PreviewArea {
           if (!this.isComparing && this.borderState.templateId === 'watermark_blur_pip') {
             this.blurredBackgroundLayer()
           }
+          if (!this.isComparing && this.borderState.templateId === 'watermark_harmonic_editorial') {
+            this.harmonicBackgroundLayer()
+          }
           if (!this.isComparing) {
             BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
           }
@@ -168,6 +171,13 @@ export struct PreviewArea {
             y: this.layout().photoRect.y - this.layout().outputRect.y })
           .borderRadius(this.photoCornerRadius())
           .clip(true)
+        }
+        if (!this.isComparing && (
+          this.borderState.templateId === 'watermark_centered_specs' ||
+          this.borderState.templateId === 'watermark_minimal_keyvalue' ||
+          this.borderState.templateId === 'watermark_overlay'
+        )) {
+          BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
         }
         .width(this.layout().outputRect.width)
         .height(this.layout().outputRect.height)
@@ -367,6 +377,47 @@ export struct PreviewArea {
         .width('100%')
         .height('100%')
         .backgroundColor('rgba(0, 0, 0, 0.28)')
+    }
+    .width(this.layout().outputRect.width)
+    .height(this.layout().outputRect.height)
+    .position({ x: 0, y: 0 })
+    .clip(true)
+  }
+
+  @Builder
+  private harmonicBackgroundLayer() {
+    Stack() {
+      if (this.previewPixelMap) {
+        Image(this.previewPixelMap)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(64)
+          .colorFilter(this.effects())
+          .syncLoad(true)
+      } else if (this.baseImage !== undefined) {
+        Image(this.baseImage)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(64)
+          .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+          .syncLoad(true)
+      } else if (this.imageSrc) {
+        Image(this.resolvedImageSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(64)
+          .colorFilter(this.isRegionMode ? this.baseFilter : this.effects())
+          .syncLoad(true)
+      }
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.borderState.colorArgb !== 0xFF658A97
+          ? 'rgba(' + ((this.borderState.colorArgb >>> 16) & 255) + ',' + ((this.borderState.colorArgb >>> 8) & 255) + ',' + (this.borderState.colorArgb & 255) + ',0.65)'
+          : 'rgba(32, 48, 56, 0.45)')
     }
     .width(this.layout().outputRect.width)
     .height(this.layout().outputRect.height)

@@ -130,3 +130,19 @@ test('paintHarmonicEditorialWatermark 包含优雅题签与中英文双行排版
 test('paintMinimalKeyvalueWatermark 包含键值对参数格式化', () => {
   assert(borderPainterContent.includes('Aperture |') || borderPainterContent.includes('formatKeyValueSpecs'), '必须支持 Aperture | 键值对排版');
 });
+
+// ==========================================
+// 5. 色彩联动与合成服务 (BorderCompositionService & PreviewArea) 校验
+// ==========================================
+const borderCompositionContent = fs.readFileSync(borderCompositionPath, 'utf8');
+const previewAreaContent = fs.readFileSync(previewAreaPath, 'utf8');
+
+test('BorderCompositionService 正确处理 watermark_harmonic_editorial 色彩联动与画中画合成', () => {
+  assert(borderCompositionContent.includes('watermark_harmonic_editorial'), 'BorderCompositionService 必须支持 watermark_harmonic_editorial');
+  assert(borderCompositionContent.includes('watermark_centered_specs'), 'BorderCompositionService 必须支持 watermark_centered_specs 悬浮层时序');
+});
+
+test('PreviewArea 包含对 watermark_harmonic_editorial 与悬浮水印的预览图层支持', () => {
+  assert(previewAreaContent.includes('watermark_harmonic_editorial'), 'PreviewArea 必须包含 watermark_harmonic_editorial 联动层');
+  assert(previewAreaContent.includes('watermark_centered_specs'), 'PreviewArea 必须包含 watermark_centered_specs 悬浮预览');
+});
