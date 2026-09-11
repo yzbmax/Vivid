@@ -416,9 +416,7 @@ export struct PreviewArea {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor(this.borderState.colorArgb !== 0xFF658A97
-          ? 'rgba(' + ((this.borderState.colorArgb >>> 16) & 255) + ',' + ((this.borderState.colorArgb >>> 8) & 255) + ',' + (this.borderState.colorArgb & 255) + ',0.65)'
-          : 'rgba(32, 48, 56, 0.45)')
+        .backgroundColor('rgba(0, 0, 0, 0.18)')
     }
     .width(this.layout().outputRect.width)
     .height(this.layout().outputRect.height)

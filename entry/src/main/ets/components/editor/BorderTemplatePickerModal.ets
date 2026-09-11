@@ -683,6 +683,15 @@ export struct BorderTemplatePickerModal {
     } else if (tpl.templateId === 'watermark_harmonic_editorial') {
       // 同调画报
       Stack({ alignContent: Alignment.Center }) {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(20)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.18)')
         Column() {
           Row() {
             Text('The decisive moment')
@@ -711,7 +720,6 @@ export struct BorderTemplatePickerModal {
         }
         .width('100%')
         .height('100%')
-        .backgroundColor('#658A97')
       }
       .width('100%')
       .height('100%')

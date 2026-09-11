@@ -127,7 +127,7 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
   {
     templateId: 'watermark_harmonic_editorial',
     name: '同调画报',
-    capabilities: ['width', 'color', 'radius'],
+    capabilities: ['width', 'radius'],
     previewResource: null,
     category: 'brand',
     description: '画面色彩联动留白与艺术题签'

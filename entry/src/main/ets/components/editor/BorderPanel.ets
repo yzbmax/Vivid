@@ -851,6 +851,15 @@ export struct BorderPanel {
       .clip(true)
     } else if (tpl.templateId === 'watermark_harmonic_editorial') {
       Stack({ alignContent: Alignment.Center }) {
+        Image(this.normalizedSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(16)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.18)')
         Column() {
           Row() {
             Text('DECISIVE')
@@ -873,7 +882,6 @@ export struct BorderPanel {
         }
         .width('100%')
         .height('100%')
-        .backgroundColor('#658A97')
       }
       .width(64)
       .height(48)

@@ -35,9 +35,10 @@ export function paintBorder(
   const h = geometry.outputHeight * scale;
   const spread = geometry.shadowSpread * scale;
   context.save();
-  // 实色衬底使 JPEG 与 PNG 的阴影区域保持一致；画中画与无界原画悬浮水印不填充不透明实色底。
+  // 实色衬底使 JPEG 与 PNG 的阴影区域保持一致；画中画、同调画报与悬浮水印不填充不透明实色底。
   if (geometry.templateId !== 'watermark_blur_pip' &&
       geometry.templateId !== 'watermark_centered_specs' &&
+      geometry.templateId !== 'watermark_harmonic_editorial' &&
       geometry.templateId !== 'watermark_minimal_keyvalue' &&
       geometry.templateId !== 'watermark_overlay') {
     context.fillStyle = Theme.PAPER_SURFACE;

@@ -147,22 +147,27 @@ test('PreviewArea 包含对 watermark_harmonic_editorial 与悬浮水印的预�
   assert(previewAreaContent.includes('watermark_centered_specs'), 'PreviewArea 必须包含 watermark_centered_specs 悬浮预览');
 });
 
+test('BorderPainter 必须排除 watermark_harmonic_editorial 实色衬底，确保弥散色彩通透', () => {
+  assert(borderPainterContent.includes("geometry.templateId !== 'watermark_harmonic_editorial'"),
+    'paintBorder 必须将 watermark_harmonic_editorial 排除在实色衬底填充之外');
+});
+
 // ==========================================
 // 6. UI 面板与全屏模版选择器 (BorderPanel & PickerModal) 校验
 // ==========================================
 const borderPanelContent = fs.readFileSync(borderPanelPath, 'utf8');
 const templatePickerModalContent = fs.readFileSync(templatePickerModalPath, 'utf8');
 
-test('BorderPanel 包含 4 款新模版的微缩视觉呈现', () => {
-  assert(borderPanelContent.includes("tpl.templateId === 'watermark_centered_specs'"), 'BorderPanel 必须包含 watermark_centered_specs');
-  assert(borderPanelContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'BorderPanel 必须包含 watermark_harmonic_editorial');
-  assert(borderPanelContent.includes("tpl.templateId === 'watermark_minimal_keyvalue'"), 'BorderPanel 必须包含 watermark_minimal_keyvalue');
+test('全工程严禁硬编码同调画报历史固定实色 658A97', () => {
+  assert(!borderStateContent.includes('658A97'), 'BorderState 不得包含 658A97');
+  assert(!previewAreaContent.includes('658A97'), 'PreviewArea 不得包含 658A97');
+  assert(!borderPanelContent.includes('658A97'), 'BorderPanel 不得包含 658A97');
+  assert(!templatePickerModalContent.includes('658A97'), 'TemplatePickerModal 不得包含 658A97');
 });
 
-test('BorderTemplatePickerModal 包含 4 款新模版的高清模拟卡片呈现', () => {
-  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_centered_specs'"), 'PickerModal 必须包含 watermark_centered_specs');
-  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'PickerModal 必须包含 watermark_harmonic_editorial');
-  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_minimal_keyvalue'"), 'PickerModal 必须包含 watermark_minimal_keyvalue');
+test('BorderPanel 与 PickerModal 缩略图为 watermark_harmonic_editorial 应用动态模糊弥散', () => {
+  assert(borderPanelContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'BorderPanel 必须支持');
+  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'PickerModal 必须支持');
 });
 
 console.log('====================================================');

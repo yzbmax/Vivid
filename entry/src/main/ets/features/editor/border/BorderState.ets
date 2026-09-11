@@ -113,10 +113,7 @@ export function defaultColorForTemplate(templateId: string): number {
   if (templateId === 'watermark_mint_film') {
     return 0xFFA3E4D7;
   }
-  if (templateId === 'watermark_harmonic_editorial') {
-    return 0xFF658A97;
-  }
-  // paper_white / floating_shadow / scroll_mount / camera_watermark / watermark_master_grid / watermark_blur_pip / watermark_centered_specs / watermark_minimal_keyvalue / watermark_overlay / watermark_nordic_gallery / watermark_gradient_frame / watermark_slim_white 默认纸白
+  // paper_white / floating_shadow / scroll_mount / camera_watermark / watermark_master_grid / watermark_blur_pip / watermark_harmonic_editorial / watermark_centered_specs / watermark_minimal_keyvalue / watermark_overlay / watermark_nordic_gallery / watermark_gradient_frame / watermark_slim_white 默认纸白
   return BORDER_DEFAULT_COLOR_PAPER_WHITE;
 }
 

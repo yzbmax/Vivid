@@ -168,8 +168,7 @@ export class BorderCompositionService {
         canvas.filter = 'none';
       } catch (_e) {}
       if (geom.templateId === 'watermark_harmonic_editorial') {
-        const c = border.colorArgb;
-        canvas.fillStyle = 'rgba(' + ((c >>> 16) & 255) + ',' + ((c >>> 8) & 255) + ',' + (c & 255) + ',0.55)';
+        canvas.fillStyle = 'rgba(0, 0, 0, 0.18)';
       } else {
         canvas.fillStyle = 'rgba(0, 0, 0, 0.28)';
       }
