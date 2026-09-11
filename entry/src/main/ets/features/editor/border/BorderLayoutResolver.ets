@@ -119,6 +119,12 @@ export function resolveBorderGeometry(input: BorderResolveInput): BorderGeometry
     geom = resolveScrollMount(input.photoWidth, input.photoHeight, widthRatio, shadow);
   } else if (templateId === 'camera_watermark') {
     geom = resolveCameraWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_centered_specs') {
+    geom = resolveCenteredSpecsWatermark(input.photoWidth, input.photoHeight);
+  } else if (templateId === 'watermark_harmonic_editorial') {
+    geom = resolveHarmonicEditorialWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_minimal_keyvalue') {
+    geom = resolveMinimalKeyvalueWatermark(input.photoWidth, input.photoHeight);
   } else if (templateId === 'watermark_master_grid') {
     geom = resolveMasterGridWatermark(input.photoWidth, input.photoHeight, widthRatio);
   } else if (templateId === 'watermark_blur_pip') {
@@ -504,6 +510,65 @@ function resolveOverlayWatermark(
     shadowSpread: 0,
     decorations: [],
     templateId: 'watermark_overlay',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 居中全参水印：画布尺寸完全与原图一致（零外扩），保持原画幅。
+ */
+function resolveCenteredSpecsWatermark(
+  photoWidth: number, photoHeight: number
+): BorderGeometry {
+  return {
+    outputWidth: photoWidth,
+    outputHeight: photoHeight,
+    photoRect: { x: 0, y: 0, width: photoWidth, height: photoHeight },
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_centered_specs',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 极简键值水印：画布尺寸完全与原图一致（零外扩），保持原画幅。
+ */
+function resolveMinimalKeyvalueWatermark(
+  photoWidth: number, photoHeight: number
+): BorderGeometry {
+  return {
+    outputWidth: photoWidth,
+    outputHeight: photoHeight,
+    photoRect: { x: 0, y: 0, width: photoWidth, height: photoHeight },
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_minimal_keyvalue',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 同调画报边框：宽画幅上下留白，画面主色动态联动。
+ */
+function resolveHarmonicEditorialWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  const side = Math.max(8, Math.round(bw * 0.25));
+  const top = Math.max(48, Math.round(bw * 2.0));
+  const bottom = Math.max(56, Math.round(bw * 2.4));
+  return {
+    outputWidth: photoWidth + side * 2,
+    outputHeight: photoHeight + top + bottom,
+    photoRect: { x: side, y: top, width: photoWidth, height: photoHeight },
+    insets: { top, right: side, bottom, left: side },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_harmonic_editorial',
     cornerRadius: 0
   };
 }

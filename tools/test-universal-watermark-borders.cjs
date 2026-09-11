@@ -82,3 +82,17 @@ console.log('====================================================');
 if (failed > 0) {
   process.exit(1);
 }
+
+// ==========================================
+// 3. 几何解析器 (BorderLayoutResolver) 校验
+// ==========================================
+const borderLayoutResolverContent = fs.readFileSync(borderLayoutResolverPath, 'utf8');
+
+test('BorderLayoutResolver 包含新模板的几何解析函数与分发', () => {
+  assert(borderLayoutResolverContent.includes('resolveCenteredSpecsWatermark'), '必须包含 resolveCenteredSpecsWatermark');
+  assert(borderLayoutResolverContent.includes('resolveHarmonicEditorialWatermark'), '必须包含 resolveHarmonicEditorialWatermark');
+  assert(borderLayoutResolverContent.includes('resolveMinimalKeyvalueWatermark'), '必须包含 resolveMinimalKeyvalueWatermark');
+  assert(borderLayoutResolverContent.includes("templateId === 'watermark_centered_specs'"), '分发中必须包含 watermark_centered_specs');
+  assert(borderLayoutResolverContent.includes("templateId === 'watermark_harmonic_editorial'"), '分发中必须包含 watermark_harmonic_editorial');
+  assert(borderLayoutResolverContent.includes("templateId === 'watermark_minimal_keyvalue'"), '分发中必须包含 watermark_minimal_keyvalue');
+});
