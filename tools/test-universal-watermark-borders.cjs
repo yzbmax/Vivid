@@ -146,3 +146,28 @@ test('PreviewArea 包含对 watermark_harmonic_editorial 与悬浮水印的预�
   assert(previewAreaContent.includes('watermark_harmonic_editorial'), 'PreviewArea 必须包含 watermark_harmonic_editorial 联动层');
   assert(previewAreaContent.includes('watermark_centered_specs'), 'PreviewArea 必须包含 watermark_centered_specs 悬浮预览');
 });
+
+// ==========================================
+// 6. UI 面板与全屏模版选择器 (BorderPanel & PickerModal) 校验
+// ==========================================
+const borderPanelContent = fs.readFileSync(borderPanelPath, 'utf8');
+const templatePickerModalContent = fs.readFileSync(templatePickerModalPath, 'utf8');
+
+test('BorderPanel 包含 4 款新模版的微缩视觉呈现', () => {
+  assert(borderPanelContent.includes("tpl.templateId === 'watermark_centered_specs'"), 'BorderPanel 必须包含 watermark_centered_specs');
+  assert(borderPanelContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'BorderPanel 必须包含 watermark_harmonic_editorial');
+  assert(borderPanelContent.includes("tpl.templateId === 'watermark_minimal_keyvalue'"), 'BorderPanel 必须包含 watermark_minimal_keyvalue');
+});
+
+test('BorderTemplatePickerModal 包含 4 款新模版的高清模拟卡片呈现', () => {
+  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_centered_specs'"), 'PickerModal 必须包含 watermark_centered_specs');
+  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_harmonic_editorial'"), 'PickerModal 必须包含 watermark_harmonic_editorial');
+  assert(templatePickerModalContent.includes("tpl.templateId === 'watermark_minimal_keyvalue'"), 'PickerModal 必须包含 watermark_minimal_keyvalue');
+});
+
+console.log('====================================================');
+console.log(`全部测试结果: ${passed} 项通过, ${failed} 项失败`);
+console.log('====================================================');
+if (failed > 0) {
+  process.exit(1);
+}

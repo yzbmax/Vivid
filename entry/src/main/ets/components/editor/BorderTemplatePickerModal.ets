@@ -656,6 +656,91 @@ export struct BorderTemplatePickerModal {
       }
       .width('100%')
       .height('100%')
+    } else if (tpl.templateId === 'watermark_centered_specs') {
+      // 居中全参
+      Stack({ alignContent: Alignment.Bottom }) {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+
+        Column({ space: 2 }) {
+          Row().width(7).height(7).borderRadius(3.5).backgroundColor('#E4002B')
+          Row().width(32).height(2).backgroundColor('#FFFFFF')
+          Row().width(44).height(1.5).backgroundColor('rgba(255,255,255,0.85)')
+          Row().width(36).height(1.5).backgroundColor('rgba(255,255,255,0.70)')
+        }
+        .width('100%')
+        .padding({ bottom: 8 })
+        .alignItems(HorizontalAlign.Center)
+        .linearGradient({
+          angle: 180,
+          colors: [['rgba(0,0,0,0)', 0], ['rgba(0,0,0,0.7)', 1]]
+        })
+      }
+      .width('100%')
+      .height('100%')
+    } else if (tpl.templateId === 'watermark_harmonic_editorial') {
+      // 同调画报
+      Stack({ alignContent: Alignment.Center }) {
+        Column() {
+          Row() {
+            Text('The decisive moment')
+              .fontSize(7)
+              .fontStyle(FontStyle.Italic)
+              .fontColor('#FFFFFF')
+          }
+          .width('100%')
+          .height(20)
+          .justifyContent(FlexAlign.Center)
+
+          Image(normalizeImageSrc(this.imageSrc))
+            .width('100%')
+            .layoutWeight(1)
+            .objectFit(ImageFit.Cover)
+
+          Column({ space: 1 }) {
+            Row().width(36).height(2).backgroundColor('#FFFFFF')
+            Text('一双发现美的眼睛')
+              .fontSize(6)
+              .fontColor('rgba(255,255,255,0.85)')
+          }
+          .width('100%')
+          .height(22)
+          .justifyContent(FlexAlign.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#658A97')
+      }
+      .width('100%')
+      .height('100%')
+    } else if (tpl.templateId === 'watermark_minimal_keyvalue') {
+      // 极简键值
+      Stack({ alignContent: Alignment.Bottom }) {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+
+        Column({ space: 2 }) {
+          Text('H')
+            .fontSize(11)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+            .fontStyle(FontStyle.Italic)
+          Row().width(48).height(2).backgroundColor('rgba(255,255,255,0.9)')
+        }
+        .width('100%')
+        .padding({ bottom: 8 })
+        .alignItems(HorizontalAlign.Center)
+        .linearGradient({
+          angle: 180,
+          colors: [['rgba(0,0,0,0)', 0], ['rgba(0,0,0,0.7)', 1]]
+        })
+      }
+      .width('100%')
+      .height('100%')
     } else if (tpl.templateId === 'watermark_blur_pip') {
       // 画中画虚化
       Stack({ alignContent: Alignment.Center }) {

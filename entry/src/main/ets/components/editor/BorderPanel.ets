@@ -14,17 +14,8 @@ import {
   templateSupportsCapability,
   isWatermarkTemplate
 } from '../../features/editor/border/BorderCatalog';
+import { inferLogoFromDeviceModel } from '../../services/ExifReaderService';
 import { Theme } from '../common/Theme';
-
-interface LogoOption {
-  id: WatermarkLogoType;
-  label: string;
-}
-
-interface DevicePreset {
-  name: string;
-  logo: WatermarkLogoType;
-}
 
 /**
  * 边框面板（装裱 · 边式）。
@@ -35,7 +26,7 @@ interface DevicePreset {
  * - 选中态使用朱砂 #B23B2F，主要动作 #7B171B
  * - 滑块沿用朱砂方块滑块头
  * - 边框缩略图使用四角括号和浅朱砂内线（占位 SVG 已实现）
- * - 支持相机水印专属配置（机型、Logo、参数、时间自选与自由切换）
+ * - 支持相机水印专属配置（纯靠读 EXIF 与用户自主输入，杜绝明文展示竞品商标）
  */
 @Component
 export struct BorderPanel {
@@ -64,45 +55,6 @@ export struct BorderPanel {
     0xFFC49A5B, // 琥珀
     0xFF574140, // 灰墨
     0xFFF2F1ED  // 反色纸白
-  ];
-
-  private readonly logoOptions: LogoOption[] = [
-    { id: 'zeiss', label: '蔡司 ZEISS' },
-    { id: 'leica', label: '徕卡 LEICA' },
-    { id: 'hasselblad', label: '哈苏 HASSELBLAD' },
-    { id: 'xmage', label: '华为 XMAGE' },
-    { id: 'fujifilm', label: '富士 FUJIFILM' },
-    { id: 'xiaomi', label: '小米 Xiaomi' },
-    { id: 'huawei', label: '华为 HUAWEI' },
-    { id: 'apple', label: 'Apple' },
-    { id: 'samsung', label: '三星 SAMSUNG' },
-    { id: 'vivo', label: 'vivo' },
-    { id: 'oppo', label: 'OPPO' },
-    { id: 'honor', label: '荣耀 HONOR' },
-    { id: 'sony', label: '索尼 SONY' },
-    { id: 'canon', label: '佳能 Canon' },
-    { id: 'nikon', label: '尼康 Nikon' },
-    { id: 'master', label: 'Master 影展' },
-    { id: 'none', label: '无标识' }
-  ];
-
-  private readonly devicePresets: DevicePreset[] = [
-    { name: 'vivo X300 Pro', logo: 'zeiss' },
-    { name: 'HUAWEI Mate 60 Pro', logo: 'xmage' },
-    { name: 'HUAWEI Pura 70 Ultra', logo: 'huawei' },
-    { name: 'Xiaomi 14 Ultra', logo: 'leica' },
-    { name: 'Xiaomi 15 Pro', logo: 'xiaomi' },
-    { name: 'iPhone 16 Pro', logo: 'apple' },
-    { name: 'iPhone 15 Pro Max', logo: 'apple' },
-    { name: 'Samsung S24 Ultra', logo: 'samsung' },
-    { name: 'OPPO Find X7 Ultra', logo: 'hasselblad' },
-    { name: 'HONOR Magic6 Pro', logo: 'honor' },
-    { name: 'Fujifilm X-T5', logo: 'fujifilm' },
-    { name: 'Fujifilm X100VI', logo: 'fujifilm' },
-    { name: 'Sony α7 IV', logo: 'sony' },
-    { name: 'Canon EOS R5', logo: 'canon' },
-    { name: 'Nikon Z8', logo: 'nikon' },
-    { name: 'Leica M11', logo: 'leica' }
   ];
 
   build() {
@@ -211,9 +163,9 @@ export struct BorderPanel {
 
       // 2. Tab 内容
       if (this.activeWatermarkTab === 0) {
-        // Tab 0: 机型与标识
-        Column({ space: 6 }) {
-          // 机型输入与开关
+        // Tab 0: 机型与标识（严格去明文候选列表：纯靠读EXIF与用户自主输入）
+        Column({ space: 8 }) {
+          // 1. 机型行：输入与开关，附带读EXIF快捷操作
           Row({ space: 8 }) {
             Text('机型')
               .fontFamily(Theme.FONT_MONO)
@@ -227,53 +179,39 @@ export struct BorderPanel {
                 next.showDevice = isOn;
                 this.onWatermarkChange(next);
               })
-            TextInput({ text: this.currentWatermark().deviceModel, placeholder: '输入机型型号' })
+            TextInput({ text: this.currentWatermark().deviceModel, placeholder: '输入自定义机型，或点右侧读EXIF' })
               .layoutWeight(1)
               .height(28)
-              .fontSize(12)
+              .fontSize(11)
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .borderRadius(4)
               .enabled(this.currentWatermark().showDevice)
               .onChange((val: string) => {
                 const next = cloneWatermarkConfig(this.currentWatermark());
                 next.deviceModel = val;
+                const inferred = inferLogoFromDeviceModel(val);
+                if (inferred !== 'none') {
+                  next.logo = inferred;
+                }
                 this.onWatermarkChange(next);
+              })
+            Button('读EXIF')
+              .fontSize(10)
+              .height(26)
+              .fontColor(Theme.SEAL_RED)
+              .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
+              .border({ width: 0.5, color: Theme.SEAL_RED })
+              .borderRadius(4)
+              .onClick(() => {
+                this.onExtractExif();
               })
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
-          // 常用机型快捷预设
-          Scroll() {
-            Row({ space: 6 }) {
-              ForEach(this.devicePresets, (preset: DevicePreset) => {
-                Text(preset.name)
-                  .fontSize(11)
-                  .fontFamily(Theme.FONT_SANS)
-                  .fontColor(this.currentWatermark().deviceModel === preset.name ? Theme.SEAL_RED : Theme.ON_SURFACE_VARIANT)
-                  .backgroundColor(this.currentWatermark().deviceModel === preset.name ? Theme.SURFACE_CONTAINER_HIGHEST : Theme.PAPER_SURFACE)
-                  .border({ width: 0.5, color: this.currentWatermark().deviceModel === preset.name ? Theme.SEAL_RED : Theme.OUTLINE_VARIANT })
-                  .borderRadius(12)
-                  .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                  .onClick(() => {
-                    const next = cloneWatermarkConfig(this.currentWatermark());
-                    next.deviceModel = preset.name;
-                    next.logo = preset.logo;
-                    next.showDevice = true;
-                    next.showLogo = true;
-                    this.onWatermarkChange(next);
-                  })
-              }, (p: DevicePreset) => p.name)
-            }
-          }
-          .scrollable(ScrollDirection.Horizontal)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .width('100%')
-
-          // Logo 标识选择
+          // 2. 标识行：开关与说明（随照片EXIF或机型自适应匹配呈现，杜绝明文商标展示）
           Row({ space: 8 }) {
-            Text('Logo')
+            Text('标识')
               .fontFamily(Theme.FONT_MONO)
               .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
               .fontColor(Theme.ON_SURFACE_VARIANT)
@@ -285,35 +223,17 @@ export struct BorderPanel {
                 next.showLogo = isOn;
                 this.onWatermarkChange(next);
               })
-            Scroll() {
-              Row({ space: 6 }) {
-                ForEach(this.logoOptions, (opt: LogoOption) => {
-                  Text(opt.label)
-                    .fontSize(11)
-                    .fontFamily(Theme.FONT_SANS)
-                    .fontColor(this.currentWatermark().logo === opt.id ? Theme.SEAL_RED : Theme.ON_SURFACE_VARIANT)
-                    .backgroundColor(this.currentWatermark().logo === opt.id ? Theme.SURFACE_CONTAINER_HIGHEST : Theme.PAPER_SURFACE)
-                    .border({ width: 0.5, color: this.currentWatermark().logo === opt.id ? Theme.SEAL_RED : Theme.OUTLINE_VARIANT })
-                    .borderRadius(12)
-                    .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                    .onClick(() => {
-                      const next = cloneWatermarkConfig(this.currentWatermark());
-                      next.logo = opt.id;
-                      next.showLogo = true;
-                      this.onWatermarkChange(next);
-                    })
-                }, (opt: LogoOption) => opt.id)
-              }
-            }
-            .layoutWeight(1)
-            .scrollable(ScrollDirection.Horizontal)
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+            Text('品牌徽标（随照片EXIF或机型自动提取呈现）')
+              .fontFamily(Theme.FONT_SANS)
+              .fontSize(Theme.FONT_SIZE_LABEL_MONO_SM)
+              .fontColor(Theme.ON_SURFACE_VARIANT)
+              .layoutWeight(1)
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
         }
         .width('100%')
+        .padding({ top: 2, bottom: 2 })
       } else if (this.activeWatermarkTab === 1) {
         // Tab 1: 参数与时间
         Column({ space: 6 }) {
@@ -413,9 +333,10 @@ export struct BorderPanel {
               })
             Text(this.formatWidthLabel(this.borderState.widthRatio))
               .fontFamily(Theme.FONT_MONO)
-              .fontSize(Theme.FONT_SIZE_LABEL_MONO)
+              .fontSize(11)
               .fontColor(Theme.PRIMARY)
-              .width(56)
+              .width(72)
+              .maxLines(1)
               .textAlign(TextAlign.End)
           }
           .width('100%')
@@ -443,9 +364,10 @@ export struct BorderPanel {
               })
             Text(this.formatRadiusLabel(this.borderState.radiusRatio ?? 0))
               .fontFamily(Theme.FONT_MONO)
-              .fontSize(Theme.FONT_SIZE_LABEL_MONO)
+              .fontSize(11)
               .fontColor(Theme.PRIMARY)
-              .width(56)
+              .width(72)
+              .maxLines(1)
               .textAlign(TextAlign.End)
           }
           .width('100%')
@@ -536,9 +458,10 @@ export struct BorderPanel {
           })
         Text(this.formatWidthLabel(this.borderState.widthRatio))
           .fontFamily(Theme.FONT_MONO)
-          .fontSize(Theme.FONT_SIZE_LABEL_MONO)
+          .fontSize(11)
           .fontColor(Theme.PRIMARY)
-          .width(56)
+          .width(72)
+          .maxLines(1)
           .textAlign(TextAlign.End)
       }
       .width('100%')
@@ -568,9 +491,10 @@ export struct BorderPanel {
           })
         Text(this.formatRadiusLabel(this.borderState.radiusRatio ?? 0))
           .fontFamily(Theme.FONT_MONO)
-          .fontSize(Theme.FONT_SIZE_LABEL_MONO)
+          .fontSize(11)
           .fontColor(Theme.PRIMARY)
-          .width(56)
+          .width(72)
+          .maxLines(1)
           .textAlign(TextAlign.End)
       }
       .width('100%')
@@ -740,7 +664,7 @@ export struct BorderPanel {
       return 0xFF2A221C;
     }
     if (id === 'watermark_mint_film') {
-      return 0xFF2C3E3A;
+      return 0xFFA3E4D7;
     }
     return 0xFFFFFFFF;
   }
@@ -897,6 +821,85 @@ export struct BorderPanel {
         .height(12)
         .backgroundColor('#FFFFFF')
         .alignItems(VerticalAlign.Center)
+      }
+      .width(64)
+      .height(48)
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_centered_specs') {
+      Stack({ alignContent: Alignment.Bottom }) {
+        Image(this.normalizedSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+        Column({ space: 1 }) {
+          Row().width(4).height(4).borderRadius(2).backgroundColor('#E4002B')
+          Row().width(18).height(1.5).backgroundColor('#FFFFFF')
+          Row().width(24).height(1).backgroundColor('rgba(255,255,255,0.8)')
+        }
+        .width('100%')
+        .padding({ bottom: 3 })
+        .alignItems(HorizontalAlign.Center)
+        .linearGradient({
+          angle: 180,
+          colors: [['rgba(0,0,0,0)', 0], ['rgba(0,0,0,0.7)', 1]]
+        })
+      }
+      .width(64)
+      .height(48)
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_harmonic_editorial') {
+      Stack({ alignContent: Alignment.Center }) {
+        Column() {
+          Row() {
+            Text('DECISIVE')
+              .fontSize(4)
+              .fontColor('#FFFFFF')
+          }
+          .width('100%')
+          .height(8)
+          .justifyContent(FlexAlign.Center)
+          Image(this.normalizedSrc())
+            .width('100%')
+            .height(32)
+            .objectFit(ImageFit.Cover)
+          Row() {
+            Row().width(16).height(1.5).backgroundColor('#FFFFFF')
+          }
+          .width('100%')
+          .height(8)
+          .justifyContent(FlexAlign.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#658A97')
+      }
+      .width(64)
+      .height(48)
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_minimal_keyvalue') {
+      Stack({ alignContent: Alignment.Bottom }) {
+        Image(this.normalizedSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+        Column({ space: 1 }) {
+          Text('H')
+            .fontSize(6)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+            .fontStyle(FontStyle.Italic)
+          Row().width(26).height(1).backgroundColor('rgba(255,255,255,0.9)')
+        }
+        .width('100%')
+        .padding({ bottom: 3 })
+        .alignItems(HorizontalAlign.Center)
+        .linearGradient({
+          angle: 180,
+          colors: [['rgba(0,0,0,0)', 0], ['rgba(0,0,0,0.7)', 1]]
+        })
       }
       .width(64)
       .height(48)
