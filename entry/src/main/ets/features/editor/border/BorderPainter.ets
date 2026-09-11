@@ -819,43 +819,28 @@ function paintCenteredSpecsWatermark(
   const h = geometry.outputHeight * scale;
 
   const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
-  // 1. 宽幅平滑渐变保护层（随高度滑块等比联动，柔和过渡）
-  const overlayH = Math.max(48 * scale, h * safeRatio * 2.8);
-  const grad = context.createLinearGradient(0, h - overlayH, 0, h);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.22)');
-  grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.55)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
-  context.fillStyle = grad;
-  context.fillRect(0, h - overlayH, w, overlayH);
+  // 整体比例绝对锁定：将 0.04 ~ 0.20 平滑线性映射为 0.70x ~ 1.50x 整体等比缩放系数（10% 对应精准 1.00x 黄金比例）
+  const scaleFactor = 1.0 + (safeRatio - 0.10) * 5.0;
 
-  const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
-  const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
-  const gps = wm.gpsText ? wm.gpsText.trim() : '';
-  const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
-  const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
-  const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
-  const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
-
-  // 2. 梯级字体与间距比例（松弛有度、随高度比例平滑缩放，杜绝死板封顶与排版脱节）
-  const primarySize = Math.max(9 * scale, Math.round(overlayH * 0.14));
+  // 1. 梯级字体与间距比例（所有尺寸、字号、间距与底留白均以黄金比例严格等比绑定，比例永不失真）
+  const basePrimary = Math.max(10 * scale, Math.round(h * 0.038));
+  const primarySize = Math.round(basePrimary * scaleFactor);
   const logoSize = Math.round(primarySize * 1.35);
-  const secondarySize = Math.max(7 * scale, Math.round(primarySize * 0.74));
-  const tertiarySize = Math.max(6 * scale, Math.round(primarySize * 0.65));
+  const secondarySize = Math.round(primarySize * 0.74);
+  const tertiarySize = Math.round(primarySize * 0.65);
 
   const items: CenteredStackItem[] = [];
   if (hasLogo) {
-    items.push({ kind: 'logo', h: logoSize, gapBelow: Math.max(4 * scale, overlayH * 0.055) });
+    items.push({ kind: 'logo', h: logoSize, gapBelow: Math.round(primarySize * 0.38) });
   }
   if (displayDevice.length > 0) {
-    items.push({ kind: 'device', h: primarySize, gapBelow: Math.max(5 * scale, overlayH * 0.065) });
+    items.push({ kind: 'device', h: primarySize, gapBelow: Math.round(primarySize * 0.44) });
   }
   if (params.length > 0) {
-    items.push({ kind: 'params', h: secondarySize, gapBelow: Math.max(4 * scale, overlayH * 0.045) });
+    items.push({ kind: 'params', h: secondarySize, gapBelow: Math.round(primarySize * 0.35) });
   }
   if (gps.length > 0) {
-    items.push({ kind: 'gps', h: tertiarySize, gapBelow: Math.max(3 * scale, overlayH * 0.04) });
+    items.push({ kind: 'gps', h: tertiarySize, gapBelow: Math.round(primarySize * 0.30) });
   }
   if (time.length > 0) {
     items.push({ kind: 'time', h: tertiarySize, gapBelow: 0 });
@@ -871,12 +856,19 @@ function paintCenteredSpecsWatermark(
     totalContentH += it.h + it.gapBelow;
   }
 
-  // 3. 底部安全留白（随水印整体高度等比缩放，文字底边缘距离照片底部保留充分呼吸空间，绝不贴底）
-  const bottomMargin = Math.max(12 * scale, Math.round(overlayH * 0.22));
-  let topY = h - bottomMargin - totalContentH;
-  if (topY < h - overlayH + 8 * scale) {
-    topY = h - overlayH + 8 * scale;
-  }
+  // 2. 底部呼吸留白与渐变包络（严格按 primarySize 等比锚定，渐变仅在文字上方柔和过渡，决不爬升过高）
+  const bottomMargin = Math.round(primarySize * 1.55);
+  const topY = h - bottomMargin - totalContentH;
+  const overlayH = totalContentH + bottomMargin + Math.round(primarySize * 2.2);
+
+  // 3. 绘制平滑渐变保护层
+  const grad = context.createLinearGradient(0, h - overlayH, 0, h);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.22)');
+  grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.55)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
+  context.fillStyle = grad;
+  context.fillRect(0, h - overlayH, w, overlayH);
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
@@ -1045,13 +1037,8 @@ function paintMinimalKeyvalueWatermark(
   const h = geometry.outputHeight * scale;
 
   const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
-  const overlayH = Math.max(40 * scale, h * safeRatio * 2.2);
-  const grad = context.createLinearGradient(0, h - overlayH, 0, h);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.28)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.72)');
-  context.fillStyle = grad;
-  context.fillRect(0, h - overlayH, w, overlayH);
+  // 整体比例绝对锁定：将 0.04 ~ 0.20 平滑线性映射为 0.70x ~ 1.50x 整体等比缩放系数（10% 对应精准 1.00x 黄金比例）
+  const scaleFactor = 1.0 + (safeRatio - 0.10) * 5.0;
 
   const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
   const rawParams = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
@@ -1070,10 +1057,12 @@ function paintMinimalKeyvalueWatermark(
     return;
   }
 
-  const primarySize = Math.max(9 * scale, Math.round(overlayH * 0.18));
-  const secondarySize = Math.max(7 * scale, Math.round(overlayH * 0.12));
-  const bottomMargin = Math.max(10 * scale, Math.round(overlayH * 0.25));
-  const gapBetweenLines = Math.max(5 * scale, Math.round(overlayH * 0.08));
+  // 1. 梯级字体与留白严格等比绑定
+  const basePrimary = Math.max(10 * scale, Math.round(h * 0.038));
+  const primarySize = Math.round(basePrimary * scaleFactor);
+  const secondarySize = Math.round(primarySize * 0.65);
+  const bottomMargin = Math.round(primarySize * 1.45);
+  const gapBetweenLines = Math.round(primarySize * 0.42);
 
   let totalH = 0;
   if (hasLine1 && hasLine2) {
@@ -1087,6 +1076,15 @@ function paintMinimalKeyvalueWatermark(
   const topY = h - bottomMargin - totalH;
   const line1Y = topY + primarySize * 0.5;
   const line2Y = hasLine1 ? (topY + primarySize + gapBetweenLines + secondarySize * 0.5) : (topY + secondarySize * 0.5);
+
+  // 2. 渐变平滑包络层，仅覆盖内容并预留适量呼吸区
+  const overlayH = totalH + bottomMargin + Math.round(primarySize * 2.0);
+  const grad = context.createLinearGradient(0, h - overlayH, 0, h);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.28)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.72)');
+  context.fillStyle = grad;
+  context.fillRect(0, h - overlayH, w, overlayH);
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
@@ -1379,8 +1377,16 @@ function paintOverlayWatermark(
   const h = geometry.outputHeight * scale;
 
   const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
-  // 1. 底部微暗半透明渐变层（随高度滑块等比联动，保证任何底图文字都清晰）
-  const overlayH = Math.max(36 * scale, h * safeRatio * 1.2);
+  // 整体比例绝对锁定：将 0.04 ~ 0.20 平滑线性映射为 0.70x ~ 1.50x 整体等比缩放系数（10% 对应精准 1.00x 黄金比例）
+  const scaleFactor = 1.0 + (safeRatio - 0.10) * 5.0;
+
+  const basePrimary = Math.max(9 * scale, Math.round(h * 0.032));
+  const primarySize = Math.round(basePrimary * scaleFactor);
+  const secondarySize = Math.round(primarySize * 0.78);
+  const bottomMargin = Math.round(primarySize * 1.3);
+
+  // 渐变层高度紧凑包裹排版区域
+  const overlayH = Math.round(primarySize * 3.6);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.25)');
@@ -1388,12 +1394,9 @@ function paintOverlayWatermark(
   context.fillStyle = grad;
   context.fillRect(0, h - overlayH, w, overlayH);
 
-  // 2. 纯白高透亮水印排版（随高度比例平滑缩放）
-  const centerY = h - overlayH * 0.45;
-  const marginX = Math.max(14 * scale, w * 0.045);
-
-  const primarySize = Math.max(8 * scale, Math.round(overlayH * 0.28));
-  const secondarySize = Math.max(6 * scale, Math.round(overlayH * 0.22));
+  // 纯白高透亮水印排版（所有坐标、外边距、字号与 primarySize 等比锚定）
+  const centerY = h - bottomMargin - primarySize * 0.5;
+  const marginX = Math.round(primarySize * 1.4);
 
   const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
