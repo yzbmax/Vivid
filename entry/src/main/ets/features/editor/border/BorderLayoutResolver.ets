@@ -17,7 +17,7 @@ import {
   clampBorderWidthRatio
 } from '../../../models/SharedContracts';
 import { normalizeBorderTemplateId } from './BorderState';
-import { templateSupportsCapability } from './BorderCatalog';
+import { isWatermarkTemplate, templateSupportsCapability } from './BorderCatalog';
 
 /** 四边宽度（像素）。 */
 export interface BorderInsets {
@@ -95,7 +95,7 @@ export function resolveBorderGeometry(input: BorderResolveInput): BorderGeometry
     ? Math.round(maxCornerRadius * radiusRatio)
     : 0;
 
-  if (templateId === 'none' || widthRatio === 0) {
+  if (templateId === 'none' || (!isWatermarkTemplate(templateId) && widthRatio === 0)) {
     return {
       outputWidth: input.photoWidth,
       outputHeight: input.photoHeight,

@@ -60,6 +60,16 @@ test('BorderCatalog 注册 4 款新一代通用模板', () => {
   assert(borderCatalogContent.includes("'watermark_blur_pip'"), '必须包含 watermark_blur_pip (画中画卡片)');
 });
 
+test('居中全参与极简键值声明 width 能力，支持底栏高度与字号实时无级调节', () => {
+  const centeredMatch = borderCatalogContent.match(/templateId:\s*'watermark_centered_specs'[\s\S]*?capabilities:\s*\[([\s\S]*?)\]/);
+  assert(centeredMatch, '必须找到 watermark_centered_specs 的 capabilities');
+  assert(centeredMatch[1].includes("'width'"), 'watermark_centered_specs 必须声明 width 能力');
+
+  const kvMatch = borderCatalogContent.match(/templateId:\s*'watermark_minimal_keyvalue'[\s\S]*?capabilities:\s*\[([\s\S]*?)\]/);
+  assert(kvMatch, '必须找到 watermark_minimal_keyvalue 的 capabilities');
+  assert(kvMatch[1].includes("'width'"), 'watermark_minimal_keyvalue 必须声明 width 能力');
+});
+
 test('isWatermarkTemplate 正确涵盖所有 4 款新通用模板', () => {
   const checkFuncMatch = borderCatalogContent.match(/export function isWatermarkTemplate[\s\S]*?\{([\s\S]*?)\}/);
   assert(checkFuncMatch, '必须导出 isWatermarkTemplate 函数');
@@ -141,6 +151,25 @@ test('paintCenteredSpecsWatermark 具备底部呼吸留白与阶梯间距结构�
   const centeredBody = centeredFuncMatch[1];
   assert(centeredBody.includes('bottomMargin'), 'paintCenteredSpecsWatermark 必须包含明确的 bottomMargin 底部留白保护');
   assert(centeredBody.includes('CenteredStackItem') || centeredBody.includes('items.push'), 'paintCenteredSpecsWatermark 必须具备结构化梯级间距');
+});
+
+test('居中全参、极简键值与无界悬浮水印字号及高度随 safe.widthRatio 顺畅联动，彻底消除死板硬编码封顶', () => {
+  const centeredFuncMatch = borderPainterContent.match(/function paintCenteredSpecsWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(centeredFuncMatch, '必须提取到 paintCenteredSpecsWatermark');
+  const centeredBody = centeredFuncMatch[1];
+  assert(centeredBody.includes('safeRatio') || centeredBody.includes('safe.widthRatio'), '居中全参必须消费 safe.widthRatio');
+  assert(!centeredBody.includes('Math.min(22 * scale'), '居中全参不得包含死板的 22*scale 字号硬编码封顶');
+
+  const kvFuncMatch = borderPainterContent.match(/function paintMinimalKeyvalueWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(kvFuncMatch, '必须提取到 paintMinimalKeyvalueWatermark');
+  const kvBody = kvFuncMatch[1];
+  assert(kvBody.includes('safeRatio') || kvBody.includes('safe.widthRatio'), '极简键值必须消费 safe.widthRatio');
+  assert(!kvBody.includes('Math.min(22 * scale'), '极简键值不得包含死板的 22*scale 字号硬编码封顶');
+
+  const overlayFuncMatch = borderPainterContent.match(/function paintOverlayWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(overlayFuncMatch, '必须提取到 paintOverlayWatermark');
+  const overlayBody = overlayFuncMatch[1];
+  assert(overlayBody.includes('safeRatio') || overlayBody.includes('safe.widthRatio'), '无界悬浮必须消费 safe.widthRatio');
 });
 
 // ==========================================

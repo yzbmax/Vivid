@@ -818,8 +818,9 @@ function paintCenteredSpecsWatermark(
   const w = geometry.outputWidth * scale;
   const h = geometry.outputHeight * scale;
 
-  // 1. 宽幅平滑渐变保护层（柔和过渡，让白色参数在任何画面底层均有极佳可读性）
-  const overlayH = Math.max(96 * scale, h * 0.28);
+  const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
+  // 1. 宽幅平滑渐变保护层（随高度滑块等比联动，柔和过渡）
+  const overlayH = Math.max(48 * scale, h * safeRatio * 2.8);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.22)');
@@ -837,24 +838,24 @@ function paintCenteredSpecsWatermark(
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
-  // 2. 梯级字体与间距比例（松弛有度、呼吸感充沛，杜绝局促感）
-  const primarySize = Math.max(12 * scale, Math.min(22 * scale, Math.round(overlayH * 0.14)));
+  // 2. 梯级字体与间距比例（松弛有度、随高度比例平滑缩放，杜绝死板封顶与排版脱节）
+  const primarySize = Math.max(9 * scale, Math.round(overlayH * 0.14));
   const logoSize = Math.round(primarySize * 1.35);
-  const secondarySize = Math.max(9 * scale, Math.min(15 * scale, Math.round(primarySize * 0.74)));
-  const tertiarySize = Math.max(8 * scale, Math.min(13 * scale, Math.round(primarySize * 0.65)));
+  const secondarySize = Math.max(7 * scale, Math.round(primarySize * 0.74));
+  const tertiarySize = Math.max(6 * scale, Math.round(primarySize * 0.65));
 
   const items: CenteredStackItem[] = [];
   if (hasLogo) {
-    items.push({ kind: 'logo', h: logoSize, gapBelow: Math.max(6 * scale, overlayH * 0.055) });
+    items.push({ kind: 'logo', h: logoSize, gapBelow: Math.max(4 * scale, overlayH * 0.055) });
   }
   if (displayDevice.length > 0) {
-    items.push({ kind: 'device', h: primarySize, gapBelow: Math.max(7 * scale, overlayH * 0.065) });
+    items.push({ kind: 'device', h: primarySize, gapBelow: Math.max(5 * scale, overlayH * 0.065) });
   }
   if (params.length > 0) {
-    items.push({ kind: 'params', h: secondarySize, gapBelow: Math.max(5 * scale, overlayH * 0.045) });
+    items.push({ kind: 'params', h: secondarySize, gapBelow: Math.max(4 * scale, overlayH * 0.045) });
   }
   if (gps.length > 0) {
-    items.push({ kind: 'gps', h: tertiarySize, gapBelow: Math.max(4 * scale, overlayH * 0.04) });
+    items.push({ kind: 'gps', h: tertiarySize, gapBelow: Math.max(3 * scale, overlayH * 0.04) });
   }
   if (time.length > 0) {
     items.push({ kind: 'time', h: tertiarySize, gapBelow: 0 });
@@ -870,11 +871,11 @@ function paintCenteredSpecsWatermark(
     totalContentH += it.h + it.gapBelow;
   }
 
-  // 3. 底部安全留白（文字底边缘距离照片底部保留充分呼吸空间，绝不贴底）
-  const bottomMargin = Math.max(18 * scale, h * 0.06);
+  // 3. 底部安全留白（随水印整体高度等比缩放，文字底边缘距离照片底部保留充分呼吸空间，绝不贴底）
+  const bottomMargin = Math.max(12 * scale, Math.round(overlayH * 0.22));
   let topY = h - bottomMargin - totalContentH;
-  if (topY < h - overlayH + 12 * scale) {
-    topY = h - overlayH + 12 * scale;
+  if (topY < h - overlayH + 8 * scale) {
+    topY = h - overlayH + 8 * scale;
   }
 
   context.textAlign = 'center';
@@ -1043,7 +1044,8 @@ function paintMinimalKeyvalueWatermark(
   const w = geometry.outputWidth * scale;
   const h = geometry.outputHeight * scale;
 
-  const overlayH = Math.max(80 * scale, h * 0.22);
+  const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
+  const overlayH = Math.max(40 * scale, h * safeRatio * 2.2);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.28)');
@@ -1068,10 +1070,10 @@ function paintMinimalKeyvalueWatermark(
     return;
   }
 
-  const primarySize = Math.max(12 * scale, Math.min(22 * scale, Math.round(overlayH * 0.18)));
-  const secondarySize = Math.max(9 * scale, Math.min(16 * scale, Math.round(overlayH * 0.12)));
-  const bottomMargin = Math.max(16 * scale, h * 0.055);
-  const gapBetweenLines = Math.max(8 * scale, overlayH * 0.08);
+  const primarySize = Math.max(9 * scale, Math.round(overlayH * 0.18));
+  const secondarySize = Math.max(7 * scale, Math.round(overlayH * 0.12));
+  const bottomMargin = Math.max(10 * scale, Math.round(overlayH * 0.25));
+  const gapBetweenLines = Math.max(5 * scale, Math.round(overlayH * 0.08));
 
   let totalH = 0;
   if (hasLine1 && hasLine2) {
@@ -1376,8 +1378,9 @@ function paintOverlayWatermark(
   const w = geometry.outputWidth * scale;
   const h = geometry.outputHeight * scale;
 
-  // 1. 底部微暗半透明渐变层（保证任何底图文字都清晰）
-  const overlayH = Math.max(48 * scale, h * 0.12);
+  const safeRatio = (safe.widthRatio > 0) ? safe.widthRatio : 0.10;
+  // 1. 底部微暗半透明渐变层（随高度滑块等比联动，保证任何底图文字都清晰）
+  const overlayH = Math.max(36 * scale, h * safeRatio * 1.2);
   const grad = context.createLinearGradient(0, h - overlayH, 0, h);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.25)');
@@ -1385,12 +1388,12 @@ function paintOverlayWatermark(
   context.fillStyle = grad;
   context.fillRect(0, h - overlayH, w, overlayH);
 
-  // 2. 纯白高透亮水印排版
+  // 2. 纯白高透亮水印排版（随高度比例平滑缩放）
   const centerY = h - overlayH * 0.45;
   const marginX = Math.max(14 * scale, w * 0.045);
 
-  const primarySize = Math.max(10, Math.round(overlayH * 0.28));
-  const secondarySize = Math.max(8, Math.round(overlayH * 0.22));
+  const primarySize = Math.max(8 * scale, Math.round(overlayH * 0.28));
+  const secondarySize = Math.max(6 * scale, Math.round(overlayH * 0.22));
 
   const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';

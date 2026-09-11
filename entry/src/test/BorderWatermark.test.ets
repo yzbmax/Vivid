@@ -28,6 +28,9 @@ import {
   formatIso,
   formatExifDateTime
 } from '../main/ets/features/editor/border/ExifFormatUtils';
+import {
+  isLogoDuplicatedWithDevice
+} from '../main/ets/features/editor/border/BorderPainter';
 
 export default function borderWatermarkTest() {
   describe('borderWatermarkTest', () => {
@@ -403,6 +406,35 @@ export default function borderWatermarkTest() {
         const cloned = cloneWatermarkConfig(cfg);
         expect(cloned.logo).assertEqual(l);
       }
+    });
+
+    it('correctly detects brand duplication between logo and deviceModel', 0, () => {
+      // 索尼全名机型包含 SONY，与 sony 冲突，应去重
+      expect(isLogoDuplicatedWithDevice('sony', 'SONY ILCE-7')).assertTrue();
+      expect(isLogoDuplicatedWithDevice('sony', 'Sony α7 IV')).assertTrue();
+
+      // 不带品牌前缀的机型不冲突
+      expect(isLogoDuplicatedWithDevice('sony', 'ILCE-7')).assertFalse();
+      expect(isLogoDuplicatedWithDevice('sony', 'α7R V')).assertFalse();
+
+      // 镜头联名不冲突（手机 + 镜头）
+      expect(isLogoDuplicatedWithDevice('zeiss', 'vivo X300 Pro')).assertFalse();
+      expect(isLogoDuplicatedWithDevice('leica', 'Xiaomi 14 Ultra')).assertFalse();
+      expect(isLogoDuplicatedWithDevice('hasselblad', 'OPPO Find X7 Ultra')).assertFalse();
+
+      // 佳能、尼康、富士同品牌全名冲突
+      expect(isLogoDuplicatedWithDevice('canon', 'Canon EOS R5')).assertTrue();
+      expect(isLogoDuplicatedWithDevice('nikon', 'Nikon Z8')).assertTrue();
+      expect(isLogoDuplicatedWithDevice('fujifilm', 'Fujifilm X-T5')).assertTrue();
+      expect(isLogoDuplicatedWithDevice('apple', 'iPhone 16 Pro')).assertFalse();
+      expect(isLogoDuplicatedWithDevice('apple', 'Apple')).assertTrue();
+      expect(isLogoDuplicatedWithDevice('xiaomi', 'Xiaomi 15 Pro')).assertTrue();
+    });
+
+    it('watermark_centered_specs and watermark_minimal_keyvalue support width capability', 0, () => {
+      expect(templateSupportsCapability('watermark_centered_specs', 'width')).assertTrue();
+      expect(templateSupportsCapability('watermark_minimal_keyvalue', 'width')).assertTrue();
+      expect(templateSupportsCapability('watermark_overlay', 'width')).assertTrue();
     });
   });
 }

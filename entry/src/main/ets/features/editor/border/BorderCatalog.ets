@@ -119,7 +119,7 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
   {
     templateId: 'watermark_centered_specs',
     name: '居中全参',
-    capabilities: [],
+    capabilities: ['width'],
     previewResource: null,
     category: 'watermark',
     description: '原画悬浮居中五层全参数'
@@ -135,7 +135,7 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
   {
     templateId: 'watermark_minimal_keyvalue',
     name: '极简键值',
-    capabilities: [],
+    capabilities: ['width'],
     previewResource: null,
     category: 'brand',
     description: '原画悬浮工业级键值对参数'
@@ -263,7 +263,7 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
   {
     templateId: 'watermark_overlay',
     name: '无界悬浮',
-    capabilities: [],
+    capabilities: ['width'],
     previewResource: null,
     category: 'watermark',
     description: '零画幅外扩防撞色水印'
