@@ -193,6 +193,12 @@ export interface WatermarkConfig {
   paramsText: string;
   showTime: boolean;
   timeText: string;
+  /** GPS 经纬度地理坐标（如 '39°58'59"N 116°29'27"E'） */
+  gpsText?: string;
+  /** 人文诗意副标题 / 自定义摄影签名（如 '一双发现美的眼睛'） */
+  subTitle?: string;
+  /** 艺术策展顶部题签（默认为 'The decisive moment'） */
+  headerText?: string;
 }
 
 /** 默认相机水印配置 */
@@ -205,7 +211,10 @@ export function defaultWatermarkConfig(): WatermarkConfig {
     showParams: true,
     paramsText: '85mm f/2.67 1/10s ISO10492',
     showTime: true,
-    timeText: '2026.09.03 16:30'
+    timeText: '2026.09.03 16:30',
+    gpsText: '39°58\'59"N 116°29\'27"E',
+    subTitle: '一双发现美的眼睛',
+    headerText: 'The decisive moment'
   };
 }
 
@@ -222,7 +231,10 @@ export function cloneWatermarkConfig(cfg?: WatermarkConfig | null): WatermarkCon
     showParams: cfg.showParams ?? true,
     paramsText: cfg.paramsText ?? '',
     showTime: cfg.showTime ?? true,
-    timeText: cfg.timeText ?? ''
+    timeText: cfg.timeText ?? '',
+    gpsText: cfg.gpsText,
+    subTitle: cfg.subTitle,
+    headerText: cfg.headerText
   };
 }
 

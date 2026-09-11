@@ -113,7 +113,10 @@ export function defaultColorForTemplate(templateId: string): number {
   if (templateId === 'watermark_mint_film') {
     return 0xFFA3E4D7;
   }
-  // paper_white / floating_shadow / scroll_mount / camera_watermark / watermark_master_grid / watermark_blur_pip / watermark_overlay / watermark_nordic_gallery / watermark_gradient_frame / watermark_slim_white 默认纸白
+  if (templateId === 'watermark_harmonic_editorial') {
+    return 0xFF658A97;
+  }
+  // paper_white / floating_shadow / scroll_mount / camera_watermark / watermark_master_grid / watermark_blur_pip / watermark_centered_specs / watermark_minimal_keyvalue / watermark_overlay / watermark_nordic_gallery / watermark_gradient_frame / watermark_slim_white 默认纸白
   return BORDER_DEFAULT_COLOR_PAPER_WHITE;
 }
 
@@ -140,7 +143,10 @@ export function borderStateEquals(a: BorderState, b: BorderState): boolean {
     a.watermark.showParams === b.watermark.showParams &&
     a.watermark.paramsText === b.watermark.paramsText &&
     a.watermark.showTime === b.watermark.showTime &&
-    a.watermark.timeText === b.watermark.timeText;
+    a.watermark.timeText === b.watermark.timeText &&
+    a.watermark.gpsText === b.watermark.gpsText &&
+    a.watermark.subTitle === b.watermark.subTitle &&
+    a.watermark.headerText === b.watermark.headerText;
 }
 
 /**

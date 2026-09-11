@@ -86,6 +86,9 @@ export function isWatermarkTemplate(templateId: string): boolean {
   return templateId === 'camera_watermark' ||
     templateId === 'watermark_master_grid' ||
     templateId === 'watermark_blur_pip' ||
+    templateId === 'watermark_centered_specs' ||
+    templateId === 'watermark_harmonic_editorial' ||
+    templateId === 'watermark_minimal_keyvalue' ||
     templateId === 'watermark_cinematic' ||
     templateId === 'watermark_retro_film' ||
     templateId === 'watermark_overlay' ||
@@ -114,6 +117,30 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
     description: '保持原片纯粹画幅'
   },
   {
+    templateId: 'watermark_centered_specs',
+    name: '居中全参',
+    capabilities: [],
+    previewResource: null,
+    category: 'watermark',
+    description: '原画悬浮居中五层全参数'
+  },
+  {
+    templateId: 'watermark_harmonic_editorial',
+    name: '同调画报',
+    capabilities: ['width', 'color', 'radius'],
+    previewResource: null,
+    category: 'brand',
+    description: '画面色彩联动留白与艺术题签'
+  },
+  {
+    templateId: 'watermark_minimal_keyvalue',
+    name: '极简键值',
+    capabilities: [],
+    previewResource: null,
+    category: 'brand',
+    description: '原画悬浮工业级键值对参数'
+  },
+  {
     templateId: 'camera_watermark',
     name: '相机水印',
     capabilities: ['width', 'color', 'radius'],
@@ -135,7 +162,7 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
     capabilities: ['width', 'radius'],
     previewResource: null,
     category: 'watermark',
-    description: '原图同色弥散虚化背景'
+    description: '原图同色弥散虚化背景卡片'
   },
   {
     templateId: 'watermark_travel_stamp',
