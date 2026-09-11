@@ -70,13 +70,19 @@ export struct StickerPanel {
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
 
       // ── 下行：选中贴纸参数（无选中时显示贴纸计数提示）──
-      if (this.selectedId !== '' && this.selectedSticker() !== null) {
-        this.selectedParams()
-      } else {
-        this.emptyHint()
+      Column() {
+        if (this.selectedId !== '' && this.selectedSticker() !== null) {
+          this.selectedParams()
+        } else {
+          this.emptyHint()
+        }
       }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
     }
     .width('100%')
+    .height('100%')
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
   }

@@ -25,3 +25,8 @@
 # 临时大文件备份
 tools/filters_backup/
 tools/fonts_backup/
+sample_photos/
+.agents/*
+!.agents/skills/
+ORIGINAL_REQUEST.md
+PROJECT.md

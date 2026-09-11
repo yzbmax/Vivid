@@ -102,6 +102,38 @@ assert(
   'WorkDetailPage 底部操作条安全区避让硬保底 >= 28vp'
 );
 
+// 4. 华为应用市场审核指南 9.4 知识产权与商号合规零容忍检测
+const minePageEts = fs.readFileSync(path.join(projectRoot, 'entry/src/main/ets/components/mine/MinePage.ets'), 'utf-8');
+const borderPanelEts = fs.readFileSync(path.join(projectRoot, 'entry/src/main/ets/components/editor/BorderPanel.ets'), 'utf-8');
+const borderPainterEts = fs.readFileSync(path.join(projectRoot, 'entry/src/main/ets/features/editor/border/BorderPainter.ets'), 'utf-8');
+const userAgreementEts = fs.readFileSync(path.join(projectRoot, 'entry/src/main/ets/pages/UserAgreementPage.ets'), 'utf-8');
+const exifReaderEts = fs.readFileSync(path.join(projectRoot, 'entry/src/main/ets/services/ExifReaderService.ets'), 'utf-8');
+
+assert(
+  !minePageEts.includes('华为鸿蒙纯端侧隐私规范') && minePageEts.includes('微霏恪守纯端侧隐私安全规范'),
+  'MinePage 私有沙箱说明已彻底清除“华为鸿蒙”商号与虚假官方规范表述'
+);
+
+assert(
+  !borderPanelEts.includes('华为 HUAWEI') && !borderPanelEts.includes('华为 XMAGE'),
+  'BorderPanel 水印品牌与预设已彻底移除未经授权的“华为 HUAWEI”和“华为 XMAGE”选项'
+);
+
+assert(
+  !borderPainterEts.includes("context.fillText('HUAWEI'") && !borderPainterEts.includes("context.fillText('XMAGE'"),
+  'BorderPainter 已彻底清除华为官方花瓣 Logo 与 HUAWEI/XMAGE 绘制逻辑'
+);
+
+assert(
+  !userAgreementEts.includes('华为 XMAGE'),
+  'UserAgreementPage 协议文本已净化，不再直接出现华为及 XMAGE 商号'
+);
+
+assert(
+  exifReaderEts.includes("result.logo = 'none';") && !exifReaderEts.includes("result.logo = 'xmage';"),
+  'ExifReaderService 读取华为设备 EXIF 时回退为中立标识 (none)，不强制关联侵权 Logo'
+);
+
 console.log('====================================================');
 console.log(`测试结果: ${passed} 项通过, ${failed} 项失败`);
 console.log('====================================================');

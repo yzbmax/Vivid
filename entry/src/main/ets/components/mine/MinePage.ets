@@ -92,7 +92,7 @@ export struct MinePage {
         .justifyContent(FlexAlign.Start);
 
         Column({ space: 8 }) {
-          Text('微霏严格遵循华为鸿蒙纯端侧隐私规范：')
+          Text('微霏恪守纯端侧隐私安全规范：')
             .fontFamily(Theme.FONT_SERIF)
             .fontSize(13)
             .fontColor(MASK_SEAL.ink);
@@ -369,8 +369,8 @@ export struct MinePage {
 
             // 页脚说明
             Column({ space: 4 }) {
-              Text('微霏 V1.0.3 · 东方美学数字画卷工坊')
-                .fontFamily(Theme.FONT_MONO)
+              Text('微霏 V1.0.5 · 东方美学数字画卷工坊')
+                .fontFamily(Theme.FONT_SERIF)
                 .fontSize(11)
                 .fontColor(MASK_SEAL.inkMuted)
                 .letterSpacing(1);

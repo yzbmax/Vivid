@@ -140,9 +140,10 @@ export struct BorderPanel {
       }
     }
     .width('100%')
+    .height('100%')
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
-    .padding({ top: 8, bottom: 10 })
+    .padding({ top: 6, bottom: 8 })
   }
 
   /** 相机水印专属配置抽屉 */
@@ -179,10 +180,12 @@ export struct BorderPanel {
                 next.showDevice = isOn;
                 this.onWatermarkChange(next);
               })
-            TextInput({ text: this.currentWatermark().deviceModel, placeholder: '输入自定义机型，或点右侧读EXIF' })
+            TextInput({ text: this.currentWatermark().deviceModel, placeholder: '输入自定义机型' })
               .layoutWeight(1)
-              .height(28)
+              .height(30)
               .fontSize(11)
+              .placeholderFont({ size: 10 })
+              .padding({ left: 8, right: 8, top: 0, bottom: 0 })
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .borderRadius(4)
               .enabled(this.currentWatermark().showDevice)
@@ -197,7 +200,7 @@ export struct BorderPanel {
               })
             Button('读EXIF')
               .fontSize(10)
-              .height(26)
+              .height(30)
               .fontColor(Theme.SEAL_RED)
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .border({ width: 0.5, color: Theme.SEAL_RED })
@@ -251,10 +254,12 @@ export struct BorderPanel {
                 next.showParams = isOn;
                 this.onWatermarkChange(next);
               })
-            TextInput({ text: this.currentWatermark().paramsText, placeholder: '85mm f/2.67 1/10s ISO10492' })
+            TextInput({ text: this.currentWatermark().paramsText, placeholder: '如 85mm f/2.8 1/125s ISO100' })
               .layoutWeight(1)
-              .height(28)
+              .height(30)
               .fontSize(11)
+              .placeholderFont({ size: 10 })
+              .padding({ left: 8, right: 8, top: 0, bottom: 0 })
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .borderRadius(4)
               .enabled(this.currentWatermark().showParams)
@@ -265,7 +270,7 @@ export struct BorderPanel {
               })
             Button('读EXIF')
               .fontSize(10)
-              .height(26)
+              .height(30)
               .fontColor(Theme.SEAL_RED)
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .border({ width: 0.5, color: Theme.SEAL_RED })
@@ -291,10 +296,12 @@ export struct BorderPanel {
                 next.showTime = isOn;
                 this.onWatermarkChange(next);
               })
-            TextInput({ text: this.currentWatermark().timeText, placeholder: '2026.09.03 16:30' })
+            TextInput({ text: this.currentWatermark().timeText, placeholder: '如 2026.09.11 18:30' })
               .layoutWeight(1)
-              .height(28)
+              .height(30)
               .fontSize(11)
+              .placeholderFont({ size: 10 })
+              .padding({ left: 8, right: 8, top: 0, bottom: 0 })
               .backgroundColor(Theme.SURFACE_CONTAINER_HIGHEST)
               .borderRadius(4)
               .enabled(this.currentWatermark().showTime)
@@ -926,6 +933,128 @@ export struct BorderPanel {
           .objectFit(ImageFit.Cover)
           .borderRadius(2)
           .shadow({ radius: 3, color: 'rgba(0,0,0,0.5)' })
+      }
+      .width(64)
+      .height(48)
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_inset_wireframe') {
+      Stack({ alignContent: Alignment.Center }) {
+        Image(this.normalizedSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(10)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.28)')
+        Image(this.normalizedSrc())
+          .width(46)
+          .height(32)
+          .objectFit(ImageFit.Cover)
+          .border({ width: 0.8, color: 'rgba(255,255,255,0.7)' })
+      }
+      .width(64)
+      .height(48)
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_gallery_inline') {
+      Stack({ alignContent: Alignment.Center }) {
+        Column() {
+          Image(this.normalizedSrc())
+            .width(50)
+            .height(30)
+            .objectFit(ImageFit.Cover)
+            .border({ width: 0.6, color: 'rgba(0,0,0,0.85)' })
+          Row({ space: 2 }) {
+            Row().width(12).height(1).backgroundColor('#1A1A1A')
+            Row().width(1).height(3).backgroundColor('rgba(0,0,0,0.3)')
+            Row().width(10).height(1).backgroundColor('#888888')
+          }
+          .margin({ top: 3 })
+        }
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+      }
+      .width(64)
+      .height(48)
+      .backgroundColor('#FFFFFF')
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_curated_editorial') {
+      Row() {
+        Image(this.normalizedSrc())
+          .width(46)
+          .height(38)
+          .objectFit(ImageFit.Cover)
+          .border({ width: 0.5, color: 'rgba(0,0,0,0.2)' })
+        Column({ space: 2 }) {
+          Row().width(6).height(1.5).backgroundColor('#1A1A1A')
+          Row().width(6).height(1.5).backgroundColor('#1A1A1A')
+          Row().width(6).height(1.5).backgroundColor('#1A1A1A')
+          Row().width(6).height(1.5).backgroundColor('#1A1A1A')
+        }
+        .margin({ left: 3 })
+        .justifyContent(FlexAlign.Center)
+      }
+      .width(64)
+      .height(48)
+      .padding(4)
+      .backgroundColor('#FFFFFF')
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_monolith_specs') {
+      Column() {
+        Row().width(14).height(1).backgroundColor('#1A1A1A').margin({ top: 2, bottom: 2 })
+        Image(this.normalizedSrc())
+          .width(50)
+          .height(26)
+          .objectFit(ImageFit.Cover)
+        Row({ space: 2 }) {
+          Row().width(4).height(1).backgroundColor('#1A1A1A')
+          Row().width(1).height(3).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(4).height(1).backgroundColor('#1A1A1A')
+          Row().width(1).height(3).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(4).height(1).backgroundColor('#1A1A1A')
+          Row().width(1).height(3).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(4).height(1).backgroundColor('#1A1A1A')
+        }
+        .margin({ top: 3 })
+      }
+      .width(64)
+      .height(48)
+      .alignItems(HorizontalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor('#FFFFFF')
+      .borderRadius(2)
+      .clip(true)
+    } else if (tpl.templateId === 'watermark_ambient_side_ruler') {
+      Stack({ alignContent: Alignment.Center }) {
+        Image(this.normalizedSrc())
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(10)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.28)')
+        Row() {
+          Image(this.normalizedSrc())
+            .width(44)
+            .height(36)
+            .objectFit(ImageFit.Cover)
+            .border({ width: 1.0, color: '#FFFFFF' })
+          Column({ space: 2 }) {
+            Row().width(4).height(1).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(4).height(1).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(4).height(1).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(4).height(1).backgroundColor('rgba(255,255,255,0.9)')
+          }
+          .margin({ left: 3 })
+          .justifyContent(FlexAlign.Center)
+        }
       }
       .width(64)
       .height(48)

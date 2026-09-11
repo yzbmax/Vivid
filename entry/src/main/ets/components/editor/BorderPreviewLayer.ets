@@ -1,12 +1,14 @@
 import { BorderState, defaultBorderState } from '../../models/SharedContracts';
 import { BorderGeometry, resolveBorderGeometry } from '../../features/editor/border/BorderLayoutResolver';
 import { paintBorder } from '../../features/editor/border/BorderPainter';
+import { LogoAssetManager } from '../../features/editor/border/LogoAssetManager';
 import { LengthMetricsUnit } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 
 /** 仅画装裱，照片和交互图层由 PreviewArea 放在其上，避免遮住调色效果。 */
 @Component
 export struct BorderPreviewLayer {
-  @Prop @Watch('redraw') borderState: BorderState = defaultBorderState();
+  @Prop @Watch('ensureLogoAndRedraw') borderState: BorderState = defaultBorderState();
   @Prop @Watch('redraw') geometry: BorderGeometry = resolveBorderGeometry({
     photoWidth: 1, photoHeight: 1, border: defaultBorderState()
   });
@@ -22,9 +24,20 @@ export struct BorderPreviewLayer {
       .hitTestBehavior(HitTestMode.None)
       .onReady(() => {
         this.ready = true;
-        this.redraw();
+        this.ensureLogoAndRedraw();
       })
       .onAreaChange(() => this.redraw())
+  }
+
+  private async ensureLogoAndRedraw(): Promise<void> {
+    const logo = this.borderState.watermark?.logo;
+    if (this.borderState.watermark?.showLogo && logo && logo !== 'none' && !LogoAssetManager.getPixelMapSync(logo)) {
+      try {
+        const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+        await LogoAssetManager.loadLogoPixelMap(logo, ctx);
+      } catch (_) {}
+    }
+    this.redraw();
   }
 
   private redraw(): void {

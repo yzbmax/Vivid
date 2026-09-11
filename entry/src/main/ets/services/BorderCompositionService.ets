@@ -3,6 +3,7 @@ import { BorderState } from '../models/SharedContracts';
 import { LengthMetricsUnit } from '@kit.ArkUI';
 import { resolveBorderGeometry } from '../features/editor/border/BorderLayoutResolver';
 import { paintBorder, drawRoundedRectPath } from '../features/editor/border/BorderPainter';
+import { LogoAssetManager } from '../features/editor/border/LogoAssetManager';
 
 /**
  * 边框外扩几何布局数据
@@ -144,13 +145,23 @@ export class BorderCompositionService {
     if (geom.templateId === 'none') {
       return basePixelMap;
     }
+
+    if (border.watermark?.showLogo && border.watermark.logo && border.watermark.logo !== 'none') {
+      try {
+        await LogoAssetManager.loadLogoPixelMap(border.watermark.logo);
+      } catch (_) {}
+    }
+
     const canvas = new OffscreenCanvasRenderingContext2D(geom.outputWidth, geom.outputHeight,
       new RenderingContextSettings(true), LengthMetricsUnit.PX);
     const isOverlay = geom.templateId === 'watermark_centered_specs' ||
       geom.templateId === 'watermark_minimal_keyvalue' ||
       geom.templateId === 'watermark_overlay';
 
-    if (geom.templateId === 'watermark_blur_pip' || geom.templateId === 'watermark_harmonic_editorial') {
+    if (geom.templateId === 'watermark_blur_pip' ||
+        geom.templateId === 'watermark_harmonic_editorial' ||
+        geom.templateId === 'watermark_inset_wireframe' ||
+        geom.templateId === 'watermark_ambient_side_ruler') {
       canvas.save();
       try {
         canvas.filter = geom.templateId === 'watermark_harmonic_editorial' ? 'blur(64px)' : 'blur(45px)';
@@ -180,7 +191,17 @@ export class BorderCompositionService {
       canvas.drawImage(basePixelMap, 0, 0, geom.photoRect.width, geom.photoRect.height);
       paintBorder(canvas, geom, border);
     } else {
-      paintBorder(canvas, geom, border);
+      if (geom.templateId === 'watermark_inset_wireframe') {
+        canvas.save();
+        canvas.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        canvas.shadowBlur = Math.max(12, Math.round(geom.insets.top * 0.6));
+        canvas.shadowOffsetY = Math.max(4, Math.round(geom.insets.top * 0.2));
+        canvas.fillStyle = '#FFFFFF';
+        canvas.fillRect(geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+        canvas.restore();
+      } else if (geom.templateId !== 'watermark_ambient_side_ruler') {
+        paintBorder(canvas, geom, border);
+      }
       if (geom.cornerRadius > 0) {
         canvas.save();
         drawRoundedRectPath(canvas, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height, geom.cornerRadius);
@@ -189,6 +210,9 @@ export class BorderCompositionService {
         canvas.restore();
       } else {
         canvas.drawImage(basePixelMap, geom.photoRect.x, geom.photoRect.y, geom.photoRect.width, geom.photoRect.height);
+      }
+      if (geom.templateId === 'watermark_inset_wireframe' || geom.templateId === 'watermark_ambient_side_ruler') {
+        paintBorder(canvas, geom, border);
       }
     }
     // 失败必须上抛，不能把未装裱的原图当作成功结果。

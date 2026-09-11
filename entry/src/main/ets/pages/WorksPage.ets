@@ -266,6 +266,10 @@ export struct WorksPage {
     private onWorkClick(id: string): void {
         const work = mockWorkStore.findById(id);
         if (work != null && work.status === WorkStatus.Draft) {
+            if (AppStorage.get<boolean>('privacy_agreed') !== true) {
+                AppStorage.setOrCreate('showPrivacyModal', true);
+                return;
+            }
             this.getUIContext().getRouter().pushUrl({
                 url: 'pages/EditPage',
                 params: { source: EditEntrySource.Work, workId: id }

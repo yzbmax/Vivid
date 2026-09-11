@@ -38,7 +38,7 @@ export struct EditorToolBar {
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .backdropBlur(20)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
-    // 底部留白：系统手势/导航条安全区，保底 28vp（满足华为审核规范）
+    // 底部留白：系统手势/导航条安全区，保底 28vp（满足应用市场审核规范）
     .padding({ bottom: Math.max(AppStorage.get<number>('navBarHeight') ?? 28, 28) })
   }
 }

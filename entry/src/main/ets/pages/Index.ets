@@ -17,7 +17,7 @@ import { PreferencesHelper } from '../utils/PreferencesHelper';
  * 「我的」复用组件 components/mine/MinePage（CentralOfUser 迁入）。
  * 编辑页（EditPage）为独立路由，不在此导航。
  *
- * 首次冷启动：自动检测并弹出《微霏服务协议与隐私政策》授权确认弹窗（华为应用市场合规必备）。
+ * 首次冷启动：自动检测并弹出《微霏服务协议与隐私政策》授权确认弹窗（应用市场合规必备）。
  * 字体注册：在 aboutToAppear() 中通过 font.registerFont() + $rawfile 程序化注册。
  */
 @Entry
@@ -25,10 +25,10 @@ import { PreferencesHelper } from '../utils/PreferencesHelper';
 struct Index {
   @StorageLink('mainTabIndex') currentIndex: number = 0;
   private tabsController: TabsController = new TabsController();
-  @State showPrivacyModal: boolean = false;
+  @StorageLink('showPrivacyModal') showPrivacyModal: boolean = false;
   @State isSecondRefusal: boolean = false;
 
-  /** 系统导航条高度（vp，EntryAbility 换算后写入；保底 28vp 满足华为审核规范） */
+  /** 系统导航条高度（vp，EntryAbility 换算后写入；保底 28vp 满足应用市场审核规范） */
   @StorageProp('navBarHeight')
   navBarHeightVp: number = 28;
 
@@ -140,7 +140,7 @@ struct Index {
         .onClick(() => {});
 
       if (this.isSecondRefusal) {
-        // ── 二次确认卡片（华为应用市场合规：用户不同意隐私条款时给予充分说明与二次确认，严禁无提示直接强制退出）──
+        // ── 二次确认卡片（应用市场合规：用户不同意隐私条款时给予充分说明与二次确认，严禁无提示直接强制退出）──
         Column({ space: 16 }) {
           // 顶部徽记与标题
           Column({ space: 6 }) {
@@ -177,7 +177,7 @@ struct Index {
               .lineHeight(20)
               .fontColor(MASK_SEAL.ink);
 
-            Text('您在条款中同意的内容，仅用于保障应用在您的设备本地进行滤镜渲染、印章合成与私有沙箱作品存储。若您不同意，微霏将无法为您初始化端侧创作环境。')
+            Text('您在条款中同意的内容，仅用于保障应用在您的设备本地进行滤镜渲染、印章合成与私有沙箱作品存储。若您暂不同意，您仍可进入浏览模式体验基础界面；后续在主动导入照片调色时将再次征得您的授权。')
               .fontFamily(Theme.FONT_SERIF)
               .fontSize(12)
               .lineHeight(19)
@@ -202,6 +202,21 @@ struct Index {
               .borderRadius(4)
               .onClick(() => {
                 this.agreePrivacy();
+              });
+
+            Button('暂不同意，进入浏览模式')
+              .width('100%')
+              .height(42)
+              .fontFamily(Theme.FONT_SERIF)
+              .fontSize(14)
+              .fontColor(MASK_SEAL.ink)
+              .backgroundColor('#efe7e2')
+              .border({ width: 1, color: '#d9cdc7' })
+              .borderRadius(4)
+              .onClick(() => {
+                this.showPrivacyModal = false;
+                this.isSecondRefusal = false;
+                AppStorage.setOrCreate('privacy_agreed', false);
               });
 
             Row({ space: 16 }) {
@@ -344,7 +359,7 @@ struct Index {
                 this.agreePrivacy();
               });
 
-            Text('不同意并退出')
+            Text('不同意')
               .fontFamily(Theme.FONT_SERIF)
               .fontSize(13)
               .fontColor(MASK_SEAL.inkMuted)

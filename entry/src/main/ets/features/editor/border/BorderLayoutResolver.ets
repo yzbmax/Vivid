@@ -155,6 +155,16 @@ export function resolveBorderGeometry(input: BorderResolveInput): BorderGeometry
     geom = resolveMintFilmWatermark(input.photoWidth, input.photoHeight, widthRatio);
   } else if (templateId === 'watermark_slim_white') {
     geom = resolveSlimWhiteWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_inset_wireframe') {
+    geom = resolveInsetWireframeWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_gallery_inline') {
+    geom = resolveGalleryInlineWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_curated_editorial') {
+    geom = resolveCuratedEditorialWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_monolith_specs') {
+    geom = resolveMonolithSpecsWatermark(input.photoWidth, input.photoHeight, widthRatio);
+  } else if (templateId === 'watermark_ambient_side_ruler') {
+    geom = resolveAmbientSideRulerWatermark(input.photoWidth, input.photoHeight, widthRatio);
   } else {
     // paper_white / ink_black / 未知模板：对称边框
     geom = resolveSymmetric(input.photoWidth, input.photoHeight, widthRatio, templateId);
@@ -799,6 +809,123 @@ function resolveSlimWhiteWatermark(
     shadowSpread: 0,
     decorations: [],
     templateId: 'watermark_slim_white',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 画中画 · 细线浮雕：弥散背景，四周适度留白，顶部日期，底栏左侧品牌/机型/镜头，右侧 4 行参数。
+ */
+function resolveInsetWireframeWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  // 四周对称弥散虚化留白边距（随 widthRatio 滑块平滑等比缩放）
+  const margin = Math.max(16, Math.round(bw * 0.6));
+  return {
+    outputWidth: photoWidth + margin * 2,
+    outputHeight: photoHeight + margin * 2,
+    photoRect: { x: margin, y: margin, width: photoWidth, height: photoHeight },
+    insets: { top: margin, right: margin, bottom: margin, left: margin },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_inset_wireframe',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 画廊微印 · 黑线卡纸：经典纯白卡纸装裱，照片四周纯黑内线框，底部居中双行机型与参数。
+ */
+function resolveGalleryInlineWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  const side = Math.max(16, Math.round(bw * 0.45));
+  const top = Math.max(24, Math.round(bw * 0.6));
+  const bottom = Math.max(60, Math.round(bw * 1.6));
+  return {
+    outputWidth: photoWidth + side * 2,
+    outputHeight: photoHeight + top + bottom,
+    photoRect: { x: side, y: top, width: photoWidth, height: photoHeight },
+    insets: { top, right: side, bottom, left: side },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_gallery_inline',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 策展画报 · 外挂矩阵：左上角 LOGO，左侧竖排日期，右侧外挂 4 组参数矩阵，右下角机型镜头落款。
+ */
+function resolveCuratedEditorialWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  const left = Math.max(20, Math.round(bw * 0.5));
+  const top = Math.max(36, Math.round(bw * 0.85));
+  const right = Math.max(48, Math.round(bw * 1.35));
+  const bottom = Math.max(44, Math.round(bw * 1.15));
+  return {
+    outputWidth: photoWidth + left + right,
+    outputHeight: photoHeight + top + bottom,
+    photoRect: { x: left, y: top, width: photoWidth, height: photoHeight },
+    insets: { top, right, bottom, left },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_curated_editorial',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 典藏双向 · 垂直分柱：宽卡纸典藏装裱，顶部居中 3 行展签，底部居中 4 栏竖线立柱分栏参数。
+ */
+function resolveMonolithSpecsWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  const side = Math.max(20, Math.round(bw * 0.5));
+  const top = Math.max(50, Math.round(bw * 1.35));
+  const bottom = Math.max(68, Math.round(bw * 1.75));
+  return {
+    outputWidth: photoWidth + side * 2,
+    outputHeight: photoHeight + top + bottom,
+    photoRect: { x: side, y: top, width: photoWidth, height: photoHeight },
+    insets: { top, right: side, bottom, left: side },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_monolith_specs',
+    cornerRadius: 0
+  };
+}
+
+/**
+ * 弥散侧标 · 纵轴刻度：原图高斯弥散背景，右侧纵向垂直贯穿侧栏（旋转 LOGO、垂直参数立柱、旋转机型镜头）。
+ */
+function resolveAmbientSideRulerWatermark(
+  photoWidth: number, photoHeight: number,
+  widthRatio: number
+): BorderGeometry {
+  const bw = computeBaseBorderWidth(photoWidth, photoHeight, widthRatio);
+  const baseMargin = Math.max(18, Math.round(bw * 0.48));
+  const left = baseMargin;
+  const top = baseMargin;
+  const bottom = baseMargin;
+  const right = Math.max(64, Math.round(baseMargin * 3.0));
+  return {
+    outputWidth: photoWidth + left + right,
+    outputHeight: photoHeight + top + bottom,
+    photoRect: { x: left, y: top, width: photoWidth, height: photoHeight },
+    insets: { top, right, bottom, left },
+    shadowSpread: 0,
+    decorations: [],
+    templateId: 'watermark_ambient_side_ruler',
     cornerRadius: 0
   };
 }

@@ -14,6 +14,7 @@ import { TextLayer as TextLayerOverlay } from './TextLayer';
 // ===== End A =====
 import { buildAdjustmentFilter } from '../../utils/ColorMatrixUtils';
 import { HapticService } from '../../services/HapticService';
+import { curves } from '@kit.ArkUI';
 
 /**
  * 预览区：双图叠放 + colorFilter 调色。
@@ -100,6 +101,8 @@ export struct PreviewArea {
   /** 图片原始像素尺寸（由 Image onComplete 回写）。 */
   @State imageNaturalW: number = 0;
   @State imageNaturalH: number = 0;
+  /** 动效开关：首帧计算完成后开启物理弹簧阻尼，杜绝初次挂载时从 0x0 突变放大。 */
+  @State private isReadyForAnimation: boolean = false;
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -110,13 +113,22 @@ export struct PreviewArea {
           .align(Alignment.Center)
       } else if (hasRenderablePreview(this.imageSrc, this.previewPixelMap !== undefined || this.baseImage !== undefined)) {
         Stack({ alignContent: Alignment.TopStart }) {
-          if (!this.isComparing && this.borderState.templateId === 'watermark_blur_pip') {
+          if (!this.isComparing && (
+            this.borderState.templateId === 'watermark_blur_pip' ||
+            this.borderState.templateId === 'watermark_inset_wireframe' ||
+            this.borderState.templateId === 'watermark_ambient_side_ruler'
+          )) {
             this.blurredBackgroundLayer()
           }
           if (!this.isComparing && this.borderState.templateId === 'watermark_harmonic_editorial') {
             this.harmonicBackgroundLayer()
           }
-          if (!this.isComparing) {
+          if (!this.isComparing &&
+            this.borderState.templateId !== 'watermark_centered_specs' &&
+            this.borderState.templateId !== 'watermark_minimal_keyvalue' &&
+            this.borderState.templateId !== 'watermark_overlay' &&
+            this.borderState.templateId !== 'watermark_inset_wireframe' &&
+            this.borderState.templateId !== 'watermark_ambient_side_ruler') {
             BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
           }
           Stack({ alignContent: Alignment.Center }) {
@@ -171,11 +183,25 @@ export struct PreviewArea {
             y: this.layout().photoRect.y - this.layout().outputRect.y })
           .borderRadius(this.photoCornerRadius())
           .clip(true)
+          .shadow(this.borderState.templateId === 'watermark_inset_wireframe'
+            ? { radius: 16, color: 'rgba(0, 0, 0, 0.35)', offsetY: 4 }
+            : (this.borderState.templateId === 'watermark_gallery_inline' ||
+               this.borderState.templateId === 'watermark_curated_editorial' ||
+               this.borderState.templateId === 'watermark_monolith_specs'
+               ? { radius: 10, color: 'rgba(0, 0, 0, 0.18)', offsetY: 2 }
+               : undefined))
+          .animation(this.isReadyForAnimation ? {
+            curve: curves.springMotion(0.35, 0.82)
+          } : {
+            duration: 0
+          })
 
           if (!this.isComparing && (
             this.borderState.templateId === 'watermark_centered_specs' ||
             this.borderState.templateId === 'watermark_minimal_keyvalue' ||
-            this.borderState.templateId === 'watermark_overlay'
+            this.borderState.templateId === 'watermark_overlay' ||
+            this.borderState.templateId === 'watermark_inset_wireframe' ||
+            this.borderState.templateId === 'watermark_ambient_side_ruler'
           )) {
             BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
           }
@@ -186,6 +212,11 @@ export struct PreviewArea {
         .clip(true)
         .shadow({ radius: 10, color: 'rgba(36, 25, 24, 0.12)', offsetY: 3 })
         .id(PREVIEW_STACK_ID)
+        .animation(this.isReadyForAnimation ? {
+          curve: curves.springMotion(0.35, 0.82)
+        } : {
+          duration: 0
+        })
         .onClick((): void => {
           if (this.selectedStickerId !== '') {
             this.onStickerSelect('');
@@ -211,6 +242,12 @@ export struct PreviewArea {
       this.containerW = Number(newValue.width);
       this.containerH = Number(newValue.height);
       this.notifyDisplaySize();
+      if (!this.isReadyForAnimation && this.containerW > 0 && this.containerH > 0) {
+        // 初始布局稳定后激活物理弹簧阻尼，避免初次挂载时产生突变放大
+        setTimeout(() => {
+          this.isReadyForAnimation = true;
+        }, 80);
+      }
     })
   }
 
@@ -238,6 +275,11 @@ export struct PreviewArea {
     .offset({ x: -16, y: -16 })
     .responseRegion({ x: -20, y: -20, width: '180%', height: '180%' })
     .hitTestBehavior(HitTestMode.Block)
+    .animation(this.isReadyForAnimation ? {
+      curve: curves.springMotion(0.35, 0.82)
+    } : {
+      duration: 0
+    })
     .onTouch((event: TouchEvent): void => {
       if (event.type === TouchType.Down) {
         HapticService.triggerTick();
@@ -379,8 +421,8 @@ export struct PreviewArea {
         .height('100%')
         .backgroundColor('rgba(0, 0, 0, 0.28)')
     }
-    .width(this.layout().outputRect.width)
-    .height(this.layout().outputRect.height)
+    .width('100%')
+    .height('100%')
     .position({ x: 0, y: 0 })
     .clip(true)
   }
@@ -418,8 +460,8 @@ export struct PreviewArea {
         .height('100%')
         .backgroundColor('rgba(0, 0, 0, 0.18)')
     }
-    .width(this.layout().outputRect.width)
-    .height(this.layout().outputRect.height)
+    .width('100%')
+    .height('100%')
     .position({ x: 0, y: 0 })
     .clip(true)
   }

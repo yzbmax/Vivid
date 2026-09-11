@@ -21,6 +21,12 @@
   - 左侧：上行为设备型号，下行为品牌徽标（省去横向分割竖线）；
   - 右侧：上行为拍摄参数，下行为拍摄时间。
 - **参数文本规整**：EXIF 格式化时必须清洗相机厂商自带的单位字符串（如 `sec.` 或 `sec`），统一规范为紧凑标准的快门时间（如 `1/1000s`），杜绝拼出 `1/1000 sec.s`。
+- **全边框正版官方品牌 Logo 统一规范 (Official Brand PNG Rule)**：
+  - 所有使用品牌 Logo 的相机边框与水印模版（包括既有模版与**未来新增的所有边框模版**），**必须统一使用工程内置的正版官方透明 PNG 资源**（`entry/src/main/resources/base/media/logo_<brand>.png`），严禁使用 Canvas `fillText`、`arc`、`fillRect` 手绘伪造假标。
+  - 徽标测宽与排版布局必须严格以官方 PNG 真实画幅宽高比（`LOGO_ASPECT_RATIOS`）进行自适应等比缩放，杜绝拉伸变形与碰撞截断。
+  - 渲染层统一通过 `LogoAssetManager` 获取解码后的透明 `PixelMap`，并通过 Canvas `drawImage` 高保真绘制。
+  - **深底自适应动态内存染白（Zero Disk White File Rule）**：当遇到暗色背景（浅色文字模式）时，黑色/单色 Logo 必须统一在内存中通过 `OffscreenCanvasRenderingContext2D` 结合 `globalCompositeOperation = 'source-in'`（填充 `#FFFFFF`）动态染色并驻留内存缓存；**严禁手绘文字假标，且严禁向磁盘额外落盘存储 `_white.png` 文件**；经典多色徽标（如徕卡红圆标、蔡司蓝盾、柯达黄标、宝丽来彩虹条）在深底保持官方经典原色。
+  - **绘制阴影完全隔离**：调用 Canvas `drawImage` 绘制 Logo 前必须隔离前置文本的投影状态（清除 `shadowColor` / `shadowBlur`），杜绝在透明 PNG 图层后泄漏黑框矩形投影。
 
 ## ArkUI 滚动容器嵌套与自适应瀑布流规范
 
@@ -45,6 +51,10 @@
   - 必须使用类成员持久化复用缓冲区（如 `fallbackCheckBuffer_`），仅在尺寸增长时按需 `resize`，彻底消除海量大内存分配释放产生的系统碎片与卡顿。
 - **ArkTS 严格模式泛型与高阶闭包显式返回类型（arkts-no-implicit-return-types）**：
   - 传递给高阶函数（如 `keepLatest`、`new Promise`、事件回调）的所有匿名箭头函数与闭包，必须显式声明返回类型（如 `(): Promise<image.PixelMap> => { ... }`、`(): void => { ... }`），严禁依赖隐式推导。
+- **ArkTS 严格类型三铁律 (Zero Any / Zero Typeof Class / UIContext)**：
+  - **严禁使用 `any` / `unknown` 或 `as any` 强转 (`arkts-no-any-unknown`)**：ArkUI 原生方法（如 Canvas `drawImage(PixelMap, ...)`）已内建强类型重载，所有变量与参数必须具备明确类型，绝不使用 `any` 绕过编译器检查。
+  - **严禁使用类作为对象或对其执行 `typeof` (`arkts-no-classes-as-obj`)**：在 ArkTS 中类不是一级对象，严禁出现 `typeof MyClass !== 'undefined'` 等 JavaScript 动态探测写法，所有模块必须直接静态导入并使用。
+  - **严禁使用全局弃用 `getContext(this)`**：ArkUI 组件内必须统一使用 `this.getUIContext().getHostContext() as common.UIAbilityContext` 获取上下文，杜绝旧式 API 警告与兼容性隐患。
 
 ## 华为应用市场审核与上架合规规范
 

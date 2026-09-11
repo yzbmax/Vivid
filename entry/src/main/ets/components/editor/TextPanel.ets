@@ -126,15 +126,16 @@ export struct TextPanel {
         .width('100%')
       }
       .width('100%')
-      .constraintSize({ maxHeight: Math.max(40, this.maxPanelHeight - 58) })
+      .layoutWeight(1)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .align(Alignment.Top)
     }
     .width('100%')
+    .height('100%')
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
-    .padding({ top: 8, bottom: 10 })
+    .padding({ top: 6, bottom: 6 })
   }
 
   @Builder

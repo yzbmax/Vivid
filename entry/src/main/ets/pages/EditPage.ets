@@ -27,7 +27,10 @@ import {
   normalizeEditorToolKey,
   parseEditRouteParams,
   resolveDisplayImageSource,
-  ensureFileUri
+  ensureFileUri,
+  EDITOR_PANEL_HEIGHT_COMPACT,
+  EDITOR_PANEL_HEIGHT_EXTENDED,
+  resolveEditorPanelHeight
 } from '../models/EditModels';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { PhotoPickerService } from '../services/PhotoPickerService';
@@ -62,7 +65,7 @@ import {
 } from '../models/SharedContracts';
 import { ExifReaderService } from '../services/ExifReaderService';
 import { draftStore } from '../models/DraftStore';
-import { KeyboardAvoidMode } from '@kit.ArkUI';
+import { KeyboardAvoidMode, curves } from '@kit.ArkUI';
 import { TextPanel } from '../components/editor/TextPanel';
 import { registerTextFonts } from '../components/editor/TextFontRegistrar';
 import { fixAndNormalizePath, probeImageDimensions } from '../utils/WorkImageUtils';
@@ -81,6 +84,7 @@ import { mockWorkStore } from '../models/MockWorkStore';
 import { WorkUiState } from '../models/WorkUiState';
 import { generateWorkTitle } from '../models/WorkTitleGenerator';
 import { generateWorkDescription } from '../models/WorkDescriptionGenerator';
+import { SealArchiveDialog, ArchiveStage } from '../components/editor/SealArchiveDialog';
 import { decodeImageFromUri } from '../utils/ImageDecodeUtils';
 import {
   AI_WORK_MAX_EDGE, SegmentationOutput,
@@ -134,6 +138,7 @@ struct EditPage {
   @State borderState: BorderState = defaultBorderState();
   @State showBorderPickerModal: boolean = false;
   @State showExportDialog: boolean = false;
+  private hasShownNoExifToast: boolean = false;
   // ===== A: Text Layer =====
   @State textLayers: TextLayerModel[] = [];
   @State selectedTextLayerId: string = '';
@@ -150,7 +155,10 @@ struct EditPage {
   @State isComparing: boolean = false;
   @State selectedType: string = 'exposure';
   @State activeTool: EditorToolKey = 'adjust';
+  @State panelContainerHeight: number = resolveEditorPanelHeight('adjust');
   @State saving: boolean = false;
+  @State archiveStage: ArchiveStage = 'render';
+  @State archiveNo: string = '0409';
   @State dirty: boolean = false;
   // ── 撤销/重做与调色配方 ──
   @State canUndo: boolean = false;
@@ -358,6 +366,7 @@ struct EditPage {
     if (route?.initialTool !== undefined) {
       this.activeTool = route.initialTool;
     }
+    this.syncPanelHeight();
     // ===== A: Text Layer =====
     if (this.activeTool === 'text') {
       this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE_WITH_CARET);
@@ -652,6 +661,14 @@ struct EditPage {
           }
         })
       }
+
+      if (this.saving) {
+        SealArchiveDialog({
+          visible: this.saving,
+          stage: this.archiveStage,
+          archiveNo: this.archiveNo
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -841,12 +858,14 @@ struct EditPage {
           isolateSubject: this.isIsolateSubject,
           onStickerSelect: (instanceId: string) => {
             this.selectedStickerId = instanceId;
+            this.syncPanelHeight();
           },
           onStickerUpdate: (instanceId: string, posX: number, posY: number, size: number, rotation: number) => {
             this.updateStickerPosition(instanceId, posX, posY, size, rotation);
           },
           onStickerDelete: (instanceId: string): void => {
             this.removeSticker(instanceId);
+            this.syncPanelHeight();
           },
           onDisplaySizeChange: (displayW: number, displayH: number) => {
             this.previewDisplayW = displayW;
@@ -854,7 +873,7 @@ struct EditPage {
           }
         })
           .width('100%')
-          .layoutWeight(1)
+          .height('100%')
       }
       .width('100%')
       .layoutWeight(1)
@@ -862,31 +881,37 @@ struct EditPage {
       .clip(true)
       // ===== End A =====
 
-      // 区域切换 Tab（主体/背景）
-      if (this.isRegionMode()) {
-        if (this.activeRegion === 'subject' && this.segStatus === 'ready' && this.foregroundImage !== undefined) {
-          this.mattingActionBar()
+      // 中下部动效参数面板区（标准常驻档 168vp / 深度微调档 252vp，物理弹簧平滑阻尼）
+      Column() {
+        this.editorPanelContent()
+      }
+      .width('100%')
+      .height(this.panelContainerHeight)
+      .clip(true)
+      .animation({
+        curve: curves.springMotion(0.35, 0.82)
+      })
+
+      // 底部工具导航
+      EditorToolBar({
+        activeTool: this.activeTool,
+        onSelectTool: (key: EditorToolKey) => {
+          this.onToolSelect(key);
         }
-        RegionTabs({
-          selected: this.activeRegion,
-          onChange: (region: RegionKey) => {
-            this.activeRegion = region;
-            this.selectedType = REGION_ADJUST_TYPES[0].key;
-          }
-        })
-          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
-      }
+      })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    // ===== A: Text Layer =====
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.textEditorViewportH = Number(newValue.height);
+    })
+    // ===== End A =====
+  }
 
-      // 分割错误提示
-      if (this.segErrorMessage !== '' && !this.isRegionMode()) {
-        Text(this.segErrorMessage)
-          .fontFamily(Theme.FONT_SANS)
-          .fontSize(Theme.FONT_SIZE_BODY_MD)
-          .fontColor(Theme.ERROR)
-          .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE, top: Theme.SPACE_MD })
-      }
-
-      // 中下部参数面板
+  @Builder
+  editorPanelContent() {
+    Stack({ alignContent: Alignment.Bottom }) {
       if (this.activeTool === 'adjust') {
         AdjustPanel({
           params: this.params,
@@ -906,57 +931,75 @@ struct EditPage {
             this.onAdjustSlidingComplete();
           }
         })
-      } else if (this.isRegionMode() && this.segStatus === 'ready') {
-        AdjustPanel({
-          params: this.activeRegionParams(),
-          selectedType: this.selectedType,
-          typeDefs: REGION_ADJUST_TYPES,
-          onChange: (key: string, value: number) => {
-            this.updateRegionParam(key, value);
-          },
-          onSelectType: (key: string) => {
-            this.selectedType = key;
-          },
-          onReset: () => this.showRegionResetOptions(),
-          onCompareChange: (down: boolean) => {
-            this.isComparing = down;
-          },
-          onSlidingComplete: () => {
-            this.onAdjustSlidingComplete();
+      } else if (this.isRegionMode()) {
+        Column() {
+          if (this.activeRegion === 'subject' && this.segStatus === 'ready' && this.foregroundImage !== undefined) {
+            this.mattingActionBar()
           }
-        })
-      } else if ((this.activeTool === 'subject' || this.activeTool === 'background') &&
-        this.segStatus !== 'ready') {
-        Column({ space: 12 }) {
-          if (this.segStatus === 'preparing' || this.segStatus === 'segmenting') {
-            LoadingProgress()
-              .width(28)
-              .height(28)
-              .color(Theme.PRIMARY)
-            Text('智能主体识别中…')
-              .fontFamily(Theme.FONT_SERIF)
-              .fontSize(Theme.FONT_SIZE_BODY_MD)
-              .fontColor(Theme.ON_SURFACE_VARIANT)
+          RegionTabs({
+            selected: this.activeRegion,
+            onChange: (region: RegionKey) => {
+              this.activeRegion = region;
+              this.selectedType = REGION_ADJUST_TYPES[0].key;
+            }
+          })
+            .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
+
+          if (this.segStatus === 'ready') {
+            AdjustPanel({
+              params: this.activeRegionParams(),
+              selectedType: this.selectedType,
+              typeDefs: REGION_ADJUST_TYPES,
+              onChange: (key: string, value: number) => {
+                this.updateRegionParam(key, value);
+              },
+              onSelectType: (key: string) => {
+                this.selectedType = key;
+              },
+              onReset: () => this.showRegionResetOptions(),
+              onCompareChange: (down: boolean) => {
+                this.isComparing = down;
+              },
+              onSlidingComplete: () => {
+                this.onAdjustSlidingComplete();
+              }
+            })
+              .layoutWeight(1)
           } else {
-            Text(this.segErrorMessage !== '' ? this.segErrorMessage : '未能识别到明显主体')
-              .fontFamily(Theme.FONT_SERIF)
-              .fontSize(Theme.FONT_SIZE_BODY_MD)
-              .fontColor(Theme.ON_SURFACE_VARIANT)
-            Button('重新识别主体')
-              .type(ButtonType.Capsule)
-              .fontSize(13)
-              .backgroundColor(Theme.PRIMARY)
-              .fontColor(Theme.ON_PRIMARY)
-              .height(32)
-              .onClick(() => {
-                this.segStatus = 'idle';
-                this.triggerSegmentation();
-              })
+            Column({ space: 12 }) {
+              if (this.segStatus === 'preparing' || this.segStatus === 'segmenting') {
+                LoadingProgress()
+                  .width(28)
+                  .height(28)
+                  .color(Theme.PRIMARY)
+                Text('智能主体识别中…')
+                  .fontFamily(Theme.FONT_SERIF)
+                  .fontSize(Theme.FONT_SIZE_BODY_MD)
+                  .fontColor(Theme.ON_SURFACE_VARIANT)
+              } else {
+                Text(this.segErrorMessage !== '' ? this.segErrorMessage : '未能识别到明显主体')
+                  .fontFamily(Theme.FONT_SERIF)
+                  .fontSize(Theme.FONT_SIZE_BODY_MD)
+                  .fontColor(Theme.ON_SURFACE_VARIANT)
+                Button('重新识别主体')
+                  .type(ButtonType.Capsule)
+                  .fontSize(13)
+                  .backgroundColor(Theme.PRIMARY)
+                  .fontColor(Theme.ON_PRIMARY)
+                  .height(32)
+                  .onClick(() => {
+                    this.segStatus = 'idle';
+                    this.triggerSegmentation();
+                  })
+              }
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
           }
         }
         .width('100%')
-        .height(120)
-        .justifyContent(FlexAlign.Center)
+        .height('100%')
       } else if (this.activeTool === 'filter') {
         FilterPanel({
           editState: this.editState,
@@ -992,12 +1035,14 @@ struct EditPage {
           },
           onSelectSticker: (instanceId: string) => {
             this.selectedStickerId = instanceId;
+            this.syncPanelHeight();
           },
           onUpdateSticker: (instanceId: string, size: number, rotation: number, opacity: number) => {
             this.updateStickerParams(instanceId, size, rotation, opacity);
           },
           onRemoveSticker: (instanceId: string) => {
             this.removeSticker(instanceId);
+            this.syncPanelHeight();
           },
           notifySizeChange: (value: number) => {
             this.onSliderSizeChange(value);
@@ -1018,7 +1063,7 @@ struct EditPage {
           validationMessage: this.textValidationMessage,
           saved: this.textSaved,
           unavailableFontKeys: this.unavailableTextFontKeys,
-          maxPanelHeight: Math.max(80, Math.min(320, this.textEditorViewportH * 0.55)),
+          maxPanelHeight: EDITOR_PANEL_HEIGHT_EXTENDED,
           onInputChange: (value: string) => this.onTextInput(value),
           onConfirm: () => this.confirmTextLayer(),
           onDelete: () => this.deleteSelectedTextLayer(),
@@ -1073,7 +1118,7 @@ struct EditPage {
             this.dirty = true;
           },
           onExtractExif: () => {
-            this.loadExifForWatermark();
+            this.loadExifForWatermark(true);
           },
           onOpenFullPicker: () => {
             this.showBorderPickerModal = true;
@@ -1082,22 +1127,9 @@ struct EditPage {
       } else {
         this.toolPlaceholder()
       }
-
-      // 底部工具导航
-      EditorToolBar({
-        activeTool: this.activeTool,
-        onSelectTool: (key: EditorToolKey) => {
-          this.onToolSelect(key);
-        }
-      })
     }
     .width('100%')
-    .layoutWeight(1)
-    // ===== A: Text Layer =====
-    .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.textEditorViewportH = Number(newValue.height);
-    })
-    // ===== End A =====
+    .height('100%')
   }
 
   @Builder
@@ -1118,7 +1150,17 @@ struct EditPage {
     .justifyContent(FlexAlign.Center)
   }
 
-  // ── 工具选择 ──
+  // ── 工具选择与面板高度同步 ──
+
+  private syncPanelHeight(): void {
+    const isDetailActive = (this.activeTool === 'sticker' && this.selectedStickerId !== '') ||
+      (this.activeTool === 'text' && this.selectedTextLayerId !== '');
+    this.panelContainerHeight = resolveEditorPanelHeight(
+      this.activeTool,
+      this.isRegionMode(),
+      isDetailActive
+    );
+  }
 
   private onToolSelect(key: EditorToolKey): void {
     this.activeTool = key;
@@ -1128,6 +1170,7 @@ struct EditPage {
     if (key !== 'text') {
       this.selectedTextLayerId = '';
     }
+    this.syncPanelHeight();
     // ===== A: Text Layer =====
     this.getUIContext().setKeyboardAvoidMode(key === 'text'
       ? KeyboardAvoidMode.RESIZE_WITH_CARET : this.previousTextKeyboardMode);
@@ -1185,11 +1228,13 @@ struct EditPage {
         this.selectedTextLayerId = id;
         this.textInputContent = this.textLayers[i].content;
         this.textValidationMessage = '';
+        this.syncPanelHeight();
         return;
       }
     }
     this.selectedTextLayerId = '';
     this.textInputContent = '';
+    this.syncPanelHeight();
   }
 
   private onTextInput(value: string): void {
@@ -1266,6 +1311,7 @@ struct EditPage {
     this.textValidationMessage = '';
     this.textSaved = false;
     this.dirty = true;
+    this.syncPanelHeight();
   }
 
   private nextTextLayerSequence(layers: TextLayerModel[]): number {
@@ -1605,6 +1651,7 @@ struct EditPage {
     this.stickerVersion++;
     this.selectedStickerId = newItem.instanceId;
     this.dirty = true;
+    this.syncPanelHeight();
   }
 
   private async uploadCustomSticker(): Promise<void> {
@@ -1671,6 +1718,7 @@ struct EditPage {
       this.selectedStickerId = '';
     }
     this.dirty = true;
+    this.syncPanelHeight();
   }
 
   private updateStickerPosition(instanceId: string, posX: number, posY: number, size: number, rotation: number): void {
@@ -1727,23 +1775,67 @@ struct EditPage {
     this.dirty = true;
   }
 
-  private async loadExifForWatermark(): Promise<void> {
+  private async loadExifForWatermark(isManual: boolean = false): Promise<void> {
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const info = await ExifReaderService.extractWatermarkInfo(this.imageSrc, context);
+
+      const hasDevice = !!(info.deviceModel && info.deviceModel.trim().length > 0);
+      const hasParams = !!(info.paramsText && info.paramsText.trim().length > 0);
+      const hasTime = !!(info.timeText && info.timeText.trim().length > 0);
+      const hasLens = !!(info.lensModel && info.lensModel.trim().length > 0);
+      const hasAnyExif = hasDevice || hasParams || hasLens;
+
       const current = this.borderState.watermark ? cloneWatermarkConfig(this.borderState.watermark) : defaultWatermarkConfig();
-      if (info.deviceModel && info.deviceModel.trim().length > 0) {
-        current.deviceModel = info.deviceModel;
+
+      if (hasAnyExif) {
+        // 1. 检测到真实拍摄数据：注入真实信息
+        current.deviceModel = hasDevice ? info.deviceModel! : '';
+        current.showDevice = hasDevice;
+
+        if (info.logo && info.logo !== 'none') {
+          current.logo = info.logo;
+          current.showLogo = true;
+        } else {
+          current.logo = 'none';
+          current.showLogo = false;
+        }
+
+        current.paramsText = hasParams ? info.paramsText! : '';
+        current.showParams = hasParams;
+
+        current.timeText = hasTime ? info.timeText! : '';
+        current.showTime = hasTime;
+
+        current.lensModel = hasLens ? info.lensModel! : '';
+        current.showLens = hasLens;
+      } else {
+        // 2. 方案一：图片缺失 EXIF 拍摄数据时，留白即美，坚决不显示硬编码假数据
+        current.deviceModel = '';
+        current.showDevice = false;
+        current.logo = 'none';
+        current.showLogo = false;
+        current.paramsText = '';
+        current.showParams = false;
+        current.lensModel = '';
+        current.showLens = false;
+
+        // 若从文件属性提取到了修改时间，则真实显示；否则也收起隐藏
+        if (hasTime) {
+          current.timeText = info.timeText!;
+          current.showTime = true;
+        } else {
+          current.timeText = '';
+          current.showTime = false;
+        }
+
+        // 弹出友好说明提示（展示 3 秒，确保用户能充分阅读理解）
+        if (isManual || !this.hasShownNoExifToast) {
+          this.toast('未检测到拍摄参数（网络下载或社交软件传输常会清除 EXIF），您可在手动补充', 3000);
+          this.hasShownNoExifToast = true;
+        }
       }
-      if (info.logo) {
-        current.logo = info.logo;
-      }
-      if (info.paramsText && info.paramsText.trim().length > 0) {
-        current.paramsText = info.paramsText;
-      }
-      if (info.timeText && info.timeText.trim().length > 0) {
-        current.timeText = info.timeText;
-      }
+
       const next = cloneBorderState(this.borderState);
       next.watermark = current;
       this.borderState = sanitizeBorderState(next);
@@ -2046,6 +2138,10 @@ struct EditPage {
       return item;
     });
     const adjustments = cloneAdjustments(this.params);
+    mockWorkStore.init();
+    const todayCount = mockWorkStore.countToday() + 1;
+    this.archiveNo = String(todayCount).padStart(4, '0');
+    this.archiveStage = 'render';
     this.saving = true;
 
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -2073,7 +2169,8 @@ struct EditPage {
         }
       }
 
-      // 渲染调色后的图片
+      // 阶段一：全分辨率渲染合成（点染色彩 + 款识装裱）
+      this.archiveStage = 'render';
       const composition = await EditorCompositionService.render(
         sourceUri,
         adjustments,
@@ -2085,6 +2182,9 @@ struct EditPage {
         this.previewDisplayW,
         this.previewDisplayH
       );
+
+      // 阶段二：编码与相册写入（落印相册入册）
+      this.archiveStage = 'export';
 
       // 编码到 cacheDir
       let cacheFilePath: string;
@@ -2108,7 +2208,6 @@ struct EditPage {
         this.params,
         Date.now()
       );
-      mockWorkStore.init();
       const now = Date.now();
       const record = new WorkRecord();
       record.id = intent.draft.id;
@@ -2158,7 +2257,8 @@ struct EditPage {
       }
 
       if (exportResult.success) {
-        this.toast('已保存到系统相册「图片」');
+        // 阶段三：朱砂定印，触发 stamp-in 动效与触感
+        this.archiveStage = 'sealed';
       } else if (exportResult.errorCode === 'USER_CANCELLED') {
         this.saving = false;
         return;
@@ -2188,6 +2288,12 @@ struct EditPage {
       draftStore.clear();
       WorkUiState.bumpRevision();
 
+      // 留足 600ms 让用户看到朱砂落印定格动效，随后再返回主阁
+      await new Promise<void>((resolve: () => void): void => {
+        setTimeout(resolve, 600);
+      });
+
+      this.toast('卷宗已封缄，保存在系统相册');
       this.dirty = false;
       this.getUIContext().getRouter().back();
     } catch (_err) {
@@ -2425,9 +2531,9 @@ struct EditPage {
     return true;
   }
 
-  private toast(message: string): void {
+  private toast(message: string, duration: number = 4000): void {
     try {
-      this.getUIContext().getPromptAction().showToast({ message });
+      this.getUIContext().getPromptAction().showToast({ message, duration });
     } catch (e) {
     }
   }

@@ -255,7 +255,11 @@ struct WorkDetailPage {
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
           if (this.work != null) {
-            // 待 C 在 main_pages.json 注册 pages/EditPage 后生效
+            if (AppStorage.get<boolean>('privacy_agreed') !== true) {
+              AppStorage.setOrCreate('showPrivacyModal', true);
+              this.toast('需同意隐私协议后方可使用调色编辑功能');
+              return;
+            }
             this.getUIContext().getRouter().pushUrl({
               url: 'pages/EditPage',
               params: { source: 'work', workId: this.work.id }

@@ -42,7 +42,7 @@ export default class EntryAbility extends UIAbility {
             const toVp = (px: number): number => density > 0 ? px / density : 0;
             AppStorage.setOrCreate('statusBarHeight', toVp(sysAvoid.topRect.height));
             const rawNavH = Math.max(toVp(navAvoid.bottomRect.height), toVp(sysAvoid.bottomRect.height));
-            // 华为应用审核规范：底部手势/导航条避让硬保底至少 28vp
+            // 导航指示条避让硬保底至少 28vp
             const safeNavH = Math.max(rawNavH, 28);
             AppStorage.setOrCreate('navBarHeight', safeNavH);
           } catch (e) {

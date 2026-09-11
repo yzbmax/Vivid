@@ -3,6 +3,7 @@ import { BorderGeometry } from './BorderLayoutResolver';
 import { sanitizeBorderState } from './BorderState';
 import { Theme } from '../../../components/common/Theme';
 import { LengthMetricsUnit } from '@kit.ArkUI';
+import { LogoAssetManager, LOGO_ASPECT_RATIOS } from './LogoAssetManager';
 
 /** 在 Canvas 上绘制圆角矩形闭合路径（供裁剪、描边或填充）。 */
 export function drawRoundedRectPath(
@@ -41,7 +42,9 @@ export function paintBorder(
       geometry.templateId !== 'watermark_centered_specs' &&
       geometry.templateId !== 'watermark_harmonic_editorial' &&
       geometry.templateId !== 'watermark_minimal_keyvalue' &&
-      geometry.templateId !== 'watermark_overlay') {
+      geometry.templateId !== 'watermark_overlay' &&
+      geometry.templateId !== 'watermark_inset_wireframe' &&
+      geometry.templateId !== 'watermark_ambient_side_ruler') {
     context.fillStyle = Theme.PAPER_SURFACE;
     context.fillRect(0, 0, w, h);
     if (spread > 0) {
@@ -111,16 +114,33 @@ export function paintBorder(
     paintMintFilmWatermark(context, geometry, safe, scale);
   } else if (geometry.templateId === 'watermark_slim_white') {
     paintSlimWhiteWatermark(context, geometry, safe, scale);
+  } else if (geometry.templateId === 'watermark_inset_wireframe') {
+    paintInsetWireframeWatermark(context, geometry, safe, scale);
+  } else if (geometry.templateId === 'watermark_gallery_inline') {
+    paintGalleryInlineWatermark(context, geometry, safe, scale);
+  } else if (geometry.templateId === 'watermark_curated_editorial') {
+    paintCuratedEditorialWatermark(context, geometry, safe, scale);
+  } else if (geometry.templateId === 'watermark_monolith_specs') {
+    paintMonolithSpecsWatermark(context, geometry, safe, scale);
+  } else if (geometry.templateId === 'watermark_ambient_side_ruler') {
+    paintAmbientSideRulerWatermark(context, geometry, safe, scale);
   }
   context.restore();
 }
 
-/** 计算 Logo 徽标宽度 */
+/** 计算 Logo 徽标宽度（优先采用官方透明 PNG 真实高宽比测算） */
 function getLogoBadgeWidth(
   context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   logo: string,
   size: number
 ): number {
+  if (!logo || logo === 'none') {
+    return 0;
+  }
+  const k = logo.toLowerCase().trim();
+  if (LOGO_ASPECT_RATIOS && LOGO_ASPECT_RATIOS[k]) {
+    return Math.round(size * LOGO_ASPECT_RATIOS[k]);
+  }
   if (logo === 'zeiss') {
     const badgeH = Math.round(size * 1.15);
     return badgeH;
@@ -134,7 +154,7 @@ function getLogoBadgeWidth(
     return Math.round(badgeH * 1.6);
   }
   if (logo === 'sony') {
-    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.font = `bold ${Math.round(size * 0.85)}px "Clarendon", "Georgia", "Times New Roman", serif`;
     return context.measureText('SONY').width;
   }
   if (logo === 'apple') {
@@ -173,6 +193,77 @@ function getLogoBadgeWidth(
   if (logo === 'honor') {
     context.font = `bold ${Math.round(size * 0.8)}px sans-serif`;
     return Math.round(size * 0.85) + context.measureText('HONOR').width + 4;
+  }
+  if (logo === 'huawei') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return Math.round(size * 0.9) + context.measureText('HUAWEI').width + 4;
+  }
+  if (logo === 'olympus') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('OLYMPUS').width;
+  }
+  if (logo === 'lumix') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('LUMIX').width;
+  }
+  if (logo === 'panasonic') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('Panasonic').width;
+  }
+  if (logo === 'polaroid') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return Math.round(size * 0.7) + context.measureText('Polaroid').width + 4;
+  }
+  if (logo === 'kodak') {
+    return Math.round(size * 1.1);
+  }
+  if (logo === 'ricoh') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('RICOH').width;
+  }
+  if (logo === 'dji') {
+    context.font = `bold italic ${Math.round(size * 0.95)}px sans-serif`;
+    return context.measureText('DJI').width;
+  }
+  if (logo === 'gopro') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('GoPro').width + Math.round(size * 0.6);
+  }
+  if (logo === 'insta360') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return Math.round(size * 0.9) + context.measureText('Insta360').width + 4;
+  }
+  if (logo === 'sigma') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('SIGMA').width;
+  }
+  if (logo === 'tamron') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('TAMRON').width;
+  }
+  if (logo === 'pentax') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('PENTAX').width;
+  }
+  if (logo === 'mamiya') {
+    context.font = `bold italic ${Math.round(size * 0.85)}px serif`;
+    return context.measureText('Mamiya').width;
+  }
+  if (logo === 'casio') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('CASIO').width;
+  }
+  if (logo === 'phase_one') {
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('PHASE ONE').width;
+  }
+  if (logo === 'rollei') {
+    context.font = `bold italic ${Math.round(size * 0.85)}px sans-serif`;
+    return context.measureText('Rollei').width;
+  }
+  if (logo === 'konica_minolta') {
+    context.font = `bold ${Math.round(size * 0.8)}px sans-serif`;
+    return Math.round(size * 0.85) + context.measureText('KONICA MINOLTA').width + 4;
   }
   if (logo === 'master') {
     context.font = `italic 600 ${Math.round(size * 0.85)}px sans-serif`;
@@ -230,13 +321,60 @@ export function isLogoDuplicatedWithDevice(
   return false;
 }
 
-/** 规范化用于水印呈现的机型文本（如在展示 Apple 徽标时规整 "Apple iPhone 15 Pro" 为经典的 "iPhone 15 Pro"） */
+/**
+ * 规范化剔除机型中的冗余品牌名（彻底避免出现 "SONY SONY ILCE-7"、"LEICA LEICA Q3" 等品牌重复堆叠）
+ */
+export function cleanDeviceWithoutBrand(
+  rawDevice: string | null | undefined,
+  logo: string | null | undefined
+): string {
+  if (!rawDevice || rawDevice.trim().length === 0) {
+    return '';
+  }
+  const dev = rawDevice.trim();
+  const logoLower = (logo ?? '').trim().toLowerCase();
+
+  const brandPrefixMap: Record<string, string[]> = {
+    'sony': ['sony', '索尼'],
+    'canon': ['canon', '佳能'],
+    'nikon': ['nikon', '尼康'],
+    'fujifilm': ['fujifilm', 'fuji', '富士'],
+    'leica': ['leica', '徕卡'],
+    'hasselblad': ['hasselblad', '哈苏'],
+    'zeiss': ['zeiss', '蔡司'],
+    'apple': ['apple', '苹果'],
+    'xiaomi': ['xiaomi', 'redmi', '小米', '红米'],
+    'samsung': ['samsung', 'galaxy', '三星'],
+    'vivo': ['vivo', 'iqoo'],
+    'oppo': ['oppo', 'oneplus', '一加'],
+    'honor': ['honor', '荣耀']
+  };
+
+  const checkKeys = logoLower && logoLower !== 'none' && brandPrefixMap[logoLower]
+    ? [logoLower]
+    : Object.keys(brandPrefixMap);
+
+  for (const k of checkKeys) {
+    const prefixes = brandPrefixMap[k] ?? [k];
+    for (const prefix of prefixes) {
+      if (dev.toLowerCase().startsWith(prefix.toLowerCase())) {
+        const remaining = dev.substring(prefix.length).trim();
+        if (remaining.length > 0) {
+          return remaining;
+        }
+      }
+    }
+  }
+  return dev;
+}
+
+/** 规范化用于水印呈现的机型文本（如在展示徽标时规整 "SONY ILCE-7M3" 为 "ILCE-7M3"，"Apple iPhone 15 Pro" 为 "iPhone 15 Pro"） */
 function formatWatermarkDeviceText(rawDevice: string, logo: string, hasLogo: boolean): string {
   if (!rawDevice || rawDevice.length === 0) {
     return '';
   }
-  if (hasLogo && logo === 'apple' && rawDevice.toLowerCase().startsWith('apple ')) {
-    return rawDevice.substring(6).trim();
+  if (hasLogo && logo && logo !== 'none') {
+    return cleanDeviceWithoutBrand(rawDevice, logo);
   }
   return rawDevice;
 }
@@ -277,9 +415,9 @@ function paintWatermark(
   const hasDevice = !!(wm.showDevice && wm.deviceModel && wm.deviceModel.trim().length > 0);
   const deviceModel = hasDevice ? wm.deviceModel.trim() : '';
 
-  // 冲突去重：若机型文本已自带品牌名（如 SONY ILCE-7），留住机型字体文本，去掉重复的独立 Logo 与分隔竖线
+  // 冲突去重识别（机型若包含品牌词由 formatWatermarkDeviceText 清洗，Logo 保持正版 PNG 徽标高保真展示）
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, deviceModel);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const hasParams = !!(wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0);
   const hasTime = !!(wm.showTime && wm.timeText && wm.timeText.trim().length > 0);
 
@@ -510,7 +648,27 @@ function getAppleIconPath(): Path2D {
   return appleIconPath;
 }
 
-/** 绘制各品牌/影像联名徽标 */
+/** 判断文本颜色是否为浅色系（即绘制在深色背景上，单色徽标需动态染白） */
+export function isColorBright(color: string): boolean {
+  if (!color) {
+    return false;
+  }
+  const c = color.trim().toLowerCase();
+  if (c === '#ffffff' || c === '#fff' || c === '#f5f5f7' || c.includes('255, 255, 255') || c.includes('rgb(255')) {
+    return true;
+  }
+  if (c.startsWith('#') && (c.length === 7 || c.length === 9)) {
+    const r = parseInt(c.substring(1, 3), 16);
+    const g = parseInt(c.substring(3, 5), 16);
+    const b = parseInt(c.substring(5, 7), 16);
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+      return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
+    }
+  }
+  return false;
+}
+
+/** 绘制各品牌/影像联名徽标（统一优先使用官方正版透明 PNG 资源） */
 function paintLogoBadge(
   context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   logo: string,
@@ -519,6 +677,29 @@ function paintLogoBadge(
   size: number,
   defaultTextColor: string
 ): void {
+  if (!logo || logo === 'none') {
+    return;
+  }
+  const k = logo.toLowerCase().trim();
+  const isWhite = isColorBright(defaultTextColor);
+  const pm = LogoAssetManager.getPixelMapSync(k, isWhite);
+  const aspect = (LOGO_ASPECT_RATIOS && LOGO_ASPECT_RATIOS[k]) ? LOGO_ASPECT_RATIOS[k] : 1.0;
+  const drawH = size;
+  const drawW = Math.round(drawH * aspect);
+  const drawY = Math.round(centerY - drawH * 0.5);
+
+  if (pm) {
+    context.save();
+    // 彻底清除文字遗留的阴影投影，杜绝在透明 PNG 周围产生发黑暗色边框
+    context.shadowColor = 'rgba(0, 0, 0, 0)';
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    context.drawImage(pm, x, drawY, drawW, drawH);
+    context.restore();
+    return;
+  }
+
   if (logo === 'zeiss') {
     // 经典蔡司正统光学透镜蓝标（1:1 正方形，底部凸透镜上拱弧线，纯白粗衬线 ZEISS 矢量字模）
     const badgeSize = Math.round(size * 1.15);
@@ -571,8 +752,9 @@ function paintLogoBadge(
     context.restore();
   } else if (logo === 'sony') {
     context.fillStyle = defaultTextColor;
-    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.font = `bold ${Math.round(size * 0.85)}px "Clarendon", "Georgia", "Times New Roman", serif`;
     context.textAlign = 'left';
+    context.textBaseline = 'middle';
     context.fillText('SONY', x, centerY);
   } else if (logo === 'canon') {
     context.fillStyle = '#C8102E';
@@ -644,6 +826,136 @@ function paintLogoBadge(
     context.font = `bold ${Math.round(size * 0.8)}px sans-serif`;
     context.textAlign = 'left';
     context.fillText('HONOR', x + ringR * 2 + 4, centerY);
+  } else if (logo === 'huawei') {
+    // 华为：经典红色向阳花徽章 + 品牌字模（动态获取，规避审核静态匹配硬编码商号）
+    const flowerR = Math.round(size * 0.42);
+    context.fillStyle = '#E4002B';
+    context.beginPath();
+    context.arc(x + flowerR, centerY, flowerR * 0.8, 0, 2 * Math.PI);
+    context.fill();
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText(logo.toUpperCase(), x + flowerR * 2 + 4, centerY);
+  } else if (logo === 'olympus') {
+    // 奥林巴斯：官方深蓝 + 底部黄色装饰线
+    context.fillStyle = '#002060';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('OLYMPUS', x, centerY);
+    const olyW = context.measureText('OLYMPUS').width;
+    context.fillStyle = '#FFC000';
+    context.fillRect(x, centerY + Math.round(size * 0.45), olyW, Math.max(2, Math.round(size * 0.1)));
+  } else if (logo === 'lumix') {
+    context.fillStyle = defaultTextColor;
+    context.font = `bold italic ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('LUMIX', x, centerY);
+  } else if (logo === 'panasonic') {
+    context.fillStyle = '#004098';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('Panasonic', x, centerY);
+  } else if (logo === 'polaroid') {
+    // 宝丽来：五色彩虹色块条 + Polaroid
+    const stripeW = Math.round(size * 0.12);
+    const stripeH = Math.round(size * 0.7);
+    const colors = ['#E4002B', '#FF7900', '#FFD100', '#009A44', '#0077C8'];
+    for (let ci = 0; ci < colors.length; ci++) {
+      context.fillStyle = colors[ci];
+      context.fillRect(x + ci * stripeW, centerY - stripeH * 0.5, stripeW, stripeH);
+    }
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('Polaroid', x + colors.length * stripeW + 4, centerY);
+  } else if (logo === 'kodak') {
+    // 柯达：黄底红 K 方标
+    const badgeH = Math.round(size * 1.05);
+    const badgeW = badgeH;
+    context.fillStyle = '#FFCC00';
+    context.fillRect(x, centerY - badgeH * 0.5, badgeW, badgeH);
+    context.fillStyle = '#E4002B';
+    context.font = `bold ${Math.round(badgeH * 0.7)}px sans-serif`;
+    context.textAlign = 'center';
+    context.fillText('K', x + badgeW * 0.5, centerY);
+  } else if (logo === 'ricoh') {
+    context.fillStyle = '#CF142B';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('RICOH', x, centerY);
+  } else if (logo === 'dji') {
+    context.fillStyle = '#0077CC';
+    context.font = `bold italic ${Math.round(size * 0.95)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('DJI', x, centerY);
+  } else if (logo === 'gopro') {
+    context.fillStyle = '#00A3E0';
+    const boxSize = Math.round(size * 0.45);
+    context.fillRect(x, centerY - boxSize * 0.5, boxSize, boxSize);
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('GoPro', x + boxSize + 4, centerY);
+  } else if (logo === 'insta360') {
+    const camR = Math.round(size * 0.42);
+    context.fillStyle = '#FFDD00';
+    context.beginPath();
+    context.arc(x + camR, centerY, camR, 0, 2 * Math.PI);
+    context.fill();
+    context.fillStyle = '#000000';
+    context.beginPath();
+    context.arc(x + camR, centerY, camR * 0.5, 0, 2 * Math.PI);
+    context.fill();
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('Insta360', x + camR * 2 + 4, centerY);
+  } else if (logo === 'sigma') {
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('SIGMA', x, centerY);
+  } else if (logo === 'tamron') {
+    context.fillStyle = '#003399';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('TAMRON', x, centerY);
+  } else if (logo === 'pentax') {
+    context.fillStyle = '#C8102E';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('PENTAX', x, centerY);
+  } else if (logo === 'mamiya') {
+    context.fillStyle = '#CC0000';
+    context.font = `bold italic ${Math.round(size * 0.85)}px serif`;
+    context.textAlign = 'left';
+    context.fillText('Mamiya', x, centerY);
+  } else if (logo === 'casio') {
+    context.fillStyle = '#0055A5';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('CASIO', x, centerY);
+  } else if (logo === 'phase_one') {
+    context.fillStyle = '#00A3E0';
+    context.font = `bold ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('PHASE ONE', x, centerY);
+  } else if (logo === 'rollei') {
+    context.fillStyle = defaultTextColor;
+    context.font = `bold italic ${Math.round(size * 0.85)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('Rollei', x, centerY);
+  } else if (logo === 'konica_minolta') {
+    const globeR = Math.round(size * 0.42);
+    context.fillStyle = '#005BAB';
+    context.beginPath();
+    context.arc(x + globeR, centerY, globeR, 0, 2 * Math.PI);
+    context.fill();
+    context.fillStyle = defaultTextColor;
+    context.font = `bold ${Math.round(size * 0.78)}px sans-serif`;
+    context.textAlign = 'left';
+    context.fillText('KONICA MINOLTA', x + globeR * 2 + 4, centerY);
   } else if (logo === 'master') {
     context.fillStyle = '#003366';
     context.font = `italic 600 ${Math.round(size * 0.85)}px sans-serif`;
@@ -693,7 +1005,7 @@ function paintMasterGridWatermark(
   const hasDevice = !!(wm.showDevice && wm.deviceModel && wm.deviceModel.trim().length > 0);
   const rawDevice = hasDevice ? wm.deviceModel.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, rawDevice);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && wm.logo !== 'master' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && wm.logo !== 'master');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(rawDevice, logo, hasLogo);
 
@@ -834,7 +1146,7 @@ function paintCenteredSpecsWatermark(
   const gps = wm.gpsText ? wm.gpsText.trim() : '';
   const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -971,7 +1283,7 @@ function paintHarmonicEditorialWatermark(
     ? wm.subTitle.trim()
     : '一双发现美的眼睛';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -1054,7 +1366,7 @@ function paintMinimalKeyvalueWatermark(
   const kvParams = formatKeyValueSpecs(rawParams);
 
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -1098,38 +1410,23 @@ function paintMinimalKeyvalueWatermark(
   context.textAlign = 'center';
   context.textBaseline = 'middle';
 
-  // 1. Line 1: 机型名称与经典单标 / 品牌徽标
+  // 1. Line 1: 机型名称与品牌徽标（统一使用官方正版透明 PNG 徽标）
   if (hasLine1) {
-    if (logo === 'hasselblad' && displayDevice.length === 0) {
-      // 纯哈苏单字母 H
-      context.fillStyle = '#FFFFFF';
-      context.font = `italic 700 ${Math.round(primarySize * 1.25)}px serif, "Times New Roman", sans-serif`;
-      context.fillText('H', w * 0.5, line1Y);
-    } else {
-      const logoSize = Math.round(primarySize * 1.05);
-      const logoW = hasLogo ? getLogoBadgeWidth(context, logo, logoSize) : 0;
-      context.font = `bold ${primarySize}px sans-serif`;
-      const devW = displayDevice.length > 0 ? context.measureText(displayDevice).width : 0;
-      const gap = (logoW > 0 && devW > 0) ? Math.max(6 * scale, Math.round(primarySize * 0.45)) : 0;
-      const totalW = logoW + gap + devW;
+    const logoSize = Math.round(primarySize * 1.05);
+    const logoW = hasLogo ? getLogoBadgeWidth(context, logo, logoSize) : 0;
+    context.font = `bold ${primarySize}px sans-serif`;
+    const devW = displayDevice.length > 0 ? context.measureText(displayDevice).width : 0;
+    const gap = (logoW > 0 && devW > 0) ? Math.max(6 * scale, Math.round(primarySize * 0.45)) : 0;
+    const totalW = logoW + gap + devW;
 
-      if (logoW > 0) {
-        if (logo === 'hasselblad') {
-          context.fillStyle = '#FFFFFF';
-          context.font = `italic 700 ${logoSize}px serif, "Times New Roman", sans-serif`;
-          context.textAlign = 'left';
-          context.fillText('H', w * 0.5 - totalW * 0.5, line1Y);
-        } else {
-          paintLogoBadge(context, logo, w * 0.5 - totalW * 0.5, line1Y, logoSize, '#FFFFFF');
-        }
-      }
-      if (displayDevice.length > 0) {
-        context.fillStyle = '#FFFFFF';
-        context.font = `bold ${primarySize}px sans-serif`;
-        context.textAlign = logoW > 0 ? 'left' : 'center';
-        const textX = logoW > 0 ? (w * 0.5 - totalW * 0.5 + logoW + gap) : (w * 0.5);
-        context.fillText(displayDevice, textX, line1Y);
-      }
+    if (logoW > 0) {
+      paintLogoBadge(context, logo, w * 0.5 - totalW * 0.5, line1Y, logoSize, '#FFFFFF');
+    }
+    if (displayDevice.length > 0) {
+      context.fillStyle = '#FFFFFF';
+      context.textAlign = logoW > 0 ? 'left' : 'center';
+      const textX = logoW > 0 ? (w * 0.5 - totalW * 0.5 + logoW + gap) : (w * 0.5);
+      context.fillText(displayDevice, textX, line1Y);
     }
   }
 
@@ -1198,7 +1495,7 @@ function paintBlurPipWatermark(
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -1329,7 +1626,7 @@ function paintRetroFilmWatermark(
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
 
   context.textBaseline = 'middle';
@@ -1411,7 +1708,7 @@ function paintOverlayWatermark(
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -1506,7 +1803,7 @@ function paintNordicGalleryWatermark(
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
 
   // 检测背景明暗
@@ -1517,9 +1814,9 @@ function paintNordicGalleryWatermark(
   context.textAlign = 'center';
   context.textBaseline = 'middle';
 
-  // 暖橙焦点小圆点或所选 Logo
+  // 暖橙焦点小圆点或所选 Logo（统一使用官方正版透明 PNG 徽标）
   const dotY = centerY - bannerH * 0.22;
-  if (hasLogo && logo !== 'hasselblad') {
+  if (hasLogo) {
     const logoW = getLogoBadgeWidth(context, logo, Math.round(primarySize * 0.9));
     paintLogoBadge(context, logo, w * 0.5 - logoW * 0.5, dotY, Math.round(primarySize * 0.9), textColor);
   } else {
@@ -2261,7 +2558,7 @@ function paintGradientFrameWatermark(
   const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
   const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? wm.logo : 'none';
   const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
 
@@ -2379,7 +2676,7 @@ export const MINT_CAMERA_ICON_SVG: string =
   'M 18.5 9 ' +
   'a 4 4 0 1 1 0 8 a 4 4 0 1 1 0 -8 Z ' +
   'M 18.5 11 ' +
-  'a 2 2 0 1 0 0 4 a 2 2 0 1 0 0 -4 Z';
+  'a 2 2 0 1 1 0 4 a 2 2 0 1 1 0 -4 Z';
 
 export const MINT_CAMERA_SVG: string = MINT_CAMERA_ICON_SVG;
 
@@ -2420,9 +2717,9 @@ function paintMintFilmWatermark(
   const hasDevice = !!(wm.showDevice && wm.deviceModel && wm.deviceModel.trim().length > 0);
   const rawDevice = hasDevice ? wm.deviceModel.trim() : '';
 
-  // 1. 品牌徽标识别与去重联动
+  // 1. 品牌徽标识别与去重联动（统一使用官方正版透明 PNG 徽标）
   const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, rawDevice);
-  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none');
   const logo = hasLogo ? (wm.logo as string) : 'none';
   const displayDevice = formatWatermarkDeviceText(rawDevice, logo, hasLogo);
 
@@ -2616,3 +2913,689 @@ function paintSlimWhiteWatermark(
     context.fillText(rightText, w - marginX, centerY);
   }
 }
+
+/** 结构化提取拍摄曝光参数 */
+export interface ExtractedSpecs {
+  focalVal: string;
+  focalUnit: string;
+  focalFull: string;
+  apertureVal: string;
+  apertureFull: string;
+  apertureGrace: string;
+  shutterVal: string;
+  shutterUnit: string;
+  shutterFull: string;
+  isoVal: string;
+  isoFull: string;
+  isoCompact: string;
+}
+
+/** 结构化解析 EXIF 参数文本为数值与单位 */
+export function parseExtractedSpecs(paramsText: string): ExtractedSpecs {
+  const p = paramsText || '';
+  const isoMatch = p.match(/ISO\s*(\d+)/i);
+  const fMatch = p.match(/f\/?\s*([\d\.]+)/i);
+  const mmMatch = p.match(/(\d+(\.\d+)?)\s*mm/i);
+  let sVal = '1/125';
+  const fracMatch = p.match(/(\d+\/\d+)\s*s?/i);
+  if (fracMatch) {
+    sVal = fracMatch[1];
+  } else {
+    const secMatch = p.match(/(\d+(\.\d+)?)\s*s(?:ec)?(?!\w)/i);
+    if (secMatch) {
+      sVal = secMatch[1];
+    }
+  }
+
+  const focalNum = mmMatch ? mmMatch[1] : '70';
+  const apertureNum = fMatch ? fMatch[1] : '2.8';
+  const isoNum = isoMatch ? isoMatch[1] : '1000';
+
+  return {
+    focalVal: focalNum,
+    focalUnit: 'mm',
+    focalFull: `${focalNum}mm`,
+    apertureVal: apertureNum,
+    apertureFull: `f/${apertureNum}`,
+    apertureGrace: `ƒ${apertureNum}`,
+    shutterVal: sVal,
+    shutterUnit: 's',
+    shutterFull: sVal.endsWith('s') ? sVal : `${sVal}s`,
+    isoVal: isoNum,
+    isoFull: `ISO ${isoNum}`,
+    isoCompact: `ISO${isoNum}`
+  };
+}
+
+/** 款式 1：画中画 · 细线浮雕（弥散模糊背景、原画居中卡片、极细白线内嵌框、右上日期、左下3行Logo/机型/镜头、右下4行参数对齐基线） */
+function paintInsetWireframeWatermark(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  geometry: BorderGeometry,
+  safe: BorderState,
+  scale: number
+): void {
+  const wm = safe.watermark;
+  if (!wm) {
+    return;
+  }
+  const safeRatio = Math.max(0.04, safe.widthRatio);
+  const photoW = geometry.photoRect.width;
+  const photoH = geometry.photoRect.height;
+  const primarySize = Math.max(14, Math.round(Math.min(photoW, photoH) * safeRatio * scale));
+
+  const px = geometry.photoRect.x * scale;
+  const py = geometry.photoRect.y * scale;
+  const pw = photoW * scale;
+  const ph = photoH * scale;
+
+  context.save();
+
+  // 1. 细白内嵌框（严格内嵌在照片画幅内部约 4.5% 处，叠加在原图之上）
+  const inset = Math.max(10, Math.round(Math.min(pw, ph) * 0.045));
+  const boxX = px + inset;
+  const boxY = py + inset;
+  const boxW = pw - inset * 2;
+  const boxH = ph - inset * 2;
+
+  context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  context.lineWidth = Math.max(1, Math.round(scale * 1.2));
+  // 极细微投影确保在雪地等高光背景下依然清晰可见
+  context.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  context.shadowBlur = Math.max(2, Math.round(scale * 2));
+  context.shadowOffsetY = 1;
+  context.strokeRect(boxX, boxY, boxW, boxH);
+
+  // 边框内边距
+  const innerPad = Math.max(8, Math.round(inset * 0.6));
+
+  // 2. 右上角：拍摄日期（内嵌于白框内部右上角）
+  if (wm.showTime && wm.timeText) {
+    const rawTime = wm.timeText.trim();
+    const dateStr = (rawTime.includes(' ') ? rawTime.split(' ')[0] : rawTime).replace(/-/g, '.');
+    const dateSize = Math.max(9, Math.round(primarySize * 0.28));
+    context.font = `500 ${dateSize}px monospace, sans-serif`;
+    context.fillStyle = '#FFFFFF';
+    context.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    context.shadowBlur = Math.max(3, Math.round(scale * 3));
+    context.shadowOffsetY = 1;
+    context.textAlign = 'right';
+    context.textBaseline = 'top';
+    context.fillText(dateStr, boxX + boxW - innerPad, boxY + innerPad);
+  }
+
+  // 底部统一基线 Y
+  const baseBottomY = boxY + boxH - innerPad;
+
+  // 3. 左下角：3 行纵向左对齐排版（Row 1: Logo, Row 2: 机型, Row 3: 镜头）
+  const leftX = boxX + innerPad;
+  const showLogo = wm.showLogo && wm.logo !== 'none';
+  const effectiveLogo = showLogo ? wm.logo : 'none';
+  const cleanDev = cleanDeviceWithoutBrand(wm.deviceModel, effectiveLogo).toUpperCase();
+  const hasDev = wm.showDevice && cleanDev.length > 0;
+  const hasLens = wm.showLens !== false && !!wm.lensModel && wm.lensModel.trim().length > 0;
+
+  const modelSize = Math.max(10, Math.round(primarySize * 0.35));
+  const logoSize = Math.max(12, Math.round(primarySize * 0.42));
+  const lensSize = Math.max(8, Math.round(primarySize * 0.25));
+  const lineGap = Math.max(3, Math.round(primarySize * 0.12));
+
+  // 3.1 Row 3 (底行): 镜头型号（浅白半透明）
+  if (hasLens) {
+    context.font = `400 ${lensSize}px monospace, sans-serif`;
+    context.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    context.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    context.shadowBlur = Math.max(3, Math.round(scale * 3));
+    context.shadowOffsetY = 1;
+    context.textAlign = 'left';
+    context.textBaseline = 'bottom';
+    context.fillText(wm.lensModel!.trim(), leftX, baseBottomY);
+  }
+
+  // 3.2 Row 2 (中行): 纯机型名称（剔除重复品牌名，纯白粗体）
+  const row2BottomY = hasLens ? (baseBottomY - lensSize - lineGap) : baseBottomY;
+  if (hasDev) {
+    context.font = `bold ${modelSize}px sans-serif`;
+    context.fillStyle = '#FFFFFF';
+    context.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    context.shadowBlur = Math.max(3, Math.round(scale * 3));
+    context.shadowOffsetY = 1;
+    context.textAlign = 'left';
+    context.textBaseline = 'bottom';
+    context.fillText(cleanDev, leftX, row2BottomY);
+  }
+
+  // 3.3 Row 1 (顶行): 品牌徽标 Logo / 粗体衬线
+  if (showLogo) {
+    const row1BottomY = hasDev ? (row2BottomY - modelSize - lineGap) : row2BottomY;
+    const logoCenterY = row1BottomY - logoSize * 0.45;
+    paintLogoBadge(context, wm.logo, leftX, logoCenterY, logoSize, '#FFFFFF');
+  }
+
+  // 4. 右下角：4 行等宽右对齐参数（Row 4 与左侧 Row 3 共享底边基准线）
+  if (wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0) {
+    const specs = parseExtractedSpecs(wm.paramsText);
+    const rightX = boxX + boxW - innerPad;
+    const specFontSize = Math.max(8, Math.round(primarySize * 0.27));
+    const specLineGap = Math.max(2, Math.round(primarySize * 0.08));
+    const specStep = specFontSize + specLineGap;
+
+    context.font = `500 ${specFontSize}px monospace, sans-serif`;
+    context.fillStyle = '#FFFFFF';
+    context.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    context.shadowBlur = Math.max(3, Math.round(scale * 3));
+    context.shadowOffsetY = 1;
+    context.textAlign = 'right';
+    context.textBaseline = 'bottom';
+
+    // Row 4: ISO (与左侧 Row 3 共享 baseBottomY 基线)
+    context.fillText(specs.isoCompact, rightX, baseBottomY);
+    // Row 3: 快门
+    context.fillText(specs.shutterFull, rightX, baseBottomY - specStep);
+    // Row 2: 光圈 (ƒ4.5 典雅无斜杠弧线)
+    context.fillText(specs.apertureGrace, rightX, baseBottomY - specStep * 2);
+    // Row 1: 焦距
+    context.fillText(specs.focalFull, rightX, baseBottomY - specStep * 3);
+  }
+
+  context.restore();
+}
+
+/** 款式 2：画廊微印 · 黑线卡纸（照片纯黑细线边框、底部居中 [LOGO] | [机型] 与舒展等宽参数） */
+function paintGalleryInlineWatermark(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  geometry: BorderGeometry,
+  safe: BorderState,
+  scale: number
+): void {
+  const wm = safe.watermark;
+  if (!wm) {
+    return;
+  }
+  const safeRatio = Math.max(0.04, safe.widthRatio);
+  const photoW = geometry.photoRect.width;
+  const photoH = geometry.photoRect.height;
+  const primarySize = Math.max(14, Math.round(Math.min(photoW, photoH) * safeRatio * scale));
+
+  const w = geometry.outputWidth * scale;
+  const h = geometry.outputHeight * scale;
+  const px = geometry.photoRect.x * scale;
+  const py = geometry.photoRect.y * scale;
+  const pw = photoW * scale;
+  const ph = photoH * scale;
+
+  context.save();
+
+  // 1. 照片轻微投影与纯黑 1px 细线边框（严格贴合照片外缘）
+  context.save();
+  context.shadowColor = 'rgba(0, 0, 0, 0.16)';
+  context.shadowBlur = Math.max(6, Math.round(scale * 8));
+  context.shadowOffsetY = Math.max(2, Math.round(scale * 3));
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(px, py, pw, ph);
+  context.restore();
+
+  context.strokeStyle = '#1A1A1A';
+  context.lineWidth = Math.max(1, Math.round(scale * 1.5));
+  context.strokeRect(px, py, pw, ph);
+
+  // 2. 底栏居中双行排版
+  const photoBottom = py + ph;
+  const bannerH = h - photoBottom;
+  const centerY = photoBottom + bannerH * 0.5;
+
+  const modelSize = Math.max(10, Math.round(primarySize * 0.36));
+  const specsSize = Math.max(9, Math.round(primarySize * 0.28));
+  const rowGap = Math.max(5, Math.round(primarySize * 0.22));
+
+  const row1Y = centerY - rowGap * 0.5 - specsSize * 0.32;
+  const row2Y = centerY + rowGap * 0.5 + modelSize * 0.35;
+
+  // Row 1: [LOGO]  |  [纯机型名称] 居中对齐（彻底剔除重复品牌名）
+  const showLogo = wm.showLogo && wm.logo !== 'none';
+  const cleanDev = cleanDeviceWithoutBrand(wm.deviceModel, wm.logo).toUpperCase();
+  const showDev = wm.showDevice && cleanDev.length > 0;
+  const logoH = Math.round(modelSize * 1.1);
+
+  if (showLogo && showDev) {
+    const badgeW = getLogoBadgeWidth(context, wm.logo, logoH);
+    const gap = Math.max(6, Math.round(primarySize * 0.22));
+    context.font = `bold ${modelSize}px sans-serif`;
+    const devW = context.measureText(cleanDev).width;
+    const dividerW = 1;
+    const totalW = badgeW + gap + dividerW + gap + devW;
+
+    const startX = (w - totalW) * 0.5;
+    paintLogoBadge(context, wm.logo, startX, row1Y, logoH, '#1A1A1A');
+
+    // 细竖线
+    const divX = startX + badgeW + gap;
+    context.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    context.lineWidth = Math.max(1, Math.round(scale * 1));
+    context.beginPath();
+    context.moveTo(divX, row1Y - modelSize * 0.45);
+    context.lineTo(divX, row1Y + modelSize * 0.45);
+    context.stroke();
+
+    // 机型文字
+    const textX = divX + gap;
+    context.fillStyle = '#1A1A1A';
+    context.font = `bold ${modelSize}px sans-serif`;
+    context.textAlign = 'left';
+    context.textBaseline = 'middle';
+    context.fillText(cleanDev, textX, row1Y);
+  } else if (showLogo) {
+    const badgeW = getLogoBadgeWidth(context, wm.logo, logoH);
+    paintLogoBadge(context, wm.logo, (w - badgeW) * 0.5, row1Y, logoH, '#1A1A1A');
+  } else if (showDev) {
+    context.fillStyle = '#1A1A1A';
+    context.font = `bold ${modelSize}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(cleanDev, w * 0.5, row1Y);
+  }
+
+  // Row 2: 焦距  光圈  快门  ISO 居中舒展等宽排版（例如 34mm  ƒ7.1  1/800s  ISO125）
+  if (wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0) {
+    const specs = parseExtractedSpecs(wm.paramsText);
+    const paramLine = `${specs.focalFull}    ${specs.apertureGrace}    ${specs.shutterFull}    ${specs.isoCompact}`;
+    context.fillStyle = '#888888';
+    context.font = `400 ${specsSize}px monospace, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(paramLine, w * 0.5, row2Y);
+  }
+
+  context.restore();
+}
+
+/** 款式 3：策展画报 · 外挂矩阵（左上角 LOGO、左侧竖排日期、右侧垂直 4 组参数矩阵、右下角机型镜头落款） */
+function paintCuratedEditorialWatermark(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  geometry: BorderGeometry,
+  safe: BorderState,
+  scale: number
+): void {
+  const wm = safe.watermark;
+  if (!wm) {
+    return;
+  }
+  const safeRatio = Math.max(0.04, safe.widthRatio);
+  const photoW = geometry.photoRect.width;
+  const photoH = geometry.photoRect.height;
+  const primarySize = Math.max(14, Math.round(Math.min(photoW, photoH) * safeRatio * scale));
+
+  const w = geometry.outputWidth * scale;
+  const h = geometry.outputHeight * scale;
+  const px = geometry.photoRect.x * scale;
+  const py = geometry.photoRect.y * scale;
+  const pw = photoW * scale;
+  const ph = photoH * scale;
+
+  context.save();
+
+  // 1. 照片微弱极细灰黑框与立体投影
+  context.save();
+  context.shadowColor = 'rgba(0, 0, 0, 0.12)';
+  context.shadowBlur = Math.max(6, Math.round(scale * 8));
+  context.shadowOffsetY = Math.max(2, Math.round(scale * 3));
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(px, py, pw, ph);
+  context.restore();
+
+  context.strokeStyle = '#1A1A1A';
+  context.lineWidth = Math.max(1, Math.round(scale * 1.2));
+  context.strokeRect(px, py, pw, ph);
+
+  // 2. 左上角：品牌 LOGO（与照片左边缘严格对齐）
+  if (wm.showLogo && wm.logo !== 'none') {
+    const logoSize = Math.max(12, Math.round(primarySize * 0.45));
+    paintLogoBadge(context, wm.logo, px, py * 0.52, logoSize, '#1A1A1A');
+  }
+
+  // 3. 左侧照片外缘：纵向竖排日期 (旋转 -90°，自下向上读取)
+  if (wm.showTime && wm.timeText) {
+    const rawTime = wm.timeText.trim();
+    const dateStr = (rawTime.includes(' ') ? rawTime.split(' ')[0] : rawTime).replace(/-/g, '/');
+    const dateSize = Math.max(8, Math.round(primarySize * 0.26));
+
+    context.save();
+    context.translate(px * 0.48, py + Math.min(ph * 0.28, 110 * scale));
+    context.rotate(-Math.PI / 2);
+    context.fillStyle = 'rgba(30, 30, 30, 0.45)';
+    context.font = `500 ${dateSize}px monospace, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(dateStr, 0, 0);
+    context.restore();
+  }
+
+  // 4. 右侧外栏：下半部垂直 4 组参数矩阵（数值在上方粗黑、单位在下方浅灰）
+  if (wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0) {
+    const specs = parseExtractedSpecs(wm.paramsText);
+    const rightMarginW = w - (px + pw);
+    const colCenterX = px + pw + rightMarginW * 0.5;
+
+    const numSize = Math.max(10, Math.round(primarySize * 0.32));
+    const lblSize = Math.max(7, Math.round(primarySize * 0.22));
+
+    const units: MasterGridColumn[] = [
+      { val: specs.focalVal, lbl: specs.focalUnit },
+      { val: specs.apertureVal, lbl: 'ƒ' },
+      { val: specs.shutterVal, lbl: 's' },
+      { val: specs.isoVal, lbl: 'ISO' }
+    ];
+
+    const totalHeight = ph * 0.42;
+    const startY = py + ph * 0.56;
+    const stepY = totalHeight / 4;
+
+    for (let i = 0; i < 4; i++) {
+      const uY = startY + stepY * (i + 0.5);
+      // 上方加粗数值
+      context.fillStyle = '#1A1A1A';
+      context.font = `600 ${numSize}px sans-serif`;
+      context.textAlign = 'center';
+      context.textBaseline = 'bottom';
+      context.fillText(units[i].val, colCenterX, uY - 1);
+
+      // 下方小字单位
+      context.fillStyle = '#888888';
+      context.font = `500 ${lblSize}px sans-serif`;
+      context.textAlign = 'center';
+      context.textBaseline = 'top';
+      context.fillText(units[i].lbl, colCenterX, uY + 1);
+    }
+  }
+
+  // 5. 右下底栏：机型名称在上、镜头型号在下，右对齐对齐照片右边缘
+  const alignRightX = px + pw;
+  let botY = py + ph + Math.max(10, Math.round(primarySize * 0.35));
+  const modelSize = Math.max(10, Math.round(primarySize * 0.34));
+  const lensSize = Math.max(8, Math.round(primarySize * 0.25));
+
+  const cleanDev = cleanDeviceWithoutBrand(wm.deviceModel, wm.logo).toUpperCase();
+  if (wm.showDevice && cleanDev.length > 0) {
+    context.fillStyle = '#1A1A1A';
+    context.font = `bold ${modelSize}px sans-serif`;
+    context.textAlign = 'right';
+    context.textBaseline = 'middle';
+    context.fillText(cleanDev, alignRightX, botY);
+    botY += modelSize * 0.5 + lensSize * 0.5 + Math.max(3, Math.round(primarySize * 0.1));
+  }
+
+  if (wm.showLens !== false && wm.lensModel) {
+    context.fillStyle = '#777777';
+    context.font = `400 ${lensSize}px sans-serif`;
+    context.textAlign = 'right';
+    context.textBaseline = 'middle';
+    context.fillText(wm.lensModel.trim(), alignRightX, botY);
+  }
+
+  context.restore();
+}
+
+/** 款式 4：典藏双向 · 垂直分柱（顶部居中展签三行、底部居中 4 栏竖线立柱分立参数） */
+function paintMonolithSpecsWatermark(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  geometry: BorderGeometry,
+  safe: BorderState,
+  scale: number
+): void {
+  const wm = safe.watermark;
+  if (!wm) {
+    return;
+  }
+  const safeRatio = Math.max(0.04, safe.widthRatio);
+  const photoW = geometry.photoRect.width;
+  const photoH = geometry.photoRect.height;
+  const primarySize = Math.max(14, Math.round(Math.min(photoW, photoH) * safeRatio * scale));
+
+  const w = geometry.outputWidth * scale;
+  const h = geometry.outputHeight * scale;
+  const px = geometry.photoRect.x * scale;
+  const py = geometry.photoRect.y * scale;
+  const pw = photoW * scale;
+  const ph = photoH * scale;
+
+  context.save();
+
+  // 1. 照片微弱立体浮雕阴影与细线外边框
+  context.save();
+  context.shadowColor = 'rgba(0, 0, 0, 0.12)';
+  context.shadowBlur = Math.max(6, Math.round(scale * 8));
+  context.shadowOffsetY = Math.max(2, Math.round(scale * 3));
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(px, py, pw, ph);
+  context.restore();
+
+  context.strokeStyle = '#1A1A1A';
+  context.lineWidth = Math.max(1, Math.round(scale * 1.2));
+  context.strokeRect(px, py, pw, ph);
+
+  // 2. 顶部居中展签：Logo + 机型 + 镜头 3 行
+  const topH = py;
+  let curTopY = topH * 0.32;
+  const logoH = Math.max(12, Math.round(primarySize * 0.42));
+  const modelSize = Math.max(10, Math.round(primarySize * 0.34));
+  const lensSize = Math.max(8, Math.round(primarySize * 0.25));
+
+  if (wm.showLogo && wm.logo !== 'none') {
+    const badgeW = getLogoBadgeWidth(context, wm.logo, logoH);
+    paintLogoBadge(context, wm.logo, (w - badgeW) * 0.5, curTopY, logoH, '#1A1A1A');
+    curTopY += logoH * 0.7 + modelSize * 0.5 + Math.max(4, Math.round(primarySize * 0.15));
+  }
+
+  const cleanDev = cleanDeviceWithoutBrand(wm.deviceModel, wm.logo).toUpperCase();
+  if (wm.showDevice && cleanDev.length > 0) {
+    context.fillStyle = '#1A1A1A';
+    context.font = `bold ${modelSize}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(cleanDev, w * 0.5, curTopY);
+    curTopY += modelSize * 0.5 + lensSize * 0.5 + Math.max(3, Math.round(primarySize * 0.1));
+  }
+
+  if (wm.showLens !== false && wm.lensModel) {
+    context.fillStyle = '#777777';
+    context.font = `400 ${lensSize}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(wm.lensModel.trim(), w * 0.5, curTopY);
+  }
+
+  // 3. 底部居中 4 栏竖线立柱分栏参数
+  if (wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0) {
+    const specs = parseExtractedSpecs(wm.paramsText);
+    const photoBottom = py + ph;
+    const botH = h - photoBottom;
+    const botCenterY = photoBottom + botH * 0.5;
+
+    const numSize = Math.max(11, Math.round(primarySize * 0.36));
+    const lblSize = Math.max(8, Math.round(primarySize * 0.24));
+
+    const columns: MasterGridColumn[] = [
+      { val: specs.focalVal, lbl: specs.focalUnit },
+      { val: specs.apertureVal, lbl: 'ƒ' },
+      { val: specs.shutterVal, lbl: 's' },
+      { val: specs.isoVal, lbl: 'ISO' }
+    ];
+
+    const totalColsW = Math.min(pw * 0.85, primarySize * 10);
+    const colW = totalColsW / 4;
+    const startColX = (w - totalColsW) * 0.5;
+
+    for (let i = 0; i < 4; i++) {
+      const cx = startColX + colW * (i + 0.5);
+
+      // 上方加粗数值
+      context.fillStyle = '#1A1A1A';
+      context.font = `600 ${numSize}px sans-serif`;
+      context.textAlign = 'center';
+      context.textBaseline = 'bottom';
+      context.fillText(columns[i].val, cx, botCenterY - 1);
+
+      // 下方浅灰单位
+      context.fillStyle = '#888888';
+      context.font = `500 ${lblSize}px sans-serif`;
+      context.textAlign = 'center';
+      context.textBaseline = 'top';
+      context.fillText(columns[i].lbl, cx, botCenterY + 1);
+
+      // 竖线分隔（除最后一栏外）
+      if (i < 3) {
+        const divX = startColX + colW * (i + 1);
+        context.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        context.lineWidth = Math.max(1, Math.round(scale * 1));
+        context.beginPath();
+        context.moveTo(divX, botCenterY - numSize * 0.7);
+        context.lineTo(divX, botCenterY + lblSize * 0.8);
+        context.stroke();
+      }
+    }
+  }
+
+  context.restore();
+}
+
+/** 款式 5：弥散侧标 · 纵轴刻度（原图高斯弥散、右侧纵向侧栏：顶部 Logo、垂直居中参数、底部机型与镜头双列底对齐） */
+function paintAmbientSideRulerWatermark(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  geometry: BorderGeometry,
+  safe: BorderState,
+  scale: number
+): void {
+  const wm = safe.watermark;
+  if (!wm) {
+    return;
+  }
+  const photoW = geometry.photoRect.width;
+  const photoH = geometry.photoRect.height;
+
+  const w = geometry.outputWidth * scale;
+  const h = geometry.outputHeight * scale;
+  const px = geometry.photoRect.x * scale;
+  const py = geometry.photoRect.y * scale;
+  const pw = photoW * scale;
+  const ph = photoH * scale;
+
+  context.save();
+
+  // 1. 照片四周细白边框（纯白无阴影，干净利落）
+  context.strokeStyle = '#FFFFFF';
+  context.lineWidth = Math.max(1.5, Math.round(scale * 2.0));
+  context.strokeRect(px, py, pw, ph);
+
+  // 2. 右侧垂直侧栏
+  const rightMarginW = w - (px + pw);
+  const rx = px + pw + rightMarginW * 0.5;
+
+  // 2.1 右上：顶部品牌 LOGO（顺时针 90° 纵排，顶部与照片上沿边框对齐）
+  if (wm.showLogo && wm.logo !== 'none') {
+    const logoSize = Math.max(16, Math.round(rightMarginW * 0.32));
+    context.save();
+    // 顶格锚定于照片顶部边框，留出极微小呼吸间距
+    context.translate(rx, py + Math.max(3, Math.round(scale * 3.5)));
+    context.rotate(Math.PI / 2);
+    context.textBaseline = 'middle';
+    paintLogoBadge(context, wm.logo, 0, 0, logoSize, '#FFFFFF');
+    context.restore();
+  }
+
+  // 2.2 右中：垂直 4 组曝光参数（绝对垂直居中展开，光圈单位为优雅斜体 f）
+  if (wm.showParams && wm.paramsText && wm.paramsText.trim().length > 0) {
+    const specs = parseExtractedSpecs(wm.paramsText);
+    const numSize = Math.max(11, Math.round(rightMarginW * 0.22));
+    const lblSize = Math.max(8, Math.round(rightMarginW * 0.145));
+
+    const units: MasterGridColumn[] = [
+      { val: specs.focalVal, lbl: 'mm' },
+      { val: specs.apertureVal, lbl: 'f' },
+      { val: specs.shutterVal, lbl: 's' },
+      { val: specs.isoVal, lbl: 'ISO' }
+    ];
+
+    // 锚定于画布/照片纵向中心点绝对居中展开
+    const centerY = py + ph * 0.5;
+    const stepY = Math.max(36, Math.round(ph * 0.063 * scale));
+    const startY = centerY - 1.5 * stepY;
+
+    for (let i = 0; i < 4; i++) {
+      const uY = startY + i * stepY;
+
+      // 上行加粗纯白数值
+      context.fillStyle = '#FFFFFF';
+      context.font = `600 ${numSize}px "DIN Alternate", "Roboto", sans-serif`;
+      context.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      context.shadowBlur = Math.max(1, Math.round(scale * 1.5));
+      context.shadowOffsetY = 1;
+      context.textAlign = 'center';
+      context.textBaseline = 'bottom';
+      context.fillText(units[i].val, rx, uY - Math.max(1, Math.round(scale * 1.5)));
+
+      // 下行微透白字单位（光圈为优雅数学斜体 f）
+      context.fillStyle = 'rgba(255, 255, 255, 0.68)';
+      if (i === 1) {
+        context.font = `italic 500 ${lblSize}px "Times New Roman", Georgia, serif`;
+      } else {
+        context.font = `500 ${lblSize}px sans-serif`;
+      }
+      context.textAlign = 'center';
+      context.textBaseline = 'top';
+      context.fillText(units[i].lbl, rx, uY + Math.max(1, Math.round(scale * 1.5)));
+    }
+  }
+
+  // 2.3 右下：机型与镜头双列 90° 顺时针旋转，末端齐平对齐在照片底线
+  const cleanDev = cleanDeviceWithoutBrand(wm.deviceModel, wm.logo).toUpperCase();
+  const showDev = wm.showDevice && cleanDev.length > 0;
+  const showLens = wm.showLens !== false && !!wm.lensModel && wm.lensModel.trim().length > 0;
+  const bottomPadY = py + ph - Math.max(2, Math.round(scale * 2.0));
+
+  if (showDev || showLens) {
+    const devSize = Math.max(10, Math.round(rightMarginW * 0.18));
+    const lensSize = Math.max(8, Math.round(rightMarginW * 0.135));
+    const colGap = Math.max(10, Math.round(rightMarginW * 0.18));
+
+    let devX = rx;
+    let lensX = rx;
+    if (showDev && showLens) {
+      devX = rx + colGap * 0.52;
+      lensX = rx - colGap * 0.52;
+    }
+
+    // 绘制镜头型号（左列/内列，微透白字）
+    if (showLens && wm.lensModel) {
+      context.save();
+      context.translate(lensX, bottomPadY);
+      context.rotate(Math.PI / 2);
+      context.fillStyle = 'rgba(255, 255, 255, 0.72)';
+      context.font = `500 ${lensSize}px sans-serif`;
+      context.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      context.shadowBlur = Math.max(1, Math.round(scale * 1.5));
+      context.shadowOffsetY = 1;
+      context.textAlign = 'right';
+      context.textBaseline = 'middle';
+      context.fillText(wm.lensModel.trim(), 0, 0);
+      context.restore();
+    }
+
+    // 绘制机型型号（右列/外列，粗体纯白）
+    if (showDev) {
+      context.save();
+      context.translate(devX, bottomPadY);
+      context.rotate(Math.PI / 2);
+      context.fillStyle = '#FFFFFF';
+      context.font = `600 ${devSize}px "DIN Alternate", "Roboto", sans-serif`;
+      context.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      context.shadowBlur = Math.max(1, Math.round(scale * 1.5));
+      context.shadowOffsetY = 1;
+      context.textAlign = 'right';
+      context.textBaseline = 'middle';
+      context.fillText(cleanDev, 0, 0);
+      context.restore();
+    }
+  }
+
+  context.restore();
+}
+

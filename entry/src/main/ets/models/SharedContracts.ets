@@ -199,6 +199,10 @@ export interface WatermarkConfig {
   subTitle?: string;
   /** 艺术策展顶部题签（默认为 'The decisive moment'） */
   headerText?: string;
+  /** 镜头型号（如 'FE 24-70mm F2.8 GM II'） */
+  lensModel?: string;
+  /** 是否展示镜头型号（默认为 true） */
+  showLens?: boolean;
 }
 
 /** 默认相机水印配置 */
@@ -214,7 +218,9 @@ export function defaultWatermarkConfig(): WatermarkConfig {
     timeText: '2026.09.03 16:30',
     gpsText: '39°58\'59"N 116°29\'27"E',
     subTitle: '一双发现美的眼睛',
-    headerText: 'The decisive moment'
+    headerText: 'The decisive moment',
+    lensModel: 'FE 24-70mm F2.8 GM II',
+    showLens: true
   };
 }
 
@@ -234,7 +240,9 @@ export function cloneWatermarkConfig(cfg?: WatermarkConfig | null): WatermarkCon
     timeText: cfg.timeText ?? '',
     gpsText: cfg.gpsText,
     subTitle: cfg.subTitle,
-    headerText: cfg.headerText
+    headerText: cfg.headerText,
+    lensModel: cfg.lensModel ?? 'FE 24-70mm F2.8 GM II',
+    showLens: cfg.showLens ?? true
   };
 }
 

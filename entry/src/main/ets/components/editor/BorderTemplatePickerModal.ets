@@ -767,6 +767,127 @@ export struct BorderTemplatePickerModal {
       }
       .width('100%')
       .height('100%')
+    } else if (tpl.templateId === 'watermark_inset_wireframe') {
+      // 画中画浮雕
+      Stack({ alignContent: Alignment.Center }) {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(20)
+
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.28)')
+
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('76%')
+          .height('76%')
+          .objectFit(ImageFit.Cover)
+          .border({ width: 1.5, color: 'rgba(255, 255, 255, 0.7)' })
+      }
+      .width('100%')
+      .height('100%')
+    } else if (tpl.templateId === 'watermark_gallery_inline') {
+      // 画廊微印
+      Stack({ alignContent: Alignment.Center }) {
+        Column() {
+          Image(normalizeImageSrc(this.imageSrc))
+            .width('82%')
+            .height('68%')
+            .objectFit(ImageFit.Cover)
+            .border({ width: 1, color: 'rgba(0, 0, 0, 0.85)' })
+          Row({ space: 4 }) {
+            Row().width(18).height(2).backgroundColor('#1A1A1A')
+            Row().width(1).height(5).backgroundColor('rgba(0,0,0,0.3)')
+            Row().width(16).height(2).backgroundColor('#888888')
+          }
+          .margin({ top: 6 })
+        }
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#FFFFFF')
+    } else if (tpl.templateId === 'watermark_curated_editorial') {
+      // 策展矩阵
+      Row() {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('75%')
+          .height('80%')
+          .objectFit(ImageFit.Cover)
+          .border({ width: 1, color: 'rgba(0, 0, 0, 0.2)' })
+        Column({ space: 4 }) {
+          Row().width(10).height(2.5).backgroundColor('#1A1A1A')
+          Row().width(10).height(2.5).backgroundColor('#1A1A1A')
+          Row().width(10).height(2.5).backgroundColor('#1A1A1A')
+          Row().width(10).height(2.5).backgroundColor('#1A1A1A')
+        }
+        .margin({ left: 6 })
+        .justifyContent(FlexAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .padding(8)
+      .backgroundColor('#FFFFFF')
+    } else if (tpl.templateId === 'watermark_monolith_specs') {
+      // 典藏分柱
+      Column() {
+        Row().width(24).height(2).backgroundColor('#1A1A1A').margin({ top: 4, bottom: 4 })
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('82%')
+          .height('62%')
+          .objectFit(ImageFit.Cover)
+        Row({ space: 4 }) {
+          Row().width(6).height(2).backgroundColor('#1A1A1A')
+          Row().width(1).height(5).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(6).height(2).backgroundColor('#1A1A1A')
+          Row().width(1).height(5).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(6).height(2).backgroundColor('#1A1A1A')
+          Row().width(1).height(5).backgroundColor('rgba(0,0,0,0.2)')
+          Row().width(6).height(2).backgroundColor('#1A1A1A')
+        }
+        .margin({ top: 6 })
+      }
+      .width('100%')
+      .height('100%')
+      .alignItems(HorizontalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor('#FFFFFF')
+    } else if (tpl.templateId === 'watermark_ambient_side_ruler') {
+      // 弥散侧标
+      Stack({ alignContent: Alignment.Center }) {
+        Image(normalizeImageSrc(this.imageSrc))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(20)
+
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.28)')
+
+        Row() {
+          Image(normalizeImageSrc(this.imageSrc))
+            .width('72%')
+            .height('80%')
+            .objectFit(ImageFit.Cover)
+            .border({ width: 1.5, color: '#FFFFFF' })
+          Column({ space: 4 }) {
+            Row().width(8).height(2).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(8).height(2).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(8).height(2).backgroundColor('rgba(255,255,255,0.9)')
+            Row().width(8).height(2).backgroundColor('rgba(255,255,255,0.9)')
+          }
+          .margin({ left: 6 })
+          .justifyContent(FlexAlign.Center)
+        }
+      }
+      .width('100%')
+      .height('100%')
     } else if (tpl.templateId === 'watermark_cinematic') {
       // 电影影集
       Stack({ alignContent: Alignment.Center }) {

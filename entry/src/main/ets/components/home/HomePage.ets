@@ -87,6 +87,10 @@ export struct HomePage {
   }
 
   private async resumeDraft(): Promise<void> {
+    if (AppStorage.get<boolean>('privacy_agreed') !== true) {
+      AppStorage.setOrCreate('showPrivacyModal', true);
+      return;
+    }
     if (!this.currentDraft) {
       return;
     }
@@ -170,6 +174,10 @@ export struct HomePage {
   ];
 
   private async startImport(initialTool: EditorToolKey): Promise<void> {
+    if (AppStorage.get<boolean>('privacy_agreed') !== true) {
+      AppStorage.setOrCreate('showPrivacyModal', true);
+      return;
+    }
     if (this.isPickingImage) {
       return;
     }
@@ -382,6 +390,10 @@ export struct HomePage {
             RecentWorkSection({
               works: this.works,
               onCardClick: (id: string) => {
+                if (AppStorage.get<boolean>('privacy_agreed') !== true) {
+                  AppStorage.setOrCreate('showPrivacyModal', true);
+                  return;
+                }
                 this.getUIContext().getRouter().pushUrl({
                   url: 'pages/EditPage',
                   params: { source: 'work', workId: id }

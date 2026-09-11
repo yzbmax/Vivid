@@ -27,7 +27,7 @@ export struct FilterPanel {
   }
 
   build() {
-    Column({ space: 8 }) {
+    Column({ space: 4 }) {
       Scroll() {
         Row({ space: 8 }) {
           ForEach(this.visiblePresets(), (preset: FilterPreset, index: number) => {
@@ -40,7 +40,7 @@ export struct FilterPanel {
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
-      .height(124)
+      .height(120)
 
       Row({ space: 8 }) {
         Row({ space: 4 }) {
@@ -92,14 +92,16 @@ export struct FilterPanel {
           )
       }
       .width('100%')
-      .height(36)
+      .height(32)
       .padding({ left: Theme.MARGIN_MOBILE, right: Theme.MARGIN_MOBILE })
       .visibility(this.editState.filter.filterId === 'original' ? Visibility.Hidden : Visibility.Visible)
     }
     .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
-    .padding({ top: 8, bottom: 8 })
+    .padding({ top: 4, bottom: 4 })
   }
 
   @Builder

@@ -143,7 +143,9 @@ export function borderStateEquals(a: BorderState, b: BorderState): boolean {
     a.watermark.timeText === b.watermark.timeText &&
     a.watermark.gpsText === b.watermark.gpsText &&
     a.watermark.subTitle === b.watermark.subTitle &&
-    a.watermark.headerText === b.watermark.headerText;
+    a.watermark.headerText === b.watermark.headerText &&
+    a.watermark.lensModel === b.watermark.lensModel &&
+    a.watermark.showLens === b.watermark.showLens;
 }
 
 /**

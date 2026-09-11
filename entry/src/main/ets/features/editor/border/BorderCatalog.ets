@@ -101,7 +101,12 @@ export function isWatermarkTemplate(templateId: string): boolean {
     templateId === 'watermark_gradient_frame' ||
     templateId === 'watermark_leather_badge' ||
     templateId === 'watermark_mint_film' ||
-    templateId === 'watermark_slim_white';
+    templateId === 'watermark_slim_white' ||
+    templateId === 'watermark_inset_wireframe' ||
+    templateId === 'watermark_gallery_inline' ||
+    templateId === 'watermark_curated_editorial' ||
+    templateId === 'watermark_monolith_specs' ||
+    templateId === 'watermark_ambient_side_ruler';
 }
 
 /**
@@ -115,6 +120,46 @@ export const BORDER_TEMPLATES: BorderTemplate[] = [
     previewResource: null,
     category: 'framing',
     description: '保持原片纯粹画幅'
+  },
+  {
+    templateId: 'watermark_inset_wireframe',
+    name: '画中画浮雕',
+    capabilities: ['width', 'radius'],
+    previewResource: null,
+    category: 'watermark',
+    description: '弥散高斯虚化与细白浮雕框'
+  },
+  {
+    templateId: 'watermark_gallery_inline',
+    name: '画廊微印',
+    capabilities: ['width', 'color', 'radius'],
+    previewResource: null,
+    category: 'watermark',
+    description: '典雅黑线内框与居中对齐机型'
+  },
+  {
+    templateId: 'watermark_curated_editorial',
+    name: '策展矩阵',
+    capabilities: ['width', 'color', 'radius'],
+    previewResource: null,
+    category: 'brand',
+    description: '左侧竖排日期与右侧垂直参数矩阵'
+  },
+  {
+    templateId: 'watermark_monolith_specs',
+    name: '典藏分柱',
+    capabilities: ['width', 'color', 'radius'],
+    previewResource: null,
+    category: 'brand',
+    description: '顶部居中展签与底部四柱分立参数'
+  },
+  {
+    templateId: 'watermark_ambient_side_ruler',
+    name: '弥散侧标',
+    capabilities: ['width', 'radius'],
+    previewResource: null,
+    category: 'watermark',
+    description: '弥散原画与右侧垂直刻度侧栏'
   },
   {
     templateId: 'watermark_centered_specs',

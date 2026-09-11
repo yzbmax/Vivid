@@ -20,6 +20,7 @@ import workRepositoryTest from './WorkRepository.test';
 import stickerCustomTest from './StickerCustom.test';
 import borderWatermarkTest from './BorderWatermark.test';
 import filterLutUtilsTest from './FilterLutUtils.test';
+import sealArchiveDialogTest from './SealArchiveDialog.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -44,4 +45,5 @@ export default function testsuite() {
   stickerCustomTest();
   borderWatermarkTest();
   filterLutUtilsTest();
+  sealArchiveDialogTest();
 }

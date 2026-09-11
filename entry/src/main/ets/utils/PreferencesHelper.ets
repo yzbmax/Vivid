@@ -4,7 +4,7 @@ import { preferences } from '@kit.ArkData';
 /**
  * 首选项通用存储工具
  *
- * 依据：华为 HarmonyOS NEXT @kit.ArkData preferences 开发指南。
+ * 依据：HarmonyOS NEXT @kit.ArkData preferences 开发指南。
  * 特性：
  * 1. 优先使用 @kit.ArkData 原生 preferences 读写与持久化；
  * 2. 具备内存缓存与脱机降级机制，纯 Node.js/单测环境下无缝 fallback 至内存 Map；

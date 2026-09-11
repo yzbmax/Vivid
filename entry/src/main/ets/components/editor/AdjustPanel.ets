@@ -155,9 +155,11 @@ export struct AdjustPanel {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
     .backgroundColor(Theme.PAPER_SURFACE_80)
     .border({ width: { top: 1 }, color: Theme.OUTLINE_VARIANT })
-    .padding({ top: 8, bottom: 8 })
+    .padding({ top: 10, bottom: 10 })
   }
 
   @Builder

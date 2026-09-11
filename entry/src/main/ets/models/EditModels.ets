@@ -64,6 +64,32 @@ export function normalizeEditorToolKey(raw: string): EditorToolKey {
   return 'adjust';
 }
 
+/**
+ * 底部编辑栏标准两档高度体系规范：
+ * - 标准常驻档 (168vp)：调节、滤镜（完整容纳卡片+浓度滑块）、贴纸浏览态、文字输入态、区域调色
+ * - 深度微调档 (252vp)：边框常驻、贴纸选中微调态、文字选中排版态
+ */
+export const EDITOR_PANEL_HEIGHT_COMPACT: number = 168;
+export const EDITOR_PANEL_HEIGHT_EXTENDED: number = 252;
+
+/**
+ * 根据当前激活工具及编辑子状态计算底部编辑栏的标准高度。
+ * 保持同状态切换 0 像素跳动，选中/取消微调时带弹簧阻尼平滑伸缩。
+ */
+export function resolveEditorPanelHeight(
+  tool: EditorToolKey,
+  isRegionMode: boolean = false,
+  isDetailActive: boolean = false
+): number {
+  if (tool === 'border') {
+    return EDITOR_PANEL_HEIGHT_EXTENDED;
+  }
+  if (tool === 'sticker' || tool === 'text') {
+    return isDetailActive ? EDITOR_PANEL_HEIGHT_EXTENDED : EDITOR_PANEL_HEIGHT_COMPACT;
+  }
+  return EDITOR_PANEL_HEIGHT_COMPACT;
+}
+
 /** EditPage 路由参数契约：B 经 pushUrl params 传入，C 在 aboutToAppear 解析。 */
 export interface EditRouteParams {
   source: EditEntrySource;
