@@ -171,13 +171,14 @@ export struct PreviewArea {
             y: this.layout().photoRect.y - this.layout().outputRect.y })
           .borderRadius(this.photoCornerRadius())
           .clip(true)
-        }
-        if (!this.isComparing && (
-          this.borderState.templateId === 'watermark_centered_specs' ||
-          this.borderState.templateId === 'watermark_minimal_keyvalue' ||
-          this.borderState.templateId === 'watermark_overlay'
-        )) {
-          BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
+
+          if (!this.isComparing && (
+            this.borderState.templateId === 'watermark_centered_specs' ||
+            this.borderState.templateId === 'watermark_minimal_keyvalue' ||
+            this.borderState.templateId === 'watermark_overlay'
+          )) {
+            BorderPreviewLayer({ borderState: this.borderState, geometry: this.layout().geometry })
+          }
         }
         .width(this.layout().outputRect.width)
         .height(this.layout().outputRect.height)
