@@ -96,3 +96,37 @@ test('BorderLayoutResolver 包含新模板的几何解析函数与分发', () =>
   assert(borderLayoutResolverContent.includes("templateId === 'watermark_harmonic_editorial'"), '分发中必须包含 watermark_harmonic_editorial');
   assert(borderLayoutResolverContent.includes("templateId === 'watermark_minimal_keyvalue'"), '分发中必须包含 watermark_minimal_keyvalue');
 });
+
+// ==========================================
+// 4. 绘制引擎 (BorderPainter) 校验
+// ==========================================
+const borderPainterContent = fs.readFileSync(borderPainterPath, 'utf8');
+
+test('BorderPainter 包含 4 款新通用模板的绘制分发与函数实现', () => {
+  assert(borderPainterContent.includes('paintCenteredSpecsWatermark'), '必须实现 paintCenteredSpecsWatermark');
+  assert(borderPainterContent.includes('paintHarmonicEditorialWatermark'), '必须实现 paintHarmonicEditorialWatermark');
+  assert(borderPainterContent.includes('paintMinimalKeyvalueWatermark'), '必须实现 paintMinimalKeyvalueWatermark');
+  assert(borderPainterContent.includes("geometry.templateId === 'watermark_centered_specs'"), 'paintBorder 必须路由 watermark_centered_specs');
+  assert(borderPainterContent.includes("geometry.templateId === 'watermark_harmonic_editorial'"), 'paintBorder 必须路由 watermark_harmonic_editorial');
+  assert(borderPainterContent.includes("geometry.templateId === 'watermark_minimal_keyvalue'"), 'paintBorder 必须路由 watermark_minimal_keyvalue');
+});
+
+test('paintBlurPipWatermark 彻底移除混杂的顶部手写铭文，保持纯净卡片装裱', () => {
+  const blurFuncMatch = borderPainterContent.match(/function paintBlurPipWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(blurFuncMatch, '必须提取到 paintBlurPipWatermark 函数实现');
+  const blurBody = blurFuncMatch[1];
+  assert(!blurBody.includes('The decisive moment'), 'paintBlurPipWatermark 不得包含 The decisive moment');
+  assert(!blurBody.includes('P H O T O G R A P H'), 'paintBlurPipWatermark 不得包含 P H O T O G R A P H');
+});
+
+test('paintHarmonicEditorialWatermark 包含优雅题签与中英文双行排版', () => {
+  const harmFuncMatch = borderPainterContent.match(/function paintHarmonicEditorialWatermark[\s\S]*?\{([\s\S]*?)\n\}/);
+  assert(harmFuncMatch, '必须提取到 paintHarmonicEditorialWatermark 函数实现');
+  const harmBody = harmFuncMatch[1];
+  assert(harmBody.includes('The decisive moment') || harmBody.includes('headerText'), '必须包含顶部花体题签');
+  assert(harmBody.includes('subTitle') || harmBody.includes('一双发现美的眼睛'), '必须支持中文副标');
+});
+
+test('paintMinimalKeyvalueWatermark 包含键值对参数格式化', () => {
+  assert(borderPainterContent.includes('Aperture |') || borderPainterContent.includes('formatKeyValueSpecs'), '必须支持 Aperture | 键值对排版');
+});
