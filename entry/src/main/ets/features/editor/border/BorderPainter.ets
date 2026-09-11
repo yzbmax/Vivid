@@ -829,6 +829,15 @@ function paintCenteredSpecsWatermark(
   const secondarySize = Math.round(primarySize * 0.74);
   const tertiarySize = Math.round(primarySize * 0.65);
 
+  const device = (wm.showDevice && wm.deviceModel) ? wm.deviceModel.trim() : '';
+  const params = (wm.showParams && wm.paramsText) ? wm.paramsText.trim() : '';
+  const gps = wm.gpsText ? wm.gpsText.trim() : '';
+  const time = (wm.showTime && wm.timeText) ? wm.timeText.trim() : '';
+  const isDuplicated = isLogoDuplicatedWithDevice(wm.logo, device);
+  const hasLogo = !!(wm.showLogo && wm.logo && wm.logo !== 'none' && !isDuplicated);
+  const logo = hasLogo ? (wm.logo ?? 'none') : 'none';
+  const displayDevice = formatWatermarkDeviceText(device, logo, hasLogo);
+
   const items: CenteredStackItem[] = [];
   if (hasLogo) {
     items.push({ kind: 'logo', h: logoSize, gapBelow: Math.round(primarySize * 0.38) });
@@ -858,7 +867,7 @@ function paintCenteredSpecsWatermark(
 
   // 2. 底部呼吸留白与渐变包络（严格按 primarySize 等比锚定，渐变仅在文字上方柔和过渡，决不爬升过高）
   const bottomMargin = Math.round(primarySize * 1.55);
-  const topY = h - bottomMargin - totalContentH;
+  let topY = h - bottomMargin - totalContentH;
   const overlayH = totalContentH + bottomMargin + Math.round(primarySize * 2.2);
 
   // 3. 绘制平滑渐变保护层
